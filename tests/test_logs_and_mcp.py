@@ -179,3 +179,28 @@ async def test_every_mcp_call_is_attributed_in_the_log(sandbox):
 @pytest.fixture
 def anyio_backend():
     return "asyncio"
+
+
+@pytest.mark.anyio
+async def test_a_missing_key_is_explained_not_swallowed(sandbox, monkeypatch):
+    from mcp.server.mcpserver.exceptions import ToolError
+
+    monkeypatch.setattr(mcp, "_credentials_missing", lambda: True)
+    with db.connect() as conn:
+        channels.create(conn, name="Gravity Lab", channel_id=CH)
+    with pytest.raises(ToolError) as excinfo:
+        await mcp.build_server().call_tool("plan_clips", {"count": 1})
+    message = str(excinfo.value)
+    assert "ANTHROPIC_API_KEY" in message
+    assert "Nothing was spent" in message
+
+
+@pytest.mark.anyio
+async def test_build_checks_credentials_before_rendering(sandbox, monkeypatch):
+    from mcp.server.mcpserver.exceptions import ToolError
+
+    monkeypatch.setattr(mcp, "_credentials_missing", lambda: True)
+    with db.connect() as conn:
+        channels.create(conn, name="Gravity Lab", channel_id=CH)
+    with pytest.raises(ToolError, match="ANTHROPIC_API_KEY"):
+        await mcp.build_server().call_tool("build_clips", {})

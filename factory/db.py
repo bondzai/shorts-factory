@@ -80,6 +80,11 @@ def connect() -> sqlite3.Connection:
     conn = sqlite3.connect(cfg.db_path)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
+    # The web UI, the CLI and an agent over MCP are three processes on one file.
+    # WAL lets readers work while one writer holds the lock; the busy timeout
+    # makes a second writer wait its turn instead of failing outright.
+    conn.execute("PRAGMA journal_mode = WAL")
+    conn.execute("PRAGMA busy_timeout = 10000")
     conn.executescript(SCHEMA.read_text())
     migrate(conn)
     return conn

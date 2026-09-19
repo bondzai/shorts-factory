@@ -22,7 +22,7 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from . import analytics, channels, db, generators, logs, pipeline
+from . import analytics, channels, db, generators, llm, logs, pipeline
 from .agents import analyst
 from .models import AWAITING_APPROVAL
 
@@ -31,6 +31,20 @@ ALLOW_PUBLISH_ENV = "FACTORY_MCP_ALLOW_PUBLISH"
 
 def _publishing_allowed() -> bool:
     return os.environ.get(ALLOW_PUBLISH_ENV, "").lower() in {"1", "true", "yes"}
+
+
+def _credentials_missing() -> bool:
+    """True when no Anthropic credential resolved.
+
+    Worth its own check because it is the likeliest reason an agent's first call
+    fails, and the SDK hides the message of an unexpected exception — without
+    this the agent is told only "Error executing tool plan_clips".
+    """
+    try:
+        client = llm.client()
+        return not (client.api_key or client.auth_token)
+    except Exception:
+        return True
 
 
 def _clip_summary(row) -> dict[str, Any]:
@@ -98,6 +112,16 @@ def build_server():
             ch = channels.resolve(conn, channel)
             return generators.available(ch.variants)
 
+    def _require_credentials() -> None:
+        if _credentials_missing():
+            logs.event("mcp.refused", level="error", actor="mcp", reason="no credentials")
+            raise ToolError(
+                "no Anthropic credential is visible to this server, so the Idea, "
+                "Metadata and QC agents cannot run. The operator needs to put "
+                "ANTHROPIC_API_KEY=... in the repository's .env file, or set it "
+                "in this MCP server's env block. Nothing was spent."
+            )
+
     @server.tool(
         description=(
             "Ask the Idea agent for new clip plans on a channel. Costs a few "
@@ -106,7 +130,8 @@ def build_server():
     )
     def plan_clips(count: int = 1, channel: str | None = None) -> dict[str, Any]:
         if count < 1 or count > 10:
-            raise ValueError("count must be between 1 and 10")
+            raise ToolError("count must be between 1 and 10")
+        _require_credentials()
         with db.connect() as conn:
             ch = channels.resolve(conn, channel)
             run = db.start_run(conn, ch.id, "plan")
@@ -131,6 +156,7 @@ def build_server():
         )
     )
     def build_clips(channel: str | None = None, limit: int = 5) -> dict[str, Any]:
+        _require_credentials()
         with db.connect() as conn:
             ch = channels.resolve(conn, channel)
             run = db.start_run(conn, ch.id, "build")

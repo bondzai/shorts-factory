@@ -32,6 +32,33 @@ pipeline. Point a client at it:
 }
 ```
 
+### Codex
+
+Add to `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.shorts-factory]
+command = "/path/to/shorts-factory/.venv/bin/factory"
+args = ["mcp"]
+startup_timeout_sec = 120
+
+[mcp_servers.shorts-factory.tools.approve_clip]
+approval_mode = "approve"
+
+[mcp_servers.shorts-factory.tools.publish_approved]
+approval_mode = "approve"
+```
+
+The two `approval_mode = "approve"` blocks are a second gate on top of
+`--allow-publish`: even with publishing enabled on the server, Codex has to ask
+you before it fires. Keep both.
+
+Codex spawns the server itself, so the server sees Codex's environment, not your
+shell's. Put `ANTHROPIC_API_KEY=...` in the repository's `.env` — the factory
+reads it relative to its own location, so it works whatever directory the agent
+runs from. Without it the first tool call fails with an explanation naming the
+file; it does not fail silently and nothing is spent.
+
 Tools: `list_channels`, `list_modules`, `plan_clips`, `build_clips`,
 `review_queue`, `get_clip`, `reject_clip`, `approve_clip`, `publish_approved`,
 `get_analytics`, `set_metrics`, `read_rules`, `append_rule`, `recent_logs`.
