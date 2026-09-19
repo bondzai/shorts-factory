@@ -11,6 +11,25 @@ Generator slot            Shared pipe
   sysviz       ──┘        rules.md ◀────────────── Analyst ◀───────────────────────────┘
 ```
 
+## The review UI
+
+```bash
+factory serve
+```
+
+Opens on http://127.0.0.1:8765. One clip at a time, playing, with its QC verdict
+and technical numbers beside it; <kbd>A</kbd> approves, <kbd>R</kbd> rejects,
+<kbd>J</kbd>/<kbd>K</kbd> move, <kbd>space</kbd> pauses. Plan, Build, Publish and
+Digest are buttons that stream their log into the page.
+
+This exists because the approval step is the one part of the day you cannot do
+from a table of text — a hook is either there in the first second or it is not,
+and you have to watch it to know. Everything else works fine from the CLI.
+
+It binds to localhost and has no authentication by design: it reads your
+database and spends your API credit, so it should not be reachable from
+anywhere else.
+
 Your day, 30 minutes:
 
 | | Command | Time |

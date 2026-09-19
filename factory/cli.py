@@ -233,6 +233,14 @@ def cmd_digest(args) -> int:
     return 0
 
 
+def cmd_serve(args) -> int:
+    from . import web
+
+    print(f"http://{args.host}:{args.port}   (ctrl-c to stop)")
+    web.serve(host=args.host, port=args.port)
+    return 0
+
+
 def cmd_status(args) -> int:
     with db.connect() as conn:
         counts = db.status_counts(conn)
@@ -262,6 +270,11 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("status", help="counts by stage, and spend").set_defaults(
         func=cmd_status
     )
+
+    p = sub.add_parser("serve", help="open the review UI in a browser")
+    p.add_argument("--host", default="127.0.0.1")
+    p.add_argument("--port", type=int, default=8765)
+    p.set_defaults(func=cmd_serve)
 
     p = sub.add_parser(
         "render-check", help="render one clip with no agents and no database"

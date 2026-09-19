@@ -9,6 +9,8 @@ dependencies = [
     "pymunk>=6.6",
     "pillow>=10.3",
     "numpy>=1.26",
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
 ]
 
 [project.optional-dependencies]
@@ -16,7 +18,7 @@ youtube = [
     "google-api-python-client>=2.130",
     "google-auth-oauthlib>=1.2",
 ]
-dev = ["pytest>=8.0"]
+dev = ["pytest>=8.0", "httpx>=0.27"]
 
 [project.scripts]
 factory = "factory.cli:main"
@@ -29,4 +31,4 @@ build-backend = "setuptools.build_meta"
 include = ["factory*"]
 
 [tool.setuptools.package-data]
-factory = ["schema.sql"]
+factory = ["schema.sql", "static/*.html"]
