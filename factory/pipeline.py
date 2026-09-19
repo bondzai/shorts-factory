@@ -288,6 +288,137 @@ def build_all(
     return [build(conn, row["id"]) for row in db.by_status(conn, ch.id, PLANNED, limit)]
 
 
+# --- the agent-driven path ---------------------------------------------------
+#
+# Everything above assumes this project's own agents supply the judgment, which
+# costs an Anthropic key. When the caller is already a model — Codex or Claude
+# over MCP — that is a second brain nobody needs to pay for. These three let the
+# caller do the thinking and keep the machine doing the measuring.
+#
+# The split is the whole point and it is not negotiable: the caller supplies
+# judgment, the server keeps the arithmetic. Aspect ratio, duration, loudness
+# and sameness are measured here from the actual file every time. An agent
+# cannot argue its way past the sameness check, because it is never asked.
+
+def create_and_render(
+    conn: sqlite3.Connection,
+    channel: Channel | str | None,
+    *,
+    variant: str,
+    generator: str = "physics",
+    seed: int | None = None,
+    hook: str = "",
+    why: str = "",
+) -> tuple[str, list[bytes], dict]:
+    """Render one clip with no model involved. Returns (clip_id, frames, facts)."""
+    import random
+
+    ch = resolve(conn, channel)
+    if not ch.allows(generator, variant):
+        raise ValueError(
+            f"{ch.id} does not allow {generator}/{variant}; "
+            f"allowed: {ch.variants or 'any ready module'}"
+        )
+    used = {r["seed"] for r in conn.execute("SELECT seed FROM clips").fetchall()}
+    rng = random.Random()
+    while seed is None or seed in used:
+        seed = rng.randrange(2**31 - 1)
+
+    clip_id = db.insert_clip(
+        conn, channel_id=ch.id, generator=generator, variant=variant, seed=seed,
+        params={}, hook=hook, plan_why=why or "created by an external agent",
+    )
+    logs.event(
+        "clip.planned", channel=ch.id, clip=clip_id, generator=generator,
+        variant=variant, seed=seed, hook=hook, by="agent",
+    )
+
+    gen = generators.get(generator)
+    clip = gen.generate(
+        seed=seed, variant=variant, params={},
+        work_dir=settings.load().work_dir / ch.id / clip_id,
+    )
+    info = render.probe(clip.video_path)
+    loudness = render.loudness_lufs(clip.video_path)
+    frames = render.sample_frames(clip.video_path, _sample_times(info["duration_s"]))
+    if not frames:
+        raise RuntimeError("could not sample any frame from the render")
+    digest_hash = phash.clip_hash(frames)
+    sameness = phash.max_similarity(
+        digest_hash, db.known_phashes(conn, ch.id, exclude=clip_id)
+    )
+    db.update(
+        conn, clip_id, status=RENDERED, video_path=str(clip.video_path),
+        render_desc=clip.description, facts_json=json.dumps(clip.facts, default=str),
+        duration_s=info["duration_s"], width=info["width"], height=info["height"],
+        fps=info["fps"], loudness_lufs=loudness, phash=digest_hash,
+        sameness=round(sameness, 4),
+    )
+    swept = gc.sweep_intermediates(clip.video_path.parent)
+    logs.event(
+        "clip.rendered", channel=ch.id, clip=clip_id, duration_s=info["duration_s"],
+        loudness_lufs=loudness, sameness=round(sameness, 4), facts=clip.facts,
+        mb_reclaimed=swept.mb, by="agent",
+    )
+    facts = {
+        **info,
+        "loudness_lufs": loudness,
+        "sameness": round(sameness, 4),
+        "shows": clip.description,
+        "generator_facts": clip.facts,
+        # Measured here, reported so the caller can see what it is judged against.
+        "hard_failures": qc.hard_failures(
+            probe=info, loudness_lufs=loudness, sameness=sameness
+        ),
+    }
+    return clip_id, frames, facts
+
+
+def attach_metadata(conn: sqlite3.Connection, clip_id: str, meta) -> None:
+    """Store a title written by the caller. Validated exactly as the agent's is."""
+    row = db.get(conn, clip_id)
+    if row is None:
+        raise ValueError(f"no clip {clip_id}")
+    db.update(
+        conn, clip_id, status=DESCRIBED, title=meta.title,
+        description=meta.description, hashtags_json=json.dumps(meta.hashtags),
+    )
+    logs.event(
+        "clip.described", channel=row["channel_id"], clip=clip_id,
+        title=meta.title, hashtags=meta.hashtags, cost_usd=0.0, by="agent",
+    )
+
+
+def apply_qc(conn: sqlite3.Connection, clip_id: str, verdict) -> tuple[bool, str]:
+    """Combine the caller's judgment with this machine's measurements."""
+    row = db.get(conn, clip_id)
+    if row is None:
+        raise ValueError(f"no clip {clip_id}")
+    if not row["title"]:
+        raise ValueError(f"{clip_id} has no title yet; submit metadata first")
+    info = {
+        "width": row["width"], "height": row["height"],
+        "fps": row["fps"], "duration_s": row["duration_s"],
+    }
+    failures = qc.hard_failures(
+        probe=info, loudness_lufs=row["loudness_lufs"], sameness=row["sameness"] or 0.0
+    )
+    passed, reason = qc.decide(verdict, failures)
+    db.update(
+        conn, clip_id,
+        status=AWAITING_APPROVAL if passed else QC_REJECTED,
+        qc_json=verdict.model_dump_json(),
+        reject_reason=None if passed else reason,
+    )
+    logs.event(
+        "clip.qc", level="info" if passed else "warn", channel=row["channel_id"],
+        clip=clip_id, passed=passed, hook_strength=verdict.hook_strength,
+        policy_risk=verdict.policy_risk, looks_templated=verdict.looks_templated,
+        hard_failures=failures, reason=reason or None, by="agent",
+    )
+    return passed, reason
+
+
 STUCK = (RENDERED, DESCRIBED)
 
 

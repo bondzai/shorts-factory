@@ -204,3 +204,106 @@ async def test_build_checks_credentials_before_rendering(sandbox, monkeypatch):
         channels.create(conn, name="Gravity Lab", channel_id=CH)
     with pytest.raises(ToolError, match="ANTHROPIC_API_KEY"):
         await mcp.build_server().call_tool("build_clips", {})
+
+
+# --- the path that needs no credential ---------------------------------------
+
+@pytest.mark.anyio
+async def test_the_agent_path_needs_no_credential(sandbox, monkeypatch):
+    """render/submit tools must never ask for a key: the caller is the brain."""
+    monkeypatch.setattr(mcp, "_credentials_missing", lambda: True)
+    with db.connect() as conn:
+        channels.create(conn, name="Gravity Lab", channel_id=CH)
+        clip_id = db.insert_clip(
+            conn, channel_id=CH, generator="physics", variant="marble_race",
+            seed=1, params={}, hook="h", plan_why="w",
+        )
+        db.update(
+            conn, clip_id, status="rendered", width=1080, height=1920, fps=30.0,
+            duration_s=17.0, loudness_lufs=-14.5, sameness=0.2,
+        )
+    server = mcp.build_server()
+    result = await server.call_tool("submit_metadata", {
+        "clip_id": clip_id, "title": "Which of these four marbles wins the race?",
+        "description": "Seven ramps and no commentary at all.",
+        "hashtags": ["#shorts", "#marbles", "#satisfying"],
+    })
+    assert not result.is_error
+    with db.connect() as conn:
+        assert db.get(conn, clip_id)["status"] == "described"
+
+
+@pytest.mark.anyio
+async def test_a_bad_title_is_refused_with_the_reason(sandbox):
+    with db.connect() as conn:
+        channels.create(conn, name="Gravity Lab", channel_id=CH)
+        clip_id = db.insert_clip(
+            conn, channel_id=CH, generator="physics", variant="marble_race",
+            seed=1, params={}, hook="h", plan_why="w",
+        )
+    from mcp.server.mcpserver.exceptions import ToolError
+
+    with pytest.raises(ToolError, match="metadata rejected"):
+        await mcp.build_server().call_tool("submit_metadata", {
+            "clip_id": clip_id, "title": "too short",
+            "description": "Seven ramps and no commentary at all.",
+            "hashtags": ["#shorts"],
+        })
+
+
+@pytest.mark.anyio
+async def test_the_server_keeps_the_arithmetic(sandbox):
+    """An agent insisting a clip is perfect cannot beat a measured failure."""
+    with db.connect() as conn:
+        channels.create(conn, name="Gravity Lab", channel_id=CH)
+        clip_id = db.insert_clip(
+            conn, channel_id=CH, generator="physics", variant="marble_race",
+            seed=1, params={}, hook="h", plan_why="w",
+        )
+        db.update(
+            conn, clip_id, status="described", title="A title long enough to pass",
+            hashtags_json='["#shorts"]', width=1080, height=1920, fps=30.0,
+            duration_s=17.0, loudness_lufs=-14.5,
+            sameness=0.99,  # measured here, not claimed by the caller
+        )
+    result = await mcp.build_server().call_tool("submit_qc", {
+        "clip_id": clip_id, "verdict": "pass", "hook_strength": 5,
+        "looks_templated": False, "policy_risk": "low",
+        "reasons": ["perfect in every way"],
+    })
+    assert not result.is_error
+    body = " ".join(b.text for b in result.content if getattr(b, "text", None))
+    assert "qc_rejected" in body
+    assert "too similar" in body
+
+
+@pytest.mark.anyio
+async def test_qc_needs_metadata_first(sandbox):
+    from mcp.server.mcpserver.exceptions import ToolError
+
+    with db.connect() as conn:
+        channels.create(conn, name="Gravity Lab", channel_id=CH)
+        clip_id = db.insert_clip(
+            conn, channel_id=CH, generator="physics", variant="marble_race",
+            seed=1, params={}, hook="h", plan_why="w",
+        )
+        db.update(conn, clip_id, status="rendered", width=1080, height=1920,
+                  fps=30.0, duration_s=17.0, loudness_lufs=-14.5, sameness=0.1)
+    with pytest.raises(ToolError, match="no title yet"):
+        await mcp.build_server().call_tool("submit_qc", {
+            "clip_id": clip_id, "verdict": "pass", "hook_strength": 4,
+            "looks_templated": False, "policy_risk": "low", "reasons": ["fine"],
+        })
+
+
+@pytest.mark.anyio
+async def test_a_channel_cannot_be_asked_for_a_variant_it_disallows(sandbox):
+    from mcp.server.mcpserver.exceptions import ToolError
+
+    with db.connect() as conn:
+        channels.create(conn, name="Gravity Lab", channel_id=CH,
+                        variants=["physics/funnel_drop"])
+    with pytest.raises(ToolError, match="does not allow"):
+        await mcp.build_server().call_tool("render_clip", {
+            "variant": "marble_race", "channel": CH,
+        })

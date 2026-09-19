@@ -59,9 +59,31 @@ reads it relative to its own location, so it works whatever directory the agent
 runs from. Without it the first tool call fails with an explanation naming the
 file; it does not fail silently and nothing is spent.
 
-Tools: `list_channels`, `list_modules`, `plan_clips`, `build_clips`,
-`review_queue`, `get_clip`, `reject_clip`, `approve_clip`, `publish_approved`,
-`get_analytics`, `set_metrics`, `read_rules`, `append_rule`, `recent_logs`.
+### Two ways to run it, and one of them needs no key
+
+**The agent is the brain** — `render_clip`, `submit_metadata`, `submit_qc`.
+Nothing here calls a model, so no Anthropic credential is needed at all. The
+calling agent already is one: it picks the variant, reads the rules, looks at
+the four frames `render_clip` hands back, writes the title and scores the hook.
+Rendering is pure simulation, so the machine does the part a model would only
+be guessing at.
+
+**This project's agents are the brain** — `plan_clips`, `build_clips`. Idea,
+Metadata and QC run in-process and need `ANTHROPIC_API_KEY`. Use this from cron,
+where no agent is watching.
+
+The split that makes the first one safe: **the caller supplies judgment, the
+server keeps the arithmetic.** Aspect ratio, duration, loudness and similarity
+to earlier clips are measured here from the actual file on every call and
+combined with the caller's verdict by the same `qc.decide` the in-house agent
+faces. An agent claiming `verdict: pass, hook_strength: 5, looks_templated:
+false` on a clip measuring 0.914 similarity is still rejected, because it is
+never asked about similarity — that is checked, not believed.
+
+Tools: `list_channels`, `list_modules`, `render_clip`, `submit_metadata`,
+`submit_qc`, `plan_clips`, `build_clips`, `review_queue`, `get_clip`,
+`reject_clip`, `approve_clip`, `publish_approved`, `get_analytics`,
+`set_metrics`, `read_rules`, `append_rule`, `recent_logs`.
 
 **Approving and publishing are refused unless you pass `--allow-publish`.** The
 design rests on a human watching the first second before a clip goes out, and an

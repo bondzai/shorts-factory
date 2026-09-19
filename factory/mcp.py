@@ -19,6 +19,7 @@ agent do last night" without asking the agent.
 
 from __future__ import annotations
 
+import json
 import os
 from typing import Any
 
@@ -188,6 +189,127 @@ def build_server():
         with db.connect() as conn:
             ch = channels.resolve(conn, channel)
             return [_clip_summary(r) for r in pipeline.queue(conn, ch)]
+
+    # --- the path that needs no Anthropic key -------------------------------
+    #
+    # render_clip / submit_metadata / submit_qc let the calling agent be the
+    # brain. Nothing here calls a model, so none of it needs a credential.
+
+    @server.tool(
+        description=(
+            "Render one clip. No model is called and no credential is needed — "
+            "this is pure simulation. Returns the measurements and four frames "
+            "for you to look at: the opening, two middle points and the end. "
+            "Read the channel's rules first, then write the title yourself with "
+            "submit_metadata and score the hook with submit_qc."
+        )
+    )
+    def render_clip(
+        variant: str,
+        seed: int | None = None,
+        hook: str = "",
+        channel: str | None = None,
+        generator: str = "physics",
+    ) -> list[Any]:
+        from mcp.server.mcpserver.utilities.types import Image
+
+        with db.connect() as conn:
+            try:
+                clip_id, frames, facts = pipeline.create_and_render(
+                    conn, channel, variant=variant, generator=generator,
+                    seed=seed, hook=hook,
+                )
+            except (ValueError, KeyError) as exc:
+                raise ToolError(str(exc)) from None
+        logs.event("mcp.call", actor="mcp", tool="render_clip", clip=clip_id,
+                   variant=variant)
+        summary = {
+            "clip_id": clip_id,
+            "measured": facts,
+            "note": (
+                "hard_failures is measured here from the file, not taken from "
+                "you. Anything listed there rejects the clip whatever you score "
+                "the hook."
+            ),
+        }
+        return [json.dumps(summary, indent=1, default=str)] + [
+            Image(data=frame, format="png").to_image_content() for frame in frames
+        ]
+
+    @server.tool(
+        description=(
+            "Store the title, description and hashtags you wrote for a rendered "
+            "clip. English only, 20-90 characters, 3 to 5 hashtags — the same "
+            "validation this project's own metadata agent is held to."
+        )
+    )
+    def submit_metadata(
+        clip_id: str,
+        title: str,
+        description: str,
+        hashtags: list[str],
+    ) -> dict[str, Any]:
+        from pydantic import ValidationError
+
+        from .models import Metadata
+
+        try:
+            meta = Metadata(
+                title=title, description=description, hashtags=hashtags,
+                rationale="written by an external agent",
+            )
+        except ValidationError as exc:
+            raise ToolError(f"metadata rejected: {exc}") from None
+        with db.connect() as conn:
+            try:
+                pipeline.attach_metadata(conn, clip_id, meta)
+            except ValueError as exc:
+                raise ToolError(str(exc)) from None
+        logs.event("mcp.call", actor="mcp", tool="submit_metadata", clip=clip_id)
+        return {"clip": clip_id, "status": "described", "title": meta.title}
+
+    @server.tool(
+        description=(
+            "Score a rendered clip and send it to the review queue, or reject "
+            "it. Your judgment is combined with measurements taken here: aspect "
+            "ratio, duration, loudness and similarity to earlier clips are "
+            "checked against the file whatever you say, and any failure rejects "
+            "it. Be strict on the hook — rejecting a mediocre clip costs one "
+            "seed."
+        )
+    )
+    def submit_qc(
+        clip_id: str,
+        verdict: str,
+        hook_strength: int,
+        looks_templated: bool,
+        policy_risk: str,
+        reasons: list[str],
+    ) -> dict[str, Any]:
+        from pydantic import ValidationError
+
+        from .models import QCVerdict
+
+        try:
+            parsed = QCVerdict(
+                verdict=verdict, hook_strength=hook_strength,
+                looks_templated=looks_templated, policy_risk=policy_risk,
+                reasons=reasons,
+            )
+        except ValidationError as exc:
+            raise ToolError(f"verdict rejected: {exc}") from None
+        with db.connect() as conn:
+            try:
+                passed, reason = pipeline.apply_qc(conn, clip_id, parsed)
+            except ValueError as exc:
+                raise ToolError(str(exc)) from None
+        logs.event("mcp.call", actor="mcp", tool="submit_qc", clip=clip_id,
+                   passed=passed)
+        return {
+            "clip": clip_id,
+            "status": "awaiting_approval" if passed else "qc_rejected",
+            "reason": reason or None,
+        }
 
     @server.tool(description="Everything known about one clip.")
     def get_clip(clip_id: str) -> dict[str, Any]:
