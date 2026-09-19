@@ -433,6 +433,26 @@ def build_server():
         logs.event("mcp.call", actor="mcp", tool="append_rule", channel=ch.id, rule=rule)
         return {"channel": ch.id, "applied": applied}
 
+    @server.tool(
+        description=(
+            "Fetch your own instructions for a task, filled in from the live "
+            "database: the channel's rules, what it has made recently, how those "
+            "clips performed, and the current hard gates. Call this before "
+            "starting work rather than relying on a prompt pasted from an "
+            "earlier session, which will be out of date. Omit `name` to list "
+            "the playbooks."
+        )
+    )
+    def playbook(name: str | None = None, channel: str | None = None) -> str:
+        from . import playbooks
+
+        if name is None:
+            return "\n".join(playbooks.available())
+        try:
+            return playbooks.render(name, channel)
+        except ValueError as exc:
+            raise ToolError(str(exc)) from None
+
     @server.tool(description="Recent pipeline events, newest first.")
     def recent_logs(
         limit: int = 50,

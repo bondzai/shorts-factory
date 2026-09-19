@@ -1,0 +1,107 @@
+{
+  "id": "diffie-hellman",
+  "variant": "key_exchange",
+  "engine": "diffie_hellman",
+  "headline": "Two strangers agree on a secret\nin public.",
+  "footer": "Diffie-Hellman",
+  "primes": [
+    [
+      2027,
+      2
+    ],
+    [
+      2039,
+      7
+    ],
+    [
+      2063,
+      5
+    ],
+    [
+      2099,
+      2
+    ],
+    [
+      2207,
+      5
+    ],
+    [
+      2447,
+      5
+    ],
+    [
+      2459,
+      2
+    ],
+    [
+      2579,
+      2
+    ],
+    [
+      2819,
+      2
+    ],
+    [
+      2879,
+      7
+    ],
+    [
+      2903,
+      5
+    ],
+    [
+      2963,
+      2
+    ],
+    [
+      3023,
+      5
+    ],
+    [
+      3119,
+      7
+    ],
+    [
+      3167,
+      5
+    ],
+    [
+      3203,
+      2
+    ]
+  ],
+  "rows": [
+    {
+      "label": "public \u2014 everyone can see this",
+      "slot": "public"
+    },
+    {
+      "label": "alice picks a, tells nobody",
+      "slot": "secret_a"
+    },
+    {
+      "label": "bob picks b, tells nobody",
+      "slot": "secret_b"
+    },
+    {
+      "label": "alice sends g^a mod p",
+      "slot": "sent_a"
+    },
+    {
+      "label": "bob sends g^b mod p",
+      "slot": "sent_b"
+    },
+    {
+      "label": "alice computes B^a mod p",
+      "slot": "shared_a"
+    },
+    {
+      "label": "bob computes A^b mod p",
+      "slot": "shared_b",
+      "compare": "shared_a",
+      "mode": "same",
+      "emphasis": true
+    }
+  ],
+  "claim": "Both sides land on {shared}, which never crossed the wire."
+}

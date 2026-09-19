@@ -144,7 +144,19 @@ The same test on `market_replay` accepted 21 of 25, and market clips score
 other. Adding a variant adds capacity; tuning one variant's looks moves its
 ceiling but does not remove it.
 
-This is the reason a 100-clip target needs more than one variant.
+`sysviz` is the awkward one, and the measurement is worth keeping. Laid out
+identically every clip it accepted **1 of 25**: the guard hashes an 8x8 grey
+grid, which cannot see which hex characters changed, only where the light and
+dark areas sit. Varying wrap width, alignment, scale and spacing took it to 5.
+What actually moved it to 12-13 per variant was changing the *structure* —
+filled panels behind each block, a light palette alongside the dark ones, a
+wider range of margins. Cross-variant it still scores 0.957 between
+`hash_avalanche` and `merkle_root`, which is honest: both are columns of hex
+digests, and no amount of parameter tuning makes them different pictures.
+
+So the three ready modules hold roughly 17, 21 and 12 clips per variant. This is
+the reason a 100-clip target needs more than one variant, and the reason a
+text-based module needs more variants than a physical one.
 
 ### market_replay and where its data comes from
 
@@ -155,6 +167,48 @@ the clip is marked `synthetic` in its facts, and its description opens with "A
 simulated price series, not real market data" — because the description is what
 the title gets written from, and a chart of invented data captioned as a real
 crash is a lie told to a viewer who cannot check it.
+
+### sysviz and why its concepts are hand-written
+
+Every `sysviz` clip is an explanation, and a viewer cannot check one. So the
+module splits the two ways it could be wrong and closes each separately:
+
+* **The prose is hand-written** and versioned in `data/concepts/*.json` —
+  headlines, row labels, claim lines. No model writes them.
+* **The numbers are computed** from `hashlib` and `pow()` at render time, from
+  the clip's seed. Nothing on screen is typed in by hand.
+
+`tests/test_sysviz.py` re-derives the arithmetic independently: that the digests
+really are SHA-256 of the strings shown, that exactly one character differs when
+the row says "one letter changed", that both sides of the key exchange reach the
+same number, and that every published prime is a safe prime whose `g` generates
+the whole group. That last test caught a pair typed in by hand — `g = 7` mod
+4079 has order 2039, half the group — before it ever rendered.
+
+`consensus_round` was in the original plan and is not here. "Consensus" is a
+family of protocols with different assumptions, and fifteen seconds of animated
+nodes voting teaches whichever one the viewer already half-remembers. It was
+replaced by `merkle_root`: the same idea, arithmetic rather than interpretation.
+
+## Playbooks: the prompts, in git
+
+```bash
+factory playbook                          # list them
+factory playbook make-clip --channel main # print one, ready to paste
+```
+
+A playbook is markdown under `prompts/` with `{placeholders}` filled from the
+live database — the channel's rules, what it has made recently, how those clips
+performed, the current hard gates. That substitution is the point: a prompt
+pasted from a previous session is stale the moment a clip publishes, and a stale
+prompt is how an agent proposes what was already made last week.
+
+There is an MCP tool of the same name, so a connected agent fetches its own
+instructions instead of being handed them.
+
+The retention advice inside `make-clip.md` prints the numbers it rests on
+directly above itself, so when the numbers move the advice can be argued with
+rather than followed out of habit.
 
 ## Disk, and clips that stopped halfway
 

@@ -1,5 +1,6 @@
 .venv/
-data/
+data/*
+!data/concepts/
 __pycache__/
 *.pyc
 *.egg-info/

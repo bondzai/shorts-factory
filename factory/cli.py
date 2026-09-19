@@ -508,6 +508,17 @@ def cmd_cost(args) -> int:
     return 0
 
 
+def cmd_playbook(args) -> int:
+    from . import playbooks
+
+    if args.name is None:
+        for name in playbooks.available():
+            print(name)
+        return 0
+    print(playbooks.render(args.name, args.channel))
+    return 0
+
+
 def cmd_mcp(args) -> int:
     from . import mcp as mcp_server
 
@@ -534,6 +545,14 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("init", help="create the database, migrate, seed a channel").set_defaults(func=cmd_init)
     sub.add_parser("doctor", help="check ffmpeg, dependencies, credentials").set_defaults(func=cmd_doctor)
     sub.add_parser("generators", help="list generator modules").set_defaults(func=cmd_generators)
+
+    p = sub.add_parser(
+        "playbook",
+        help="print a reusable agent prompt, filled in from the live database",
+    )
+    p.add_argument("name", nargs="?", help="playbook name; omit to list them")
+    p.add_argument("--channel", default=None)
+    p.set_defaults(func=cmd_playbook)
     sub.add_parser("status", help="counts by stage per channel").set_defaults(func=cmd_status)
 
     channel_parser = sub.add_parser("channels", help="add, list and edit channels")
