@@ -287,6 +287,26 @@ def finish_run(
         (now(), status, detail, log, cost_usd, run_id),
     )
     conn.commit()
+    # Every surface finishes a run through here, so one hook covers the CLI,
+    # the web UI, an agent over MCP and cron alike.
+    row = conn.execute(
+        "SELECT channel_id, kind FROM runs WHERE id = ?", (run_id,)
+    ).fetchone()
+    if row is None:
+        return
+    from . import notify
+
+    try:
+        notify.run_finished(
+            channel_id=row["channel_id"],
+            kind=row["kind"],
+            status=status,
+            detail=detail,
+            cost_usd=cost_usd,
+            waiting=status_counts(conn, row["channel_id"]).get("awaiting_approval", 0),
+        )
+    except Exception:  # pragma: no cover - notifying must never fail a run
+        pass
 
 
 def recent_runs(

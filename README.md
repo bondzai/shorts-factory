@@ -76,6 +76,38 @@ refused, not just that it was.
 Every tool call is written to the event log with `actor: "mcp"`, so
 `factory logs --event mcp.` answers what the agent did without asking it.
 
+## Being told when a run finishes
+
+```toml
+[notify]
+webhook_url = "https://hooks.slack.com/services/..."
+on = ["run.finished", "run.failed"]
+```
+
+```bash
+factory notify   # post a test and report what the endpoint said
+```
+
+Pointed away from this machine on purpose. The CLI, the web UI and the MCP
+server all write the same SQLite file, so none of them needs telling what the
+others did — they can already see it. The thing that cannot see it is you,
+asleep, while an agent builds clips at three in the morning.
+
+The hook lives in `db.finish_run`, which every surface already calls, so a run
+started from Codex, from cron and from the browser all notify identically. The
+payload carries a plain `text` line — which is what Slack, Discord and ntfy each
+read — plus the structured fields under it.
+
+Delivery runs off the calling thread so a slow endpoint cannot stall a build,
+and is joined at exit: a daemon thread dies with the process, and `factory
+build` finishes its last run and exits immediately, so without that join every
+notification a CLI command sent was silently lost.
+
+The open web page polls every five seconds whether or not it started anything,
+so a build an agent ran while the tab sat there still shows up. It only
+re-renders when something actually differs — rebuilding the review pane would
+restart the clip that is playing.
+
 ## Disk, and clips that stopped halfway
 
 ```bash

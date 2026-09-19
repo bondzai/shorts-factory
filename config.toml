@@ -18,6 +18,15 @@ seconds = 2.6
 marble_race = "WHICH ONE WINS?"
 funnel_drop = ""
 
+[notify]
+# Where to tell YOU that a run finished. Slack, Discord, ntfy and any endpoint
+# that accepts a JSON POST all work — the payload carries a plain `text` line
+# plus the structured fields. Empty disables it.
+# This points away from this machine on purpose: the CLI, the web UI and the MCP
+# server share one database, so none of them needs telling what the others did.
+webhook_url = ""
+on = ["run.finished", "run.failed"]
+
 [retention]
 # Days to keep the rendered file after a clip's outcome is settled. -1 keeps it
 # forever. Intermediates (the silent mp4 and the wav) are always dropped as

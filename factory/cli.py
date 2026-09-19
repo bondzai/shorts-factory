@@ -395,6 +395,32 @@ def cmd_logs(args) -> int:
     return 0
 
 
+def cmd_notify(args) -> int:
+    from . import notify, settings as _settings
+
+    url = _settings.load().raw.get("notify", {}).get("webhook_url")
+    if not url:
+        print("no webhook_url set in [notify]; nothing would be sent")
+        return 1
+    print(f"posting a test notification to {url}")
+    sent = notify.post(
+        "run.finished", "[test] shorts-factory can reach this endpoint",
+        channel="test", kind="test", status="ok",
+    )
+    if not sent:
+        print("event not in [notify] on = [...]; nothing was sent")
+        return 1
+    import time
+
+    time.sleep(2)
+    for record in __import__("factory.logs", fromlist=["logs"]).read(limit=3):
+        if record["event"].startswith("notify."):
+            print(f"{record['event']}: {record.get('status') or record.get('error')}")
+            return 0 if record["event"] == "notify.sent" else 1
+    print("no result logged yet; check `factory logs --event notify.`")
+    return 0
+
+
 def cmd_gc(args) -> int:
     from . import gc
 
@@ -594,6 +620,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--event", default=None, help="prefix, for example clip. or agent.")
     p.add_argument("--clip", default=None)
     p.set_defaults(func=cmd_logs)
+
+    sub.add_parser("notify", help="post a test notification to the configured webhook").set_defaults(func=cmd_notify)
 
     p = sub.add_parser("gc", help="delete rendered files whose outcome is settled")
     p.add_argument("--dry-run", action="store_true")

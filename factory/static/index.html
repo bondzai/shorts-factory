@@ -132,7 +132,7 @@
 <script>
 const $ = (s) => document.querySelector(s);
 let state = null, channels = [], channel = null, view = "review";
-let index = 0, sound = false, busy = false, filters = {};
+let index = 0, sound = false, busy = false, filters = {}, fingerprint = null;
 
 const fmt = (n, d = 1) => (n === null || n === undefined) ? "—" : Number(n).toFixed(d);
 const num = (n) => (n === null || n === undefined) ? "—" : Number(n).toLocaleString();
@@ -164,7 +164,18 @@ async function loadChannels() {
   ).join("");
 }
 
-async function refresh() {
+// The CLI, cron and an agent over MCP write the same database this page reads,
+// so a change can arrive without this page having asked for anything. Poll
+// always — but re-render only when something actually differs, because
+// rebuilding the review pane restarts the clip that is playing.
+function fingerprintOf(s) {
+  return JSON.stringify([
+    s.counts, s.queue.map((c) => c.id), s.approved.length,
+    s.job.running, s.job.log.length, s.spend_usd,
+  ]);
+}
+
+async function refresh({ force = false } = {}) {
   try {
     if (!channels.length) await loadChannels();
     if (!channels.length) { $("#stage").innerHTML = `<p class="empty">No channels yet. Add one to start.</p>`; return; }
@@ -174,6 +185,10 @@ async function refresh() {
     return;
   }
   busy = state.job.running;
+  const next = fingerprintOf(state);
+  const changed = next !== fingerprint;
+  fingerprint = next;
+  if (!changed && !force) return;
   renderChrome();
   await renderView();
 }
@@ -256,7 +271,7 @@ async function decide(id, what) {
   try { await send(`/api/clip/${id}/${what}`, what === "reject" ? { reason: "rejected in review" } : {}); }
   catch (err) { alert(err.message); }
   channels = [];
-  await refresh();
+  await refresh({ force: true });
 }
 
 /* ---------- library ---------- */
@@ -435,7 +450,7 @@ async function renderLogs() {
 document.querySelectorAll("nav a").forEach((a) => {
   a.onclick = async () => { view = a.dataset.view; renderChrome(); await renderView(); };
 });
-$("#channel").onchange = async (e) => { channel = e.target.value; index = 0; filters = {}; await refresh(); };
+$("#channel").onchange = async (e) => { channel = e.target.value; index = 0; filters = {}; fingerprint = null; await refresh({ force: true }); };
 $("#addchannel").onclick = async () => {
   const name = prompt("Channel name (for example: HODL Tales)");
   if (!name) return;
@@ -478,8 +493,16 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
-refresh();
-setInterval(() => { if (busy) refresh(); }, 1500);
+refresh({ force: true });
+
+// Fast while a job of ours is running, slow otherwise — slow still catches a
+// build an agent started while this tab sat open.
+(function poll() {
+  setTimeout(async () => {
+    await refresh();
+    poll();
+  }, busy ? 1500 : 5000);
+})();
 </script>
 </body>
 </html>
