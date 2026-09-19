@@ -198,10 +198,12 @@ def build_server():
     @server.tool(
         description=(
             "Render one clip. No model is called and no credential is needed — "
-            "this is pure simulation. Returns the measurements and four frames "
-            "for you to look at: the opening, two middle points and the end. "
-            "Read the channel's rules first, then write the title yourself with "
-            "submit_metadata and score the hook with submit_qc."
+            "this is pure simulation. Returns the measurements, four frames for "
+            "you to look at (the opening, two middle points and the end), and "
+            "recent_on_this_channel: what the last few clips here were, which "
+            "is what submit_qc's looks_templated is asking you to compare "
+            "against. Read the channel's rules first, then write the title "
+            "yourself with submit_metadata and score the hook with submit_qc."
         )
     )
     def render_clip(
@@ -271,11 +273,21 @@ def build_server():
     @server.tool(
         description=(
             "Score a rendered clip and send it to the review queue, or reject "
-            "it. Your judgment is combined with measurements taken here: aspect "
-            "ratio, duration, loudness and similarity to earlier clips are "
-            "checked against the file whatever you say, and any failure rejects "
-            "it. Be strict on the hook — rejecting a mediocre clip costs one "
-            "seed."
+            "it.\n\n"
+            "looks_templated asks ONE narrow question: would a viewer of THIS "
+            "channel feel they had already seen this clip, compared against the "
+            "recent_on_this_channel list render_clip gave you? It is not asking "
+            "whether the format is common elsewhere on the internet. A marble "
+            "race is a well-worn genre and that is fine — set it true only when "
+            "this particular clip repeats this channel's own recent output. "
+            "Setting it true rejects the clip.\n\n"
+            "hook_strength is whether a viewer who did not choose this clip "
+            "would keep watching past the first frame, 1 to 5.\n\n"
+            "Your judgment is combined with measurements taken here: aspect "
+            "ratio, duration, loudness and perceptual similarity to earlier "
+            "clips are checked against the file whatever you say, and any "
+            "failure rejects it. Be strict on the hook — rejecting a mediocre "
+            "clip costs one seed."
         )
     )
     def submit_qc(

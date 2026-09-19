@@ -48,7 +48,11 @@ class QCVerdict(BaseModel):
     verdict: Literal["pass", "reject"]
     hook_strength: int = Field(ge=1, le=5, description="1 = nothing happens, 5 = instantly gripping.")
     looks_templated: bool = Field(
-        description="True if this reads as the same clip as the recent ones with a new seed."
+        description=(
+            "True only if this clip repeats THIS channel's own recent output — "
+            "the same clip again with a new seed. Not whether the format is "
+            "common elsewhere; a well-worn genre is fine."
+        )
     )
     policy_risk: Literal["low", "medium", "high"]
     reasons: list[str] = Field(min_length=1, max_length=6)

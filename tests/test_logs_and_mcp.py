@@ -307,3 +307,37 @@ async def test_a_channel_cannot_be_asked_for_a_variant_it_disallows(sandbox):
         await mcp.build_server().call_tool("render_clip", {
             "variant": "marble_race", "channel": CH,
         })
+
+
+@pytest.mark.anyio
+async def test_render_gives_the_agent_something_to_compare_against(sandbox):
+    """Asking 'does this repeat the channel' without showing the channel is a
+    question with no answer — the agent answered about the genre instead."""
+    with db.connect() as conn:
+        channels.create(conn, name="Gravity Lab", channel_id=CH)
+        for seed in (1, 2):
+            clip_id = db.insert_clip(
+                conn, channel_id=CH, generator="physics", variant="marble_race",
+                seed=seed, params={}, hook="h", plan_why="w",
+            )
+            db.update(
+                conn, clip_id, status="published", title=f"Title {seed}",
+                render_desc=f"{seed} marbles race down a course",
+            )
+    import json as _json
+
+    result = await mcp.build_server().call_tool(
+        "render_clip", {"variant": "marble_race", "channel": CH}
+    )
+    text = next(b.text for b in result.content if getattr(b, "text", None))
+    recent = _json.loads(text)["measured"]["recent_on_this_channel"]
+    assert len(recent) == 2
+    assert {r["title"] for r in recent} == {"Title 1", "Title 2"}
+
+
+@pytest.mark.anyio
+async def test_the_templated_question_says_what_it_means(sandbox):
+    tools = {t.name: t for t in await mcp.build_server().list_tools()}
+    text = tools["submit_qc"].description
+    assert "THIS channel" in text
+    assert "not asking whether the format is common elsewhere" in text.lower()

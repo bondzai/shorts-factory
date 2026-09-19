@@ -365,6 +365,14 @@ def create_and_render(
         "loudness_lufs": loudness,
         "sameness": round(sameness, 4),
         "shows": clip.description,
+        # Without this an external agent is asked whether the clip repeats the
+        # channel and given nothing to compare it against, so it answers about
+        # the format in general instead. Our own QC agent always got this.
+        "recent_on_this_channel": [
+            {"title": r["title"], "shows": r["render_desc"]}
+            for r in db.recent(conn, ch.id, limit=6)
+            if r["id"] != clip_id and r["render_desc"]
+        ],
         "generator_facts": clip.facts,
         # Measured here, reported so the caller can see what it is judged against.
         "hard_failures": qc.hard_failures(

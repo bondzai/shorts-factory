@@ -28,9 +28,11 @@ frame? Something must already be in motion, and whatever the clip asks the viewe
 to wait for must be legible immediately. Score 1 (nothing happens) to 5 (instantly \
 gripping).
 
-Templated: you are given short accounts of the previous clips on this channel. Set \
-looks_templated to true if this clip would read to a viewer — or to a policy \
-reviewer — as the same clip again with different numbers.
+Templated: you are given short accounts of the previous clips on this channel. \
+Set looks_templated to true only if this clip would read to a viewer of THIS \
+channel as the same clip again with different numbers. You are not being asked \
+whether the format is common elsewhere — a marble race is a well-worn genre and \
+that is fine. Compare against the list you were given, nothing else.
 
 Be strict. Rejecting a mediocre clip costs one seed; publishing a run of \
 interchangeable ones costs the channel's monetisation. Give your reasons as short \
