@@ -96,3 +96,37 @@ def test_old_clips_fall_out_of_the_ninety_day_window(conn):
     out = analytics.summary(conn, CH)
     assert out["n_with_metrics"] == 1
     assert out["views_90d"] == 0
+
+
+def test_cost_rolls_up_per_agent_and_model(sandbox):
+    from factory import analytics as a, logs
+
+    logs.event("agent.call", agent="qc", model="claude-haiku-4-5",
+               cost_usd=0.001, input_tokens=100, output_tokens=20)
+    logs.event("agent.call", agent="qc", model="claude-haiku-4-5",
+               cost_usd=0.002, input_tokens=200, output_tokens=30)
+    logs.event("agent.call", agent="analyst", model="claude-opus-5",
+               cost_usd=0.05, input_tokens=9000, output_tokens=900)
+    rows = a.cost_by_agent()
+    assert [r["agent"] for r in rows] == ["analyst", "qc"]
+    qc = next(r for r in rows if r["agent"] == "qc")
+    assert qc["calls"] == 2
+    assert qc["cost_usd"] == pytest.approx(0.003)
+    assert qc["input_tokens"] == 300
+
+
+def test_an_unpriced_model_is_flagged_as_an_estimate(sandbox):
+    from factory import analytics as a, logs
+
+    logs.event("agent.call", agent="idea", model="something-new",
+               cost_usd=0.01, cost_estimated=True)
+    assert a.cost_by_agent()[0]["estimated"] is True
+
+
+def test_per_agent_models_come_from_config(sandbox):
+    from factory import llm
+
+    assert llm.model_for("qc")
+    assert llm.model_for(None) == llm.model_for("no-such-agent")
+    assert llm.price_of("claude-haiku-4-5") == (1.0, 5.0)
+    assert llm.price_of("totally-unknown") == llm.price_of("default")

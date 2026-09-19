@@ -76,6 +76,28 @@ refused, not just that it was.
 Every tool call is written to the event log with `actor: "mcp"`, so
 `factory logs --event mcp.` answers what the agent did without asking it.
 
+## Choosing a model per agent
+
+The four agents are not the same job, so they do not have to share a model.
+`[llm.agents]` in `config.toml` sets one each, `[llm.pricing]` keeps the cost
+figure true when they differ, and the log records which model spent what:
+
+```bash
+factory cost --days 7
+```
+
+```
+agent      model                 calls        in      out    $/call     total
+analyst    claude-opus-5             3     27000     2400   0.05100    0.1530
+qc         claude-haiku-4-5         41     94300     1230   0.00104    0.0427
+```
+
+Change one agent at a time and watch two numbers together: the cost here, and
+how often you overrule QC by hand in the review queue. A cheaper QC that starts
+letting weak hooks through does not show up as an error — it shows up as you
+rejecting more clips yourself. A model missing from `[llm.pricing]` is billed at
+the default rate and marked `~`, rather than quietly costed wrong.
+
 ## Logs
 
 ```bash

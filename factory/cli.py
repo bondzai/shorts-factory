@@ -395,6 +395,33 @@ def cmd_logs(args) -> int:
     return 0
 
 
+def cmd_cost(args) -> int:
+    from . import analytics, llm
+
+    rows = analytics.cost_by_agent(days=args.days, channel_id=args.channel)
+    print(f"{'agent':<10} {'model':<20} {'calls':>6} {'in':>9} {'out':>8} "
+          f"{'$/call':>9} {'total':>9}")
+    total = 0.0
+    for row in rows:
+        total += row["cost_usd"]
+        mark = " ~" if row["estimated"] else ""
+        print(
+            f"{row['agent']:<10} {row['model']:<20} {row['calls']:>6} "
+            f"{row['input_tokens']:>9} {row['output_tokens']:>8} "
+            f"{row['usd_per_call']:>9.5f} {row['cost_usd']:>9.4f}{mark}"
+        )
+    if not rows:
+        print("\nno agent calls logged yet")
+        return 0
+    print(f"\ntotal over {args.days} day(s): ${total:.4f}")
+    print("\nconfigured models:")
+    for agent in ("idea", "metadata", "qc", "analyst"):
+        print(f"  {agent:<10} {llm.model_for(agent)}")
+    if any(r["estimated"] for r in rows):
+        print("\n~ = model not in [llm.pricing]; billed at the default rate")
+    return 0
+
+
 def cmd_mcp(args) -> int:
     from . import mcp as mcp_server
 
@@ -507,6 +534,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--event", default=None, help="prefix, for example clip. or agent.")
     p.add_argument("--clip", default=None)
     p.set_defaults(func=cmd_logs)
+
+    p = sub.add_parser("cost", help="spend per agent and per model, from the event log")
+    p.add_argument("--days", type=int, default=7)
+    p.set_defaults(func=cmd_cost)
 
     p = sub.add_parser(
         "mcp", help="run the MCP server on stdio so an agent can drive the factory"

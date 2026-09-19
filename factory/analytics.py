@@ -53,6 +53,46 @@ def _hook(row: sqlite3.Row) -> int | None:
         return None
 
 
+def cost_by_agent(days: int = 7, channel_id: str | None = None) -> list[dict[str, Any]]:
+    """Spend per agent, from the event log rather than the clips table.
+
+    The clips table knows what a clip cost in total. Only the log knows which
+    agent spent it, which is the number you need before moving one of them to a
+    cheaper model.
+    """
+    from . import logs
+
+    calls = logs.read(
+        limit=20_000, event_name="agent.call", channel=channel_id, days=days
+    )
+    buckets: dict[tuple[str, str], dict[str, Any]] = {}
+    for call in calls:
+        key = (call.get("agent") or "?", call.get("model") or "?")
+        bucket = buckets.setdefault(
+            key,
+            {
+                "agent": key[0],
+                "model": key[1],
+                "calls": 0,
+                "cost_usd": 0.0,
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "estimated": False,
+            },
+        )
+        bucket["calls"] += 1
+        bucket["cost_usd"] += float(call.get("cost_usd") or 0)
+        bucket["input_tokens"] += int(call.get("input_tokens") or 0)
+        bucket["output_tokens"] += int(call.get("output_tokens") or 0)
+        bucket["estimated"] = bucket["estimated"] or bool(call.get("cost_estimated"))
+    out = list(buckets.values())
+    for bucket in out:
+        bucket["cost_usd"] = round(bucket["cost_usd"], 6)
+        bucket["usd_per_call"] = round(bucket["cost_usd"] / max(bucket["calls"], 1), 6)
+    out.sort(key=lambda b: -b["cost_usd"])
+    return out
+
+
 def summary(conn: sqlite3.Connection, channel_id: str) -> dict[str, Any]:
     rows = db.published_with_metrics(conn, channel_id)
     counts = db.status_counts(conn, channel_id)

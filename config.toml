@@ -27,9 +27,28 @@ max_sameness = 0.88
 min_hook_strength = 3
 
 [llm]
+# Default for any agent without its own entry below.
 model = "claude-opus-5"
-input_usd_per_mtok = 5.0
-output_usd_per_mtok = 25.0
+
+[llm.agents]
+# The four agents are not the same job. Analyst reasons about a table of
+# numbers and is the one place a weaker model shows; QC scores a hook from four
+# frames; Idea picks a variant and a seed. Start them all on the default, then
+# step the cheap ones down and watch `factory cost --by agent` and the
+# retention numbers together — a QC that got worse shows up as clips you
+# reject by hand.
+idea = "claude-opus-5"
+metadata = "claude-opus-5"
+qc = "claude-opus-5"
+analyst = "claude-opus-5"
+
+[llm.pricing]
+# USD per million tokens, [input, output]. A model missing here is billed at
+# the default rate and logged as an estimate rather than silently costed wrong.
+"claude-opus-5" = [5.0, 25.0]
+"claude-sonnet-5" = [2.0, 10.0]
+"claude-haiku-4-5" = [1.0, 5.0]
+default = [5.0, 25.0]
 
 [analyst]
 min_published_for_rules = 30
