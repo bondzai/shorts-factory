@@ -376,6 +376,29 @@ About one race course in six still wedges a marble. That is caught by a stall
 check and retried on a seed derived from the original, so the run stays
 reproducible from `seed` alone.
 
+**Variety.** Two independent judges called the original race template-like:
+the perceptual hash put consecutive clips at 0.875 and 0.914 against a 0.88
+reject line, and an agent shown four frames set `looks_templated` without seeing
+those numbers. Both were right — every seed differed only in ramp slope and
+finishing order, and neither shows in a still frame.
+
+What varies now is what a viewer can see before anything moves: the backdrop
+(six palettes), ramp count, which side the course starts from, ramp thickness,
+marble count and marble size. Slope is held near 0.4 throughout, because that is
+the number that decides whether the marbles move at all.
+
+Ramp count and span move together on purpose: span is derived from the slope
+rather than chosen, so more ramps means shorter ones and the total path length —
+and the clip's duration — stays where QC wants it. Marble count is capped by how
+long the first ramp is, since a nine-ramp course would otherwise start five
+marbles stacked on each other.
+
+Measured over 40 seeds after the change: every seed produces a finished race,
+33 on the first attempt, durations 10.2s to 18.9s with none under the QC floor,
+and across 28 pairs of clips the highest similarity is 0.867 — no pair now
+reaches the reject line. Five-ramp courses were dropped from the options after a
+forced test stalled 12 times out of 12.
+
 **Loudness.** The first clip ever rendered measured -26 LUFS integrated while
 peaking near full scale: all crest factor, no energy between the hits. Things
 that did not fix it, in order of how much time they wasted: single-pass

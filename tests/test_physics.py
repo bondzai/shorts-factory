@@ -58,3 +58,54 @@ def test_a_settled_funnel_just_ends():
     finally:
         physics.STALL_SPEED = monkeypatch_speed
     assert 0 < len(states) < 200
+
+
+# --- variety ------------------------------------------------------------------
+# Two independent judges called the old race template-like: the perceptual hash
+# (0.875 and 0.914 between consecutive clips, against a 0.88 reject line) and an
+# agent shown four frames. These pin the fix.
+
+def _look(seed):
+    states, _, balls, segments, _, _, style = simulate(seed, frames=40)
+    return {
+        "ramps": len(segments),
+        "marbles": len(balls),
+        "background": style.background,
+        "thickness": style.thickness,
+        "colours": tuple(b.color for b in balls),
+    }
+
+
+def test_the_look_changes_between_seeds():
+    looks = [_look(s) for s in (4100, 4211, 4322, 13, 7932, 23770)]
+    assert len({l["background"] for l in looks}) > 1
+    assert len({l["ramps"] for l in looks}) > 1
+    assert len({l["thickness"] for l in looks}) > 1
+
+
+def test_the_look_is_still_fixed_by_the_seed():
+    assert _look(4100) == _look(4100)
+
+
+def test_marble_count_fits_the_runway():
+    """A nine-ramp course has short ramps; five marbles would start stacked."""
+    for seed in (4100, 4211, 4322, 13, 7932, 23770, 991, 1234):
+        look = _look(seed)
+        assert 3 <= look["marbles"] <= 5
+        assert len(set(look["colours"])) == look["marbles"]
+
+
+def test_five_ramp_courses_are_not_offered():
+    """Forced to five, every one of twelve seeds stalled. It is not a choice."""
+    assert 5 not in (6, 7, 8, 9)
+    looks = [_look(s)["ramps"] for s in (4100, 4211, 4322, 13, 7932, 23770)]
+    assert all(r in (6, 7, 8, 9) for r in looks)
+
+
+def test_a_course_finishing_under_the_qc_floor_is_refused(monkeypatch):
+    from factory import settings
+
+    raw = settings.load().raw
+    monkeypatch.setitem(raw, "qc", {**raw["qc"], "min_seconds": 999})
+    with pytest.raises(physics._Stalled, match="floor"):
+        simulate(4242, frames=600)

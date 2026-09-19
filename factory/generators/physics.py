@@ -45,9 +45,33 @@ RACE_COLORS = [
     ("blue", (55, 138, 221)),
     ("amber", (239, 159, 39)),
     ("green", (151, 196, 89)),
+    ("violet", (150, 122, 224)),
 ]
 BACKGROUND = (18, 18, 26)
 STRUCTURE = (58, 58, 74)
+
+# Backdrops, each (background, structure). Two independent judges — the
+# perceptual hash and an agent looking at four frames — both called the old
+# single-palette race template-like, and both were right: every seed differed
+# only in ramp slope and finishing order, neither of which shows in a still.
+# These change what a viewer sees before anything moves.
+PALETTES = [
+    ((18, 18, 26), (58, 58, 74)),
+    ((22, 24, 29), (65, 71, 79)),
+    ((23, 18, 28), (67, 58, 77)),
+    ((16, 26, 22), (52, 71, 63)),
+    ((14, 17, 24), (51, 60, 74)),
+    ((26, 20, 17), (74, 60, 50)),
+]
+
+
+@dataclass
+class _Style:
+    """What the clip looks like, as opposed to how it behaves."""
+
+    background: tuple[int, int, int] = BACKGROUND
+    structure: tuple[int, int, int] = STRUCTURE
+    thickness: int = 12
 
 
 @dataclass
@@ -84,44 +108,72 @@ def _build_race(space: pymunk.Space, w: int, h: int, rng: random.Random):
     """Zigzag ramps steep enough that the marbles never come to rest.
 
     A shallow ramp looks fine in a screenshot and stalls in the solver — at a
-    slope of 0.15 the marbles stop dead after four seconds. Each ramp here drops
-    its full share of the height, so the slope stays around 0.4, and each ramp
-    ends short of the wall so the marble falls onto the next one and makes a
-    sound doing it.
+    slope of 0.15 the marbles stop dead after four seconds, so the slope is held
+    near 0.4 whatever else changes. Everything a viewer can see in a single
+    frame is varied around that fixed point: the backdrop, how many ramps, which
+    side they start from, how thick they are, how many marbles there are and how
+    big.
+
+    Ramp count and span move together on purpose. Span is derived from the slope
+    rather than chosen, so more ramps means shorter ones and the total path
+    length — and therefore the clip's duration — stays where QC wants it.
     """
+    style = _Style()
+    style.background, style.structure = rng.choice(PALETTES)
+    style.thickness = rng.randint(8, 15)
+
     _wall(space, (4, 0), (4, h))
     _wall(space, (w - 4, 0), (w - 4, h))
     _wall(space, (4, 6), (w - 4, 6))
 
-    ramps = 7
+    # Five was in this list until a forced test stalled 12 times out of 12: at
+    # that count the ramps are long enough that a marble comes to rest on one.
+    # Leaving it in only spent retries on a course that never finishes.
+    ramps = rng.choice([6, 7, 8, 9])
+    slope = rng.uniform(0.37, 0.44)
     top, bottom = h - 80.0, 40.0
     step = (top - bottom) / ramps
-    base_span = w * rng.uniform(0.52, 0.60)
+    span = min(step / slope, w - 90.0)
+    mirrored = rng.random() < 0.5
+
     segments = []
     for i in range(ramps):
         y = top - i * step
-        span = base_span * rng.uniform(0.92, 1.06)
-        if i % 2 == 0:
+        starts_left = (i % 2 == 0) != mirrored
+        if starts_left:
             a, b = (26.0, y), (26.0 + span, y - step)
         else:
             a, b = (w - 26.0, y), (w - 26.0 - span, y - step)
-        _wall(space, a, b)
+        _wall(space, a, b, thickness=style.thickness / 2)
         segments.append((a, b))
 
     # Identical marbles keep their starting order for the whole run, which kills
-    # the only question the clip asks. Varying the radius a little makes them
-    # overtake each other, and the lane order is shuffled so the seed decides
-    # who starts in front.
-    base_radius = w * 0.042
-    lanes = [50.0 + i * 62.0 for i in range(len(RACE_COLORS))]
+    # the only question the clip asks. Varying the radius makes them overtake,
+    # and the lane order is shuffled so the seed decides who starts in front.
+    base_radius = w * rng.uniform(0.036, 0.050)
+    # How many fit depends on how long the first ramp is: a nine-ramp course has
+    # short ramps, and five marbles would start on top of each other.
+    runway = span * 0.62
+    room = int(runway // (base_radius * 2.5)) + 1
+    count = max(3, min(rng.choice([3, 4, 5]), room, len(RACE_COLORS)))
+    spacing = runway / max(count - 1, 1)
+
+    colours = list(RACE_COLORS)
+    rng.shuffle(colours)
+    lanes = [45.0 + i * spacing for i in range(count)]
+    if not mirrored:
+        pass
+    else:
+        lanes = [w - x for x in lanes]
     rng.shuffle(lanes)
+
     balls = []
-    for (name, color), x in zip(RACE_COLORS, lanes):
+    for (name, color), x in zip(colours[:count], lanes):
         radius = base_radius * rng.uniform(0.88, 1.12)
         ball = _ball(space, (x, h - 30.0), radius, color, name)
         ball.body.velocity = (0.0, -130.0)  # already moving on frame one
         balls.append(ball)
-    return balls, segments
+    return balls, segments, style
 
 
 def _build_funnel(space: pymunk.Space, w: int, h: int, rng: random.Random):
@@ -134,6 +186,9 @@ def _build_funnel(space: pymunk.Space, w: int, h: int, rng: random.Random):
     pour is stretched to a watchable length with gravity instead, which is a dial
     that cannot jam.
     """
+    style = _Style()
+    style.background, style.structure = rng.choice(PALETTES)
+
     _wall(space, (4, 0), (4, h))
     _wall(space, (w - 4, 0), (w - 4, h))
     _wall(space, (4, 6), (w - 4, 6))
@@ -160,7 +215,7 @@ def _build_funnel(space: pymunk.Space, w: int, h: int, rng: random.Random):
         ball = _ball(space, (x, y), radius, _hsv((i * 37 % 360) / 360.0), f"ball{i}")
         ball.body.velocity = (0.0, -90.0)  # falling on frame one, not hanging
         balls.append(ball)
-    return balls, segments
+    return balls, segments, style
 
 
 def _hsv(hue: float) -> tuple[int, int, int]:
@@ -217,7 +272,7 @@ class PhysicsSandbox:
                         f"{variant} seed {seed} stalled on every one of "
                         f"{MAX_ATTEMPTS} attempts ({exc})"
                     ) from None
-        states, impacts, balls, segments, winner, winner_frame = sim
+        states, impacts, balls, segments, winner, winner_frame, style = sim
         attempts_used = attempt + 1
         duration_s = len(states) / fps
         impacts = [im for im in impacts if im.t < duration_s]
@@ -229,6 +284,7 @@ class PhysicsSandbox:
             self._frames(
                 states, balls, segments, sim_w, sim_h,
                 overlay=self._overlay(variant, sim_w, sim_h, fps),
+                style=style,
             ),
             out_path=clip_dir / "video.mp4",
             src_size=(sim_w, sim_h),
@@ -238,16 +294,18 @@ class PhysicsSandbox:
         final = render.mux(silent, wav, clip_dir / "clip.mp4")
 
         if variant == "marble_race":
+            names = ", ".join(b.name for b in balls)
+            ramp_count = len(segments)
             if winner:
                 description = (
-                    f"Four marbles ({', '.join(n for n, _ in RACE_COLORS)}) race down a "
-                    f"seven-ramp zigzag course. The {winner} marble reaches the bottom "
-                    f"first, at {winner_frame / fps:.1f} seconds."
+                    f"{len(balls)} marbles ({names}) race down a {ramp_count}-ramp "
+                    f"zigzag course. The {winner} marble reaches the bottom first, at "
+                    f"{winner_frame / fps:.1f} seconds."
                 )
             else:
                 description = (
-                    "Four marbles race down a seven-ramp zigzag course; none of them "
-                    f"reaches the bottom within {duration_s:.1f} seconds."
+                    f"{len(balls)} marbles race down a {ramp_count}-ramp zigzag course; "
+                    f"none reaches the bottom within {duration_s:.1f} seconds."
                 )
         else:
             description = (
@@ -265,6 +323,8 @@ class PhysicsSandbox:
                 "winner": winner,
                 "impacts": len(impacts),
                 "objects": len(balls),
+                "ramps": len(segments),
+                "palette": style.background,
                 "sim_attempts": attempts_used,
             },
         )
@@ -277,11 +337,11 @@ class PhysicsSandbox:
         space = pymunk.Space()
         if variant == "marble_race":
             space.gravity = (0.0, RACE_GRAVITY)
-            balls, segments = _build_race(space, sim_w, sim_h, rng)
+            balls, segments, style = _build_race(space, sim_w, sim_h, rng)
             finish_y: float | None = 110.0
         else:
             space.gravity = (0.0, FUNNEL_GRAVITY)
-            balls, segments = _build_funnel(space, sim_w, sim_h, rng)
+            balls, segments, style = _build_funnel(space, sim_w, sim_h, rng)
             finish_y = None
 
         dt = 1.0 / (fps * SUBSTEPS)
@@ -333,7 +393,21 @@ class PhysicsSandbox:
             if winner_frame is not None and frame >= winner_frame + int(fps * 1.3):
                 break
 
-        return states, impacts, balls, segments, winner, winner_frame
+        # Varying the course changed the duration spread as well as the look,
+        # and a short course can now finish under the QC floor. The generator
+        # knows that floor, so it burns the seed here rather than handing QC a
+        # clip it is certain to reject.
+        # Only judge a race that actually finished: a run cut off by max_frames
+        # has no meaningful duration yet, and short runs are exactly what the
+        # tests use.
+        if finish_y is not None and winner_frame is not None:
+            floor = float(settings.load().qc["min_seconds"])
+            if len(states) / fps < floor:
+                raise _Stalled(
+                    f"finished in {len(states) / fps:.1f}s, under the {floor}s floor"
+                )
+
+        return states, impacts, balls, segments, winner, winner_frame, style
 
     def _overlay(self, variant: str, sim_w: int, sim_h: int, fps: int):
         """Opening caption, or None. Returns (text, font, x, y, last_frame)."""
@@ -358,15 +432,18 @@ class PhysicsSandbox:
             int(float(cfg.get("seconds", 0)) * fps),
         )
 
-    def _frames(self, states, balls, segments, sim_w, sim_h, overlay=None) -> Iterator[bytes]:
+    def _frames(
+        self, states, balls, segments, sim_w, sim_h, overlay=None, style=None
+    ) -> Iterator[bytes]:
+        style = style or _Style()
         for frame_index, positions in enumerate(states):
-            image = Image.new("RGB", (sim_w, sim_h), BACKGROUND)
+            image = Image.new("RGB", (sim_w, sim_h), style.background)
             draw = ImageDraw.Draw(image)
             for a, b in segments:
                 draw.line(
                     [(a[0], sim_h - a[1]), (b[0], sim_h - b[1])],
-                    fill=STRUCTURE,
-                    width=12,
+                    fill=style.structure,
+                    width=style.thickness,
                 )
             for ball, (x, y) in zip(balls, positions):
                 iy = sim_h - y
