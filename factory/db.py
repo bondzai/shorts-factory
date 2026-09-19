@@ -41,6 +41,10 @@ def migrate(conn: sqlite3.Connection) -> list[str]:
             )
             done.append(f"{table}.channel_id added")
 
+    if "proposals_json" not in _columns(conn, "digests"):
+        conn.execute("ALTER TABLE digests ADD COLUMN proposals_json TEXT NOT NULL DEFAULT '[]'")
+        done.append("digests.proposals_json added")
+
     has_channel = conn.execute(
         "SELECT 1 FROM channels WHERE id = ?", (DEFAULT_ID,)
     ).fetchone()
@@ -200,13 +204,54 @@ def record_digest(
     n_published: int,
     body: str,
     rules_applied: bool,
+    proposals: list[str] | None = None,
 ) -> None:
     conn.execute(
-        """INSERT INTO digests (channel_id, created_at, n_published, body, rules_applied)
-           VALUES (?, ?, ?, ?, ?)""",
-        (channel_id, now(), n_published, body, int(rules_applied)),
+        """INSERT INTO digests
+           (channel_id, created_at, n_published, body, proposals_json, rules_applied)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (
+            channel_id, now(), n_published, body,
+            json.dumps(proposals or []), int(rules_applied),
+        ),
     )
     conn.commit()
+
+
+def latest_digest(conn: sqlite3.Connection, channel_id: str) -> sqlite3.Row | None:
+    return conn.execute(
+        "SELECT * FROM digests WHERE channel_id = ? ORDER BY id DESC LIMIT 1",
+        (channel_id,),
+    ).fetchone()
+
+
+def search_clips(
+    conn: sqlite3.Connection,
+    channel_id: str,
+    *,
+    status: str | None = None,
+    generator: str | None = None,
+    variant: str | None = None,
+    query: str | None = None,
+    limit: int = 200,
+) -> list[sqlite3.Row]:
+    sql = "SELECT * FROM clips WHERE channel_id = ?"
+    args: list[Any] = [channel_id]
+    if status:
+        sql += " AND status = ?"
+        args.append(status)
+    if generator:
+        sql += " AND generator = ?"
+        args.append(generator)
+    if variant:
+        sql += " AND variant = ?"
+        args.append(variant)
+    if query:
+        sql += " AND (title LIKE ? OR id LIKE ? OR render_desc LIKE ?)"
+        args.extend([f"%{query}%"] * 3)
+    sql += " ORDER BY created_at DESC LIMIT ?"
+    args.append(limit)
+    return conn.execute(sql, args).fetchall()
 
 
 def start_run(conn: sqlite3.Connection, channel_id: str, kind: str) -> int:

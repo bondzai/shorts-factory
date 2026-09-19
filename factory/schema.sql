@@ -52,12 +52,13 @@ CREATE INDEX IF NOT EXISTS clips_status ON clips (channel_id, status);
 CREATE INDEX IF NOT EXISTS clips_published ON clips (channel_id, published_at);
 
 CREATE TABLE IF NOT EXISTS digests (
-    id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    channel_id    TEXT NOT NULL DEFAULT 'main' REFERENCES channels (id),
-    created_at    TEXT NOT NULL,
-    n_published   INTEGER NOT NULL,
-    body          TEXT NOT NULL,
-    rules_applied INTEGER NOT NULL DEFAULT 0
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    channel_id     TEXT NOT NULL DEFAULT 'main' REFERENCES channels (id),
+    created_at     TEXT NOT NULL,
+    n_published    INTEGER NOT NULL,
+    body           TEXT NOT NULL,
+    proposals_json TEXT NOT NULL DEFAULT '[]',
+    rules_applied  INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS runs (

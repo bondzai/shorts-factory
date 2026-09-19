@@ -170,3 +170,54 @@ def test_one_job_at_a_time_across_every_channel(client):
         assert CH in response.json()["detail"]
     finally:
         release.set()
+
+
+def test_library_filters_and_exposes_modules(client):
+    queued_clip(seed=1)
+    body = client.get(f"/api/clips?channel={CH}").json()
+    assert len(body["clips"]) == 1
+    assert "physics" in body["modules"]
+    assert client.get(f"/api/clips?channel={CH}&status=published").json()["clips"] == []
+    assert len(client.get(f"/api/clips?channel={CH}&q=marble").json()["clips"]) == 1
+    assert client.get(f"/api/clips?channel={CH}&q=zzzz").json()["clips"] == []
+
+
+def test_analytics_is_empty_until_metrics_exist(client):
+    queued_clip(seed=1)
+    body = client.get(f"/api/analytics?channel={CH}").json()
+    assert body["n_with_metrics"] == 0
+
+
+def test_rules_round_trip(client):
+    original = client.get(f"/api/rules?channel={CH}").json()
+    assert "Hook" in original["text"]
+    client.put("/api/rules", json={"channel": CH, "text": "# replaced\n"})
+    assert client.get(f"/api/rules?channel={CH}").json()["text"] == "# replaced\n"
+
+
+def test_accepting_a_proposal_needs_the_markers(client):
+    client.put("/api/rules", json={"channel": CH, "text": "# no markers here\n"})
+    response = client.post("/api/rules/accept", json={"channel": CH, "rules": ["be better"]})
+    assert response.status_code == 400
+
+
+def test_accepting_a_proposal_appends_one_rule(client):
+    body = client.post(
+        "/api/rules/accept", json={"channel": CH, "rules": ["State the margin in the title."]}
+    ).json()
+    assert body["applied"] == 1
+    assert "State the margin in the title." in body["text"]
+
+
+def test_rules_are_per_channel(client):
+    add_channel(client)
+    client.put("/api/rules", json={"channel": CH, "text": "# gravity only\n"})
+    assert "gravity only" not in client.get(f"/api/rules?channel={OTHER}").json()["text"]
+
+
+def test_runs_endpoint_lists_history(client):
+    with db.connect() as conn:
+        run = db.start_run(conn, CH, "build")
+        db.finish_run(conn, run, status="ok", detail="2 reached the queue")
+    runs = client.get(f"/api/runs?channel={CH}").json()["runs"]
+    assert runs[0]["detail"] == "2 reached the queue"

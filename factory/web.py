@@ -25,7 +25,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel
 
-from . import channels, db, pipeline, settings
+from . import analytics, channels, db, generators, pipeline, settings
+from .agents import analyst
 from .models import APPROVED, AWAITING_APPROVAL, PLANNED, PUBLISHED
 
 STATIC = Path(__file__).resolve().parent / "static"
@@ -226,6 +227,112 @@ def state(channel: str | None = None) -> dict[str, Any]:
             "spend_total_usd": db.spend(conn),
             "job": JOB.state(),
         }
+
+
+@app.get("/api/clips")
+def clips(
+    channel: str | None = None,
+    status: str | None = None,
+    generator: str | None = None,
+    variant: str | None = None,
+    q: str | None = None,
+) -> dict[str, Any]:
+    with db.connect() as conn:
+        ch = _resolve(conn, channel)
+        rows = db.search_clips(
+            conn, ch.id, status=status, generator=generator, variant=variant, query=q
+        )
+        counts = db.status_counts(conn, ch.id)
+    return {
+        "clips": [
+            {
+                **_clip_json(row),
+                "created_at": row["created_at"],
+                "published_at": row["published_at"],
+                "views": row["views"],
+                "avg_view_pct": row["avg_view_pct"],
+                "swipe_away_pct": row["swipe_away_pct"],
+            }
+            for row in rows
+        ],
+        "counts": counts,
+        # The filter chips are built from this, so a new generator module
+        # appears in the UI without the page knowing its name.
+        "modules": generators.available(ch.variants),
+        "statuses": sorted(counts),
+    }
+
+
+@app.get("/api/analytics")
+def analytics_summary(channel: str | None = None) -> dict[str, Any]:
+    with db.connect() as conn:
+        ch = _resolve(conn, channel)
+        return analytics.summary(conn, ch.id)
+
+
+@app.get("/api/runs")
+def runs(channel: str | None = None, limit: int = 30) -> dict[str, Any]:
+    with db.connect() as conn:
+        ch = _resolve(conn, channel)
+        return {"runs": [dict(r) for r in db.recent_runs(conn, ch.id, limit)]}
+
+
+@app.get("/api/rules")
+def get_rules(channel: str | None = None) -> dict[str, Any]:
+    with db.connect() as conn:
+        ch = _resolve(conn, channel)
+        latest = db.latest_digest(conn, ch.id)
+        text = ch.rules()
+    proposals = json.loads(latest["proposals_json"]) if latest else []
+    return {
+        "channel_id": ch.id,
+        # Relative to the repo: the absolute path is long, machine-specific and
+        # tells the reader nothing they need.
+        "path": str(ch.rules_path.relative_to(settings.ROOT)),
+        "text": text,
+        "proposals": [p for p in proposals if p not in text],
+        "digest": (
+            {
+                "created_at": latest["created_at"],
+                "n_published": latest["n_published"],
+                "body": latest["body"],
+            }
+            if latest
+            else None
+        ),
+    }
+
+
+class RulesBody(BaseModel):
+    channel: str | None = None
+    text: str
+
+
+@app.put("/api/rules")
+def put_rules(body: RulesBody) -> dict[str, Any]:
+    with db.connect() as conn:
+        ch = _resolve(conn, body.channel)
+        ch.rules()  # make sure the file exists before overwriting it
+        ch.rules_path.write_text(body.text)
+    return {"path": str(ch.rules_path), "bytes": len(body.text)}
+
+
+class AcceptBody(BaseModel):
+    channel: str | None = None
+    rules: list[str]
+
+
+@app.post("/api/rules/accept")
+def accept_rules(body: AcceptBody) -> dict[str, Any]:
+    """Append chosen proposals to this channel's rules, one at a time."""
+    with db.connect() as conn:
+        ch = _resolve(conn, body.channel)
+        ch.rules()
+        try:
+            applied = analyst.apply_rules(body.rules, ch.rules_path)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from None
+    return {"applied": applied, "text": ch.rules_path.read_text()}
 
 
 @app.get("/api/clip/{clip_id}/video")

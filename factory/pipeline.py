@@ -319,6 +319,13 @@ def digest(
         ch.rules()  # make sure the file exists before appending to it
         applied = analyst.apply_rules(result.proposed_rules, ch.rules_path)
     db.record_digest(
-        conn, channel_id=ch.id, n_published=len(rows), body=body, rules_applied=bool(applied)
+        conn,
+        channel_id=ch.id,
+        n_published=len(rows),
+        body=body,
+        rules_applied=bool(applied),
+        # Kept whether or not they were applied, so the Rules screen can offer
+        # them one at a time instead of forcing all-or-nothing.
+        proposals=result.proposed_rules,
     )
     return body, cost, applied

@@ -58,6 +58,25 @@ The channel picker in the header switches everything on the page, and shows how
 many clips are waiting on each. One job runs at a time across all channels — a
 build on one channel blocks a build on another, and the page says which.
 
+Five screens, split by how often you touch them:
+
+| Screen | For |
+|---|---|
+| Review | the fifteen minutes that matter: watch, approve, reject |
+| Library | every clip, filterable by status and module, with search — where you go when something went wrong |
+| Analytics | views per clip in publish order, retention by variant and by QC hook score, distance to the monetisation gates |
+| Rules | edit this channel's rules.md in place, and accept Analyst proposals one at a time |
+| Runs | job history with cost, so a failure at 08:40 is still visible at noon |
+
+The Library's filter chips are built from what the server reports, not from a
+list in the page. Finish `market_replay`, set `ready = True`, and it appears as a
+filter, a planning option and an Analytics row without the UI knowing its name.
+
+Two places where the UI states its own limits rather than looking clever:
+Analytics prints n on every group, and the hook-score panel says outright that
+the buckets below the QC floor are empty by construction — the grader never sees
+its own failures.
+
 This exists because the approval step is the one part of the day you cannot do
 from a table of text — a hook is either there in the first second or it is not,
 and you have to watch it to know. Everything else works fine from the CLI.
