@@ -10,6 +10,14 @@ fps = 30
 render_scale = 0.5
 max_seconds = 22
 
+[overlay]
+# On-screen text for the opening seconds. A viewer only waits for an outcome
+# they know exists, so the race asks its question out loud; the funnel sells
+# texture and sound and is left clean.
+seconds = 2.6
+marble_race = "WHICH ONE WINS?"
+funnel_drop = ""
+
 [qc]
 min_seconds = 10
 max_seconds = 60

@@ -226,7 +226,10 @@ class PhysicsSandbox:
         clip_dir.mkdir(parents=True, exist_ok=True)
         wav = audio.render_wav(impacts, duration_s, clip_dir / "audio.wav")
         silent = render.encode_frames(
-            self._frames(states, balls, segments, sim_w, sim_h),
+            self._frames(
+                states, balls, segments, sim_w, sim_h,
+                overlay=self._overlay(variant, sim_w, sim_h, fps),
+            ),
             out_path=clip_dir / "video.mp4",
             src_size=(sim_w, sim_h),
             out_size=(out_w, out_h),
@@ -332,8 +335,31 @@ class PhysicsSandbox:
 
         return states, impacts, balls, segments, winner, winner_frame
 
-    def _frames(self, states, balls, segments, sim_w, sim_h) -> Iterator[bytes]:
-        for positions in states:
+    def _overlay(self, variant: str, sim_w: int, sim_h: int, fps: int):
+        """Opening caption, or None. Returns (text, font, x, y, last_frame)."""
+        cfg = settings.load().raw.get("overlay", {})
+        text = (cfg.get(variant) or "").strip()
+        if not text:
+            return None
+        from ..brand import _font
+
+        font = _font(int(sim_w * 0.072))
+        probe = ImageDraw.Draw(Image.new("RGB", (1, 1)))
+        text_width = probe.textlength(text, font=font)
+        # Two constraints squeeze this: the objects all start at the top of
+        # frame and spend the caption's whole life up there, and Shorts covers
+        # the bottom ~15% and right ~12% with its own UI. That leaves the lower
+        # third but above the UI.
+        return (
+            text,
+            font,
+            (sim_w - text_width) / 2,
+            sim_h * 0.70,
+            int(float(cfg.get("seconds", 0)) * fps),
+        )
+
+    def _frames(self, states, balls, segments, sim_w, sim_h, overlay=None) -> Iterator[bytes]:
+        for frame_index, positions in enumerate(states):
             image = Image.new("RGB", (sim_w, sim_h), BACKGROUND)
             draw = ImageDraw.Draw(image)
             for a, b in segments:
@@ -350,6 +376,14 @@ class PhysicsSandbox:
                     [x - r * 0.42, iy - r * 0.55, x - r * 0.06, iy - r * 0.19],
                     fill=tuple(min(255, c + 60) for c in ball.color),
                 )
+            if overlay is not None:
+                text, font, tx, ty, last = overlay
+                if frame_index < last:
+                    # Fade over the final third rather than cutting, which reads
+                    # as a dropped frame.
+                    fade = min(1.0, (last - frame_index) / max(1, last / 3))
+                    level = int(60 + 195 * fade)
+                    draw.text((tx, ty), text, font=font, fill=(level, level, level))
             yield image.tobytes()
 
 

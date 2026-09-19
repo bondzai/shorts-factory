@@ -233,6 +233,26 @@ def cmd_digest(args) -> int:
     return 0
 
 
+def cmd_brand(args) -> int:
+    from PIL import Image
+
+    from . import brand
+
+    cfg = settings.load()
+    cfg.ensure_dirs()
+    out = cfg.out_dir / "brand"
+    out.mkdir(parents=True, exist_ok=True)
+    for path in [
+        brand.avatar(out / "avatar.png"),
+        brand.banner(out / "banner.png", title=args.title, tagline=args.tagline),
+    ]:
+        with Image.open(path) as image:
+            print(f"{path}  {image.width}x{image.height}")
+    print("\navatar goes in Customization > Branding > Picture")
+    print("banner goes in Customization > Branding > Banner image")
+    return 0
+
+
 def cmd_serve(args) -> int:
     from . import web
 
@@ -270,6 +290,11 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("status", help="counts by stage, and spend").set_defaults(
         func=cmd_status
     )
+
+    p = sub.add_parser("brand", help="draw the channel avatar and banner")
+    p.add_argument("--title", default="GRAVITY LAB")
+    p.add_argument("--tagline", default="no talking  ·  sound on")
+    p.set_defaults(func=cmd_brand)
 
     p = sub.add_parser("serve", help="open the review UI in a browser")
     p.add_argument("--host", default="127.0.0.1")
