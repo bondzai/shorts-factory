@@ -1,0 +1,9 @@
+.venv/
+data/
+__pycache__/
+*.pyc
+*.egg-info/
+.env
+client_secrets.json
+token.json
+.pytest_cache/
