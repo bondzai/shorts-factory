@@ -90,7 +90,7 @@ def review(
     )
     content: list[dict[str, Any]] = [{"type": "text", "text": text}]
     content.extend(llm.image_blocks(frames))
-    return llm.parse(QCVerdict, system=SYSTEM, content=content, max_tokens=4000)
+    return llm.parse(QCVerdict, system=SYSTEM, content=content, max_tokens=4000, agent="qc")
 
 
 def decide(verdict: QCVerdict, failures: list[str]) -> tuple[bool, str]:

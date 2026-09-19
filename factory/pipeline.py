@@ -13,7 +13,7 @@ import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import channels, db, generators, phash, publish, render, settings
+from . import channels, db, generators, logs, phash, publish, render, settings
 from .agents import analyst, idea, metadata as metadata_agent, qc
 from .channels import Channel
 from .models import (
@@ -83,6 +83,12 @@ def plan(
         )
     if ids:
         db.add_cost(conn, ids[0], cost)  # one call covered the whole batch
+    for clip_id, item in zip(ids, plans):
+        logs.event(
+            "clip.planned", channel=ch.id, clip=clip_id,
+            generator=item.generator, variant=item.variant, seed=item.seed,
+            hook=item.hook,
+        )
     return ids, cost
 
 
@@ -133,8 +139,17 @@ def build(conn: sqlite3.Connection, clip_id: str) -> StageOutcome:
             phash=digest_hash,
             sameness=round(sameness, 4),
         )
+        logs.event(
+            "clip.rendered", channel=ch.id, clip=clip_id,
+            duration_s=info["duration_s"], loudness_lufs=loudness,
+            sameness=round(sameness, 4), facts=clip.facts,
+        )
     except Exception as exc:
         db.update(conn, clip_id, status=FAILED, reject_reason=f"render: {exc}")
+        logs.event(
+            "clip.failed", level="error", channel=ch.id, clip=clip_id,
+            stage="render", error=str(exc),
+        )
         return StageOutcome(clip_id, FAILED, f"render failed: {exc}")
 
     recent = [r for r in db.recent(conn, ch.id, limit=8) if r["id"] != clip_id]
@@ -156,9 +171,17 @@ def build(conn: sqlite3.Connection, clip_id: str) -> StageOutcome:
             description=meta.description,
             hashtags_json=json.dumps(meta.hashtags),
         )
+        logs.event(
+            "clip.described", channel=ch.id, clip=clip_id,
+            title=meta.title, hashtags=meta.hashtags, cost_usd=round(cost, 6),
+        )
     except Exception as exc:
         db.add_cost(conn, clip_id, spent)
         db.update(conn, clip_id, status=FAILED, reject_reason=f"metadata: {exc}")
+        logs.event(
+            "clip.failed", level="error", channel=ch.id, clip=clip_id,
+            stage="metadata", error=str(exc),
+        )
         return StageOutcome(clip_id, FAILED, f"metadata failed: {exc}", spent)
 
     try:
@@ -181,6 +204,13 @@ def build(conn: sqlite3.Connection, clip_id: str) -> StageOutcome:
             qc_json=verdict.model_dump_json(),
             reject_reason=None if passed else reason,
         )
+        logs.event(
+            "clip.qc", level="info" if passed else "warn",
+            channel=ch.id, clip=clip_id, passed=passed,
+            hook_strength=verdict.hook_strength, policy_risk=verdict.policy_risk,
+            looks_templated=verdict.looks_templated,
+            hard_failures=failures, reason=reason or None,
+        )
         detail = meta.title if passed else reason
         return StageOutcome(
             clip_id, AWAITING_APPROVAL if passed else QC_REJECTED, detail, spent
@@ -188,6 +218,10 @@ def build(conn: sqlite3.Connection, clip_id: str) -> StageOutcome:
     except Exception as exc:
         db.add_cost(conn, clip_id, spent)
         db.update(conn, clip_id, status=FAILED, reject_reason=f"qc: {exc}")
+        logs.event(
+            "clip.failed", level="error", channel=ch.id, clip=clip_id,
+            stage="qc", error=str(exc),
+        )
         return StageOutcome(clip_id, FAILED, f"qc failed: {exc}", spent)
 
 
@@ -210,12 +244,18 @@ def approve(conn: sqlite3.Connection, clip_id: str) -> None:
     if row is None or row["status"] != AWAITING_APPROVAL:
         raise ValueError(f"{clip_id} is not awaiting approval")
     db.update(conn, clip_id, status=APPROVED)
+    logs.event("clip.approved", channel=row["channel_id"], clip=clip_id, title=row["title"])
 
 
 def reject(conn: sqlite3.Connection, clip_id: str, reason: str) -> None:
-    if db.get(conn, clip_id) is None:
+    row = db.get(conn, clip_id)
+    if row is None:
         raise ValueError(f"no clip {clip_id}")
     db.update(conn, clip_id, status=QC_REJECTED, reject_reason=f"human: {reason}")
+    logs.event(
+        "clip.rejected", level="warn", channel=row["channel_id"], clip=clip_id,
+        reason=reason,
+    )
 
 
 # --- stage 6: publish --------------------------------------------------------
@@ -248,8 +288,17 @@ def publish_approved(
                 remote_id=result.remote_id,
                 published_at=db.now(),
             )
+            logs.event(
+                "clip.published", channel=ch.id, clip=row["id"],
+                platform=result.platform, remote_id=result.remote_id,
+                title=row["title"], driver=ch.driver,
+            )
             results.append(StageOutcome(row["id"], PUBLISHED, result.note))
         except Exception as exc:
+            logs.event(
+                "clip.publish_failed", level="error", channel=ch.id,
+                clip=row["id"], error=str(exc),
+            )
             results.append(StageOutcome(row["id"], APPROVED, f"publish failed: {exc}"))
     return results
 

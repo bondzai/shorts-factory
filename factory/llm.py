@@ -67,12 +67,30 @@ def image_blocks(pngs: list[bytes]) -> list[dict[str, Any]]:
     ]
 
 
+def _record(agent: str | None, response: Any, cost: float) -> None:
+    if not agent:
+        return
+    from . import logs
+
+    usage = getattr(response, "usage", None)
+    logs.event(
+        "agent.call",
+        agent=agent,
+        model=getattr(response, "model", _model()),
+        input_tokens=getattr(usage, "input_tokens", None),
+        output_tokens=getattr(usage, "output_tokens", None),
+        cost_usd=round(cost, 6),
+        stop_reason=getattr(response, "stop_reason", None),
+    )
+
+
 def parse(
     output_model: type[T],
     *,
     system: str,
     content: str | list[dict[str, Any]],
     max_tokens: int = 8000,
+    agent: str | None = None,
 ) -> tuple[T, float]:
     """One structured call. Returns the validated model and what it cost."""
     response = client().messages.parse(
@@ -83,7 +101,9 @@ def parse(
         output_format=output_model,
     )
     _check(response)
-    return response.parsed_output, usd(response.usage)
+    cost = usd(response.usage)
+    _record(agent, response, cost)
+    return response.parsed_output, cost
 
 
 def write(

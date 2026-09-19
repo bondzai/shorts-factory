@@ -11,6 +11,62 @@ Generator slot            Shared pipe
   sysviz       ──┘        rules.md ◀────────────── Analyst ◀───────────────────────────┘
 ```
 
+## Letting an agent drive it
+
+```bash
+factory mcp                  # read and build only
+factory mcp --allow-publish  # also approve and publish
+```
+
+An MCP server on stdio, so Claude Desktop, Claude Code or Codex can run the
+pipeline. Point a client at it:
+
+```json
+{
+  "mcpServers": {
+    "shorts-factory": {
+      "command": "/path/to/shorts-factory/.venv/bin/factory",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+Tools: `list_channels`, `list_modules`, `plan_clips`, `build_clips`,
+`review_queue`, `get_clip`, `reject_clip`, `approve_clip`, `publish_approved`,
+`get_analytics`, `set_metrics`, `read_rules`, `append_rule`, `recent_logs`.
+
+**Approving and publishing are refused unless you pass `--allow-publish`.** The
+design rests on a human watching the first second before a clip goes out, and an
+agent that can approve its own work removes exactly that. Everything up to the
+review queue is always available, because planning and rendering are reversible
+and cost cents. Rejecting is always available too — throwing work away is safe.
+
+The refusal is a `ToolError`, not a bare exception, because the SDK suppresses
+the message of anything it did not expect: the agent needs to read *why* it was
+refused, not just that it was.
+
+Every tool call is written to the event log with `actor: "mcp"`, so
+`factory logs --event mcp.` answers what the agent did without asking it.
+
+## Logs
+
+```bash
+factory logs --limit 40
+factory logs --level error
+factory logs --event clip.        # or agent. / mcp.
+factory logs --clip dcea65130017
+```
+
+One JSON object per line under `data/logs/factory-<date>.jsonl`, and a Logs
+screen in the web UI with the same filters. The runs table says a build happened
+and what it cost; this says what happened inside it — which clip reached which
+stage, what each agent call cost in tokens and dollars, and the exact reason a
+clip was thrown out.
+
+Logging never raises. A broken log must not stop a build, and a half-written
+final line from a killed process is skipped rather than losing the file.
+
 ## Channels
 
 A channel owns its clips, its rules, its publish driver, its credentials and its

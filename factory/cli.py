@@ -370,6 +370,38 @@ def cmd_brand(args) -> int:
     return 0
 
 
+def cmd_logs(args) -> int:
+    from . import logs
+
+    records = logs.read(
+        limit=args.limit, channel=args.channel, level=args.level,
+        event_name=args.event, clip=args.clip,
+    )
+    if not records:
+        print("no events yet")
+        return 0
+    for record in reversed(records):
+        mark = {"error": "!!", "warn": " !"}.get(record["level"], "  ")
+        extra = {
+            k: v for k, v in record.items()
+            if k not in {"at", "level", "event", "channel", "clip", "actor"} and v is not None
+        }
+        who = record.get("actor") or "-"
+        print(
+            f"{record['at'][11:23]} {mark} {record['event']:<20} "
+            f"{record.get('channel') or '-':<12} {record.get('clip') or '-':<13} "
+            f"{who:<6} {json.dumps(extra, default=str, ensure_ascii=False)[:110]}"
+        )
+    return 0
+
+
+def cmd_mcp(args) -> int:
+    from . import mcp as mcp_server
+
+    mcp_server.serve(allow_publish=args.allow_publish)
+    return 0
+
+
 def cmd_serve(args) -> int:
     from . import web
 
@@ -468,6 +500,22 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--title", default="GRAVITY LAB")
     p.add_argument("--tagline", default="no talking  ·  sound on")
     p.set_defaults(func=cmd_brand)
+
+    p = sub.add_parser("logs", help="recent pipeline events")
+    p.add_argument("--limit", type=int, default=60)
+    p.add_argument("--level", choices=list(("debug", "info", "warn", "error")), default=None)
+    p.add_argument("--event", default=None, help="prefix, for example clip. or agent.")
+    p.add_argument("--clip", default=None)
+    p.set_defaults(func=cmd_logs)
+
+    p = sub.add_parser(
+        "mcp", help="run the MCP server on stdio so an agent can drive the factory"
+    )
+    p.add_argument(
+        "--allow-publish", action="store_true",
+        help="let the agent approve and publish; off by default on purpose",
+    )
+    p.set_defaults(func=cmd_mcp)
 
     p = sub.add_parser("serve", help="open the review UI in a browser")
     p.add_argument("--host", default="127.0.0.1")

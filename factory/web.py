@@ -25,7 +25,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel
 
-from . import analytics, channels, db, generators, pipeline, settings
+from . import analytics, channels, db, generators, logs, pipeline, settings
 from .agents import analyst
 from .models import APPROVED, AWAITING_APPROVAL, PLANNED, PUBLISHED
 
@@ -275,6 +275,20 @@ def runs(channel: str | None = None, limit: int = 30) -> dict[str, Any]:
     with db.connect() as conn:
         ch = _resolve(conn, channel)
         return {"runs": [dict(r) for r in db.recent_runs(conn, ch.id, limit)]}
+
+
+@app.get("/api/logs")
+def read_logs(
+    channel: str | None = None,
+    level: str | None = None,
+    event: str | None = None,
+    limit: int = 120,
+) -> dict[str, Any]:
+    with db.connect() as conn:
+        ch = _resolve(conn, channel)
+    return {
+        "events": logs.read(limit=limit, channel=ch.id, level=level, event_name=event)
+    }
 
 
 @app.get("/api/rules")

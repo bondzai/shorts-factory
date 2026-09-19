@@ -55,7 +55,7 @@ def digest(rows: list[sqlite3.Row]) -> tuple[Digest, float, bool]:
         )
         + f"\nData:\n{_rows_for_model(rows)}"
     )
-    result, cost = llm.parse(Digest, system=SYSTEM, content=content, max_tokens=16000)
+    result, cost = llm.parse(Digest, system=SYSTEM, content=content, max_tokens=16000, agent="analyst")
 
     if not rules_allowed and result.proposed_rules:
         # The gate is enforced here, not in the prompt.

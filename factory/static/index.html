@@ -101,6 +101,7 @@
   <div class="group">SYSTEM</div>
   <a data-view="rules">Rules <span class="grow"></span><span class="count" id="n-rules">0</span></a>
   <a data-view="runs">Runs</a>
+  <a data-view="logs">Logs</a>
 </nav>
 
 <div class="wrap">
@@ -204,6 +205,7 @@ async function renderView() {
   if (view === "analytics") return renderAnalytics();
   if (view === "rules") return renderRules();
   if (view === "runs") return renderRuns();
+  if (view === "logs") return renderLogs();
 }
 
 /* ---------- review ---------- */
@@ -388,6 +390,45 @@ async function renderRuns() {
         <td class="hint">$${Number(r.cost_usd || 0).toFixed(4)}</td></tr>`).join("")
         || `<tr><td colspan="5" class="empty">No runs recorded yet.</td></tr>`}</tbody>
     </table>`;
+}
+
+/* ---------- logs ---------- */
+async function renderLogs() {
+  const params = new URLSearchParams({ channel });
+  if (filters.level) params.set("level", filters.level);
+  if (filters.event) params.set("event", filters.event);
+  const body = await api(`/api/logs?${params}`);
+  const chip = (label, key, value) =>
+    `<button class="small" data-logfilter="${key}" data-value="${esc(value)}"
+      style="${filters[key] === value ? "border-color:#efa027;color:#efa027" : ""}">${esc(label)}</button>`;
+  const colour = (l) => l === "error" ? "var(--no)" : l === "warn" ? "var(--key)" : "var(--dim)";
+  $("#stage").innerHTML = `
+    <div class="bar">
+      ${chip("all levels", "level", "")}${chip("warn", "level", "warn")}${chip("error", "level", "error")}
+      <span style="width:12px"></span>
+      ${chip("all events", "event", "")}${chip("clip.", "event", "clip.")}${chip("agent.", "event", "agent.")}${chip("mcp.", "event", "mcp.")}
+    </div>
+    <table>
+      <thead><tr><th>Time</th><th>Event</th><th>Clip</th><th>By</th><th>Detail</th></tr></thead>
+      <tbody>${body.events.map((e) => {
+        const extra = Object.fromEntries(Object.entries(e).filter(([k, v]) =>
+          !["at", "level", "event", "channel", "clip", "actor"].includes(k) && v !== null));
+        return `<tr>
+          <td class="hint">${esc(e.at.slice(11, 23))}</td>
+          <td style="color:${colour(e.level)}">${esc(e.event)}</td>
+          <td class="hint">${esc(e.clip || "")}</td>
+          <td class="hint">${esc(e.actor || "")}</td>
+          <td class="hint" style="word-break:break-word">${esc(JSON.stringify(extra).slice(0, 160))}</td>
+        </tr>`;
+      }).join("") || `<tr><td colspan="5" class="empty">No events yet.</td></tr>`}</tbody>
+    </table>`;
+  document.querySelectorAll("[data-logfilter]").forEach((b) => {
+    b.onclick = () => {
+      const key = b.dataset.logfilter, value = b.dataset.value;
+      filters[key] = filters[key] === value ? "" : value;
+      renderLogs();
+    };
+  });
 }
 
 /* ---------- chrome ---------- */

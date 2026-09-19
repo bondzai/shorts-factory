@@ -48,5 +48,5 @@ def write_metadata(
     content: list[dict[str, Any]] = [{"type": "text", "text": text}]
     content.extend(llm.image_blocks(frames))
 
-    metadata, cost = llm.parse(Metadata, system=SYSTEM, content=content, max_tokens=4000)
+    metadata, cost = llm.parse(Metadata, system=SYSTEM, content=content, max_tokens=4000, agent="metadata")
     return metadata, cost

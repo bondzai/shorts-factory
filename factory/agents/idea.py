@@ -69,7 +69,7 @@ def propose(
         f"The last {len(recent)} clips on this channel, newest first:\n{_history(recent)}\n\n"
         f"Propose exactly {count} clip plan(s)."
     )
-    batch, cost = llm.parse(ClipPlanBatch, system=SYSTEM, content=content, max_tokens=8000)
+    batch, cost = llm.parse(ClipPlanBatch, system=SYSTEM, content=content, max_tokens=8000, agent="idea")
 
     plans: list[ClipPlan] = []
     rng = random.Random()

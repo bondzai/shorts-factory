@@ -18,7 +18,8 @@ youtube = [
     "google-api-python-client>=2.130",
     "google-auth-oauthlib>=1.2",
 ]
-dev = ["pytest>=8.0", "httpx>=0.27"]
+agent = ["mcp>=2.0"]
+dev = ["pytest>=8.0", "httpx>=0.27", "mcp>=2.0"]
 
 [project.scripts]
 factory = "factory.cli:main"
