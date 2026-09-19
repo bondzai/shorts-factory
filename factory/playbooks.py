@@ -32,7 +32,8 @@ def available() -> list[str]:
 def _recent(conn: sqlite3.Connection, channel_id: str, limit: int = 12) -> str:
     rows = conn.execute(
         """
-        SELECT generator, variant, seed, title, status, views, avg_view_pct
+        SELECT generator, variant, seed, title, status, views, avg_view_pct,
+               reject_reason
         FROM clips WHERE channel_id = ?
         ORDER BY id DESC LIMIT ?
         """,
@@ -47,9 +48,15 @@ def _recent(conn: sqlite3.Connection, channel_id: str, limit: int = 12) -> str:
             performance = f" — {row['views']} views"
             if row["avg_view_pct"] is not None:
                 performance += f", {row['avg_view_pct']:.0f}% average viewed"
+        # The first clause of a reject reason is the measured one when there
+        # is one; the rest is reviewer prose. An agent asked "was the cause
+        # addressed?" can only answer if the cause is in front of it.
+        why = ""
+        if row["reject_reason"]:
+            why = f" — rejected: {row['reject_reason'].split(';')[0].strip()}"
         lines.append(
             f"- {row['generator']}/{row['variant']} seed {row['seed']} "
-            f"[{row['status']}] {row['title'] or '(no title yet)'}{performance}"
+            f"[{row['status']}] {row['title'] or '(no title yet)'}{performance}{why}"
         )
     return "\n".join(lines)
 

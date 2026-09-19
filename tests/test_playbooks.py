@@ -103,3 +103,18 @@ def test_the_prompt_only_offers_modules_the_channel_allows(sandbox):
 def test_the_mcp_tool_and_the_cli_serve_the_same_text(sandbox):
     assert "make-clip" in playbooks.available()
     assert playbooks.render("make-clip") == playbooks.render("make-clip", None)
+
+
+def test_a_rejected_clip_carries_its_reason_into_the_prompt(sandbox):
+    """Codex, asked to plan a week, correctly refused to re-run a rejected
+    variant "until the rejection's cause has been addressed" — and then had no
+    way to know the cause, because the prompt listed the status without the
+    reason. Only the measured clause is passed on; reviewer prose stays out."""
+    with db.connect() as conn:
+        make_clip(
+            conn, status="qc_rejected", title="Jammed",
+            reject_reason="too similar to an existing clip: 0.91 > 0.88; felt samey",
+        )
+    text = playbooks.render("plan-week", "main")
+    assert "rejected: too similar to an existing clip: 0.91 > 0.88" in text
+    assert "felt samey" not in text

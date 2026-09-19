@@ -129,8 +129,9 @@ class MarketReplay:
     blurb = (
         "Candles forming one bar at a time with a volume panel underneath. "
         "crash_replay builds to a fall, final_hour to a climb. Reads real bars "
-        "from data/market/*.csv when present, otherwise a simulated series that "
-        "the clip labels as simulated."
+        "from data/market/*.csv when present, otherwise a simulated series. A "
+        "simulated one is marked in the clip's facts and description; there is "
+        "no text on screen either way."
     )
 
     def generate(
