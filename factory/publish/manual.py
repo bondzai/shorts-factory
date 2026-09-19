@@ -23,6 +23,9 @@ def _slug(text: str, limit: int = 48) -> str:
 class ManualPublisher:
     name = "manual"
 
+    def __init__(self, channel) -> None:
+        self.channel = channel
+
     def publish(
         self,
         *,
@@ -32,7 +35,7 @@ class ManualPublisher:
         description: str,
         hashtags: list[str],
     ) -> PublishResult:
-        queue = settings.load().out_dir / "publish-queue"
+        queue = settings.load().out_dir / self.channel.id / "publish-queue"
         queue.mkdir(parents=True, exist_ok=True)
         stem = f"{clip_id}-{_slug(title)}"
         shutil.copy2(video_path, queue / f"{stem}.mp4")

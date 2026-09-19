@@ -1,5 +1,19 @@
+CREATE TABLE IF NOT EXISTS channels (
+    id            TEXT PRIMARY KEY,
+    created_at    TEXT NOT NULL,
+    name          TEXT NOT NULL,
+    handle        TEXT,
+    platform      TEXT NOT NULL DEFAULT 'youtube',
+    driver        TEXT NOT NULL DEFAULT 'manual',
+    variants_json TEXT NOT NULL DEFAULT '[]',
+    cadence       INTEGER NOT NULL DEFAULT 1,
+    active        INTEGER NOT NULL DEFAULT 1,
+    note          TEXT
+);
+
 CREATE TABLE IF NOT EXISTS clips (
     id              TEXT PRIMARY KEY,
+    channel_id      TEXT NOT NULL DEFAULT 'main' REFERENCES channels (id),
     created_at      TEXT NOT NULL,
     generator       TEXT NOT NULL,
     variant         TEXT,
@@ -34,13 +48,28 @@ CREATE TABLE IF NOT EXISTS clips (
     cost_usd        REAL NOT NULL DEFAULT 0
 );
 
-CREATE INDEX IF NOT EXISTS clips_status ON clips (status);
-CREATE INDEX IF NOT EXISTS clips_published ON clips (published_at);
+CREATE INDEX IF NOT EXISTS clips_status ON clips (channel_id, status);
+CREATE INDEX IF NOT EXISTS clips_published ON clips (channel_id, published_at);
 
 CREATE TABLE IF NOT EXISTS digests (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    channel_id    TEXT NOT NULL DEFAULT 'main' REFERENCES channels (id),
     created_at    TEXT NOT NULL,
     n_published   INTEGER NOT NULL,
     body          TEXT NOT NULL,
     rules_applied INTEGER NOT NULL DEFAULT 0
 );
+
+CREATE TABLE IF NOT EXISTS runs (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    channel_id  TEXT NOT NULL DEFAULT 'main' REFERENCES channels (id),
+    started_at  TEXT NOT NULL,
+    ended_at    TEXT,
+    kind        TEXT NOT NULL,
+    status      TEXT NOT NULL,
+    detail      TEXT,
+    log         TEXT,
+    cost_usd    REAL NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS runs_recent ON runs (channel_id, started_at DESC);

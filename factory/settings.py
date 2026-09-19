@@ -52,7 +52,12 @@ class Settings:
         return ROOT / self.raw["paths"]["out"]
 
     @property
+    def channels_dir(self) -> Path:
+        return ROOT / "channels"
+
+    @property
     def rules_path(self) -> Path:
+        """Legacy single-channel rules. Kept only as a seed for the first channel."""
         return ROOT / "rules.md"
 
     @property
@@ -68,7 +73,7 @@ class Settings:
         return self.raw["llm"]
 
     def ensure_dirs(self) -> None:
-        for path in (self.db_path.parent, self.work_dir, self.out_dir):
+        for path in (self.db_path.parent, self.work_dir, self.out_dir, self.channels_dir):
             path.mkdir(parents=True, exist_ok=True)
 
 

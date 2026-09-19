@@ -20,6 +20,56 @@ def new_id() -> str:
     return uuid.uuid4().hex[:12]
 
 
+def _columns(conn: sqlite3.Connection, table: str) -> set[str]:
+    return {r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+
+
+def migrate(conn: sqlite3.Connection) -> list[str]:
+    """Bring a database written before channels existed up to date.
+
+    Runs on every connect and does nothing when there is nothing to do. A fresh
+    database gets the right shape straight from schema.sql; this exists for the
+    one already holding published clips.
+    """
+    from .channels import DEFAULT_ID
+
+    done: list[str] = []
+    for table in ("clips", "digests"):
+        if "channel_id" not in _columns(conn, table):
+            conn.execute(
+                f"ALTER TABLE {table} ADD COLUMN channel_id TEXT NOT NULL DEFAULT '{DEFAULT_ID}'"
+            )
+            done.append(f"{table}.channel_id added")
+
+    has_channel = conn.execute(
+        "SELECT 1 FROM channels WHERE id = ?", (DEFAULT_ID,)
+    ).fetchone()
+    orphans = conn.execute(
+        "SELECT COUNT(*) n FROM clips WHERE channel_id IS NULL OR channel_id = ''"
+    ).fetchone()["n"]
+    clips_exist = conn.execute("SELECT COUNT(*) n FROM clips").fetchone()["n"]
+
+    if not has_channel and (clips_exist or orphans):
+        driver = settings.load().raw["publish"]["driver"]
+        conn.execute(
+            """INSERT INTO channels
+               (id, created_at, name, handle, platform, driver, variants_json, cadence, active, note)
+               VALUES (?, ?, 'Main channel', NULL, 'youtube', ?, '[]', 1, 1,
+                       'created by migration from a single-channel database')""",
+            (DEFAULT_ID, now(), driver),
+        )
+        done.append("default channel created")
+    if orphans:
+        conn.execute(
+            "UPDATE clips SET channel_id = ? WHERE channel_id IS NULL OR channel_id = ''",
+            (DEFAULT_ID,),
+        )
+        done.append(f"{orphans} clips adopted")
+    if done:
+        conn.commit()
+    return done
+
+
 def connect() -> sqlite3.Connection:
     cfg = settings.load()
     cfg.ensure_dirs()
@@ -27,12 +77,14 @@ def connect() -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     conn.executescript(SCHEMA.read_text())
+    migrate(conn)
     return conn
 
 
 def insert_clip(
     conn: sqlite3.Connection,
     *,
+    channel_id: str,
     generator: str,
     variant: str,
     seed: int,
@@ -43,9 +95,13 @@ def insert_clip(
     clip_id = new_id()
     conn.execute(
         """INSERT INTO clips
-           (id, created_at, generator, variant, seed, params_json, hook, plan_why, status)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'planned')""",
-        (clip_id, now(), generator, variant, seed, json.dumps(params), hook, plan_why),
+           (id, channel_id, created_at, generator, variant, seed, params_json,
+            hook, plan_why, status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'planned')""",
+        (
+            clip_id, channel_id, now(), generator, variant, seed,
+            json.dumps(params), hook, plan_why,
+        ),
     )
     conn.commit()
     return clip_id
@@ -82,47 +138,112 @@ def get(conn: sqlite3.Connection, clip_id: str) -> sqlite3.Row | None:
     return conn.execute("SELECT * FROM clips WHERE id = ?", (clip_id,)).fetchone()
 
 
-def by_status(conn: sqlite3.Connection, status: str, limit: int = 100) -> list[sqlite3.Row]:
+def by_status(
+    conn: sqlite3.Connection, channel_id: str, status: str, limit: int = 100
+) -> list[sqlite3.Row]:
     return conn.execute(
-        "SELECT * FROM clips WHERE status = ? ORDER BY created_at LIMIT ?",
-        (status, limit),
+        """SELECT * FROM clips WHERE channel_id = ? AND status = ?
+           ORDER BY created_at LIMIT ?""",
+        (channel_id, status, limit),
     ).fetchall()
 
 
-def recent(conn: sqlite3.Connection, limit: int = 10) -> list[sqlite3.Row]:
+def recent(conn: sqlite3.Connection, channel_id: str, limit: int = 10) -> list[sqlite3.Row]:
     return conn.execute(
-        "SELECT * FROM clips ORDER BY created_at DESC LIMIT ?", (limit,)
+        "SELECT * FROM clips WHERE channel_id = ? ORDER BY created_at DESC LIMIT ?",
+        (channel_id, limit),
     ).fetchall()
 
 
-def known_phashes(conn: sqlite3.Connection, exclude: str | None = None) -> list[str]:
+def known_phashes(
+    conn: sqlite3.Connection, channel_id: str, exclude: str | None = None
+) -> list[str]:
+    """Sameness is judged within a channel — two channels may share a look."""
     rows = conn.execute(
-        "SELECT id, phash FROM clips WHERE phash IS NOT NULL"
+        "SELECT id, phash FROM clips WHERE channel_id = ? AND phash IS NOT NULL",
+        (channel_id,),
     ).fetchall()
     return [r["phash"] for r in rows if r["id"] != exclude]
 
 
-def status_counts(conn: sqlite3.Connection) -> dict[str, int]:
-    rows = conn.execute("SELECT status, COUNT(*) n FROM clips GROUP BY status").fetchall()
+def status_counts(conn: sqlite3.Connection, channel_id: str) -> dict[str, int]:
+    rows = conn.execute(
+        "SELECT status, COUNT(*) n FROM clips WHERE channel_id = ? GROUP BY status",
+        (channel_id,),
+    ).fetchall()
     return {r["status"]: r["n"] for r in rows}
 
 
-def published_with_metrics(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+def spend(conn: sqlite3.Connection, channel_id: str | None = None) -> float:
+    if channel_id:
+        row = conn.execute(
+            "SELECT SUM(cost_usd) s FROM clips WHERE channel_id = ?", (channel_id,)
+        ).fetchone()
+    else:
+        row = conn.execute("SELECT SUM(cost_usd) s FROM clips").fetchone()
+    return round(row["s"] or 0.0, 4)
+
+
+def published_with_metrics(conn: sqlite3.Connection, channel_id: str) -> list[sqlite3.Row]:
     return conn.execute(
         """SELECT * FROM clips
-           WHERE status = 'published' AND views IS NOT NULL
-           ORDER BY published_at"""
+           WHERE channel_id = ? AND status = 'published' AND views IS NOT NULL
+           ORDER BY published_at""",
+        (channel_id,),
     ).fetchall()
 
 
 def record_digest(
-    conn: sqlite3.Connection, *, n_published: int, body: str, rules_applied: bool
+    conn: sqlite3.Connection,
+    *,
+    channel_id: str,
+    n_published: int,
+    body: str,
+    rules_applied: bool,
 ) -> None:
     conn.execute(
-        "INSERT INTO digests (created_at, n_published, body, rules_applied) VALUES (?, ?, ?, ?)",
-        (now(), n_published, body, int(rules_applied)),
+        """INSERT INTO digests (channel_id, created_at, n_published, body, rules_applied)
+           VALUES (?, ?, ?, ?, ?)""",
+        (channel_id, now(), n_published, body, int(rules_applied)),
     )
     conn.commit()
+
+
+def start_run(conn: sqlite3.Connection, channel_id: str, kind: str) -> int:
+    cursor = conn.execute(
+        "INSERT INTO runs (channel_id, started_at, kind, status) VALUES (?, ?, ?, 'running')",
+        (channel_id, now(), kind),
+    )
+    conn.commit()
+    return int(cursor.lastrowid)
+
+
+def finish_run(
+    conn: sqlite3.Connection,
+    run_id: int,
+    *,
+    status: str,
+    detail: str = "",
+    log: str = "",
+    cost_usd: float = 0.0,
+) -> None:
+    conn.execute(
+        """UPDATE runs SET ended_at = ?, status = ?, detail = ?, log = ?, cost_usd = ?
+           WHERE id = ?""",
+        (now(), status, detail, log, cost_usd, run_id),
+    )
+    conn.commit()
+
+
+def recent_runs(
+    conn: sqlite3.Connection, channel_id: str | None = None, limit: int = 20
+) -> list[sqlite3.Row]:
+    if channel_id:
+        return conn.execute(
+            "SELECT * FROM runs WHERE channel_id = ? ORDER BY id DESC LIMIT ?",
+            (channel_id, limit),
+        ).fetchall()
+    return conn.execute("SELECT * FROM runs ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
 
 
 def rows_to_dicts(rows: Iterable[sqlite3.Row]) -> list[dict[str, Any]]:

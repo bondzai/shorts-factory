@@ -4,6 +4,7 @@ from .base import (  # noqa: F401
     GeneratedClip,
     Generator,
     all_generators,
+    available,
     catalogue,
     get,
     ready_generators,

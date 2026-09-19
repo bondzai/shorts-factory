@@ -48,30 +48,41 @@ def _history(rows: list[sqlite3.Row]) -> str:
 
 
 def propose(
-    *, count: int, rules: str, recent: list[sqlite3.Row], used_seeds: set[int]
+    *,
+    count: int,
+    rules: str,
+    recent: list[sqlite3.Row],
+    used_seeds: set[int],
+    channel_name: str,
+    allowed: list[str] | None = None,
 ) -> tuple[list[ClipPlan], float]:
+    menu = generators.available(allowed)
+    if not menu:
+        raise ValueError(
+            "this channel has no ready generator enabled; add one with "
+            "`factory channels edit <id> --variant physics/marble_race`"
+        )
     content = (
-        f"Generators available:\n{generators.catalogue()}\n\n"
-        f"rules.md:\n---\n{rules}\n---\n\n"
-        f"The last {len(recent)} clips, newest first:\n{_history(recent)}\n\n"
+        f"Channel: {channel_name}\n\n"
+        f"Generators available to this channel:\n{generators.catalogue(allowed)}\n\n"
+        f"Its rules:\n---\n{rules}\n---\n\n"
+        f"The last {len(recent)} clips on this channel, newest first:\n{_history(recent)}\n\n"
         f"Propose exactly {count} clip plan(s)."
     )
     batch, cost = llm.parse(ClipPlanBatch, system=SYSTEM, content=content, max_tokens=8000)
 
-    ready = generators.ready_generators()
     plans: list[ClipPlan] = []
     rng = random.Random()
     for plan in batch.plans[:count]:
-        if plan.generator not in ready:
+        if plan.generator not in menu:
             raise ValueError(
-                f"idea agent picked generator {plan.generator!r}, "
-                f"which is not ready; have {sorted(ready)}"
+                f"idea agent picked generator {plan.generator!r}, which this "
+                f"channel cannot use; have {sorted(menu)}"
             )
-        gen = ready[plan.generator]
-        if plan.variant not in gen.variants:
+        if plan.variant not in menu[plan.generator]:
             raise ValueError(
                 f"idea agent picked variant {plan.variant!r} for {plan.generator!r}; "
-                f"have {gen.variants}"
+                f"have {menu[plan.generator]}"
             )
         # A reused seed would render a byte-identical clip.
         while plan.seed in used_seeds:

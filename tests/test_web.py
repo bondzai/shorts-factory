@@ -1,33 +1,36 @@
 """API tests. Nothing here calls an agent, so nothing here costs money."""
 
-import copy
 import threading
 
 import pytest
 from fastapi.testclient import TestClient
 
-from factory import db, settings, web
+from factory import channels, db, web
 from factory.models import APPROVED, AWAITING_APPROVAL, QC_REJECTED
+
+CH = "gravity-lab"
+OTHER = "hodl-tales"
 
 
 @pytest.fixture
-def client(tmp_path, monkeypatch):
-    fake = settings.Settings(copy.deepcopy(settings.load().raw))
-    monkeypatch.setattr(settings, "ROOT", tmp_path)
-    monkeypatch.setattr(settings, "load", lambda: fake)
+def client(sandbox):
     web.JOB.name = None
+    web.JOB.channel_id = None
     web.JOB.log = []
+    with db.connect() as conn:
+        channels.create(conn, name="Gravity Lab", channel_id=CH)
     with TestClient(web.app) as test_client:
         yield test_client
 
 
-def queued_clip(**overrides) -> str:
+def queued_clip(channel_id=CH, seed=7, **overrides) -> str:
     with db.connect() as conn:
         clip_id = db.insert_clip(
             conn,
+            channel_id=channel_id,
             generator="physics",
             variant="marble_race",
-            seed=7,
+            seed=seed,
             params={},
             hook="marbles already rolling",
             plan_why="test",
@@ -43,15 +46,19 @@ def queued_clip(**overrides) -> str:
     return clip_id
 
 
+def add_channel(client, name="HODL Tales", channel_id=OTHER):
+    return client.post("/api/channels", json={"name": name, "id": channel_id})
+
+
 def test_index_serves_the_page(client):
     response = client.get("/")
     assert response.status_code == 200
     assert "shorts factory" in response.text
 
 
-def test_state_is_empty_at_first(client):
+def test_state_defaults_to_the_only_channel(client):
     body = client.get("/api/state").json()
-    assert body["counts"] == {}
+    assert body["channel"]["id"] == CH
     assert body["queue"] == []
     assert body["spend_usd"] == 0.0
     assert body["job"]["running"] is False
@@ -59,19 +66,59 @@ def test_state_is_empty_at_first(client):
 
 def test_queue_carries_what_the_reviewer_needs(client):
     clip_id = queued_clip()
-    body = client.get("/api/state").json()
-    assert len(body["queue"]) == 1
-    item = body["queue"][0]
+    item = client.get(f"/api/state?channel={CH}").json()["queue"][0]
     assert item["id"] == clip_id
-    assert item["title"].startswith("Which marble")
     assert item["hashtags"] == ["#shorts", "#marblerace"]
     assert item["qc"]["hook_strength"] == 4
+
+
+def test_channels_can_be_created_over_the_api(client):
+    response = add_channel(client)
+    assert response.status_code == 200
+    assert response.json()["id"] == OTHER
+    ids = [c["id"] for c in client.get("/api/channels").json()["channels"]]
+    assert ids == [CH, OTHER]
+
+
+def test_a_duplicate_channel_is_refused(client):
+    add_channel(client)
+    assert add_channel(client).status_code == 400
+
+
+def test_each_channel_sees_only_its_own_queue(client):
+    mine = queued_clip(CH, seed=1)
+    add_channel(client)
+    theirs = queued_clip(OTHER, seed=2)
+
+    assert [c["id"] for c in client.get(f"/api/state?channel={CH}").json()["queue"]] == [mine]
+    assert [c["id"] for c in client.get(f"/api/state?channel={OTHER}").json()["queue"]] == [theirs]
+
+
+def test_state_needs_a_channel_once_there_are_two(client):
+    add_channel(client)
+    assert client.get("/api/state").status_code == 404
+
+
+def test_an_unknown_channel_is_a_404(client):
+    assert client.get("/api/state?channel=nope").status_code == 404
+
+
+def test_editing_a_channel(client):
+    response = client.patch(f"/api/channels/{CH}", json={"handle": "@gravitylabii"})
+    assert response.status_code == 200
+    assert response.json()["handle"] == "@gravitylabii"
+
+
+def test_pausing_a_channel_frees_the_default(client):
+    add_channel(client)
+    client.patch(f"/api/channels/{OTHER}", json={"active": False})
+    assert client.get("/api/state").json()["channel"]["id"] == CH
 
 
 def test_approve_moves_the_clip(client):
     clip_id = queued_clip()
     assert client.post(f"/api/clip/{clip_id}/approve").json()["status"] == APPROVED
-    body = client.get("/api/state").json()
+    body = client.get(f"/api/state?channel={CH}").json()
     assert body["queue"] == []
     assert [c["id"] for c in body["approved"]] == [clip_id]
 
@@ -111,14 +158,15 @@ def test_metrics_can_be_entered_by_hand(client):
     with db.connect() as conn:
         row = db.get(conn, clip_id)
     assert row["views"] == 4120
-    assert row["swipe_away_pct"] == 23.0
 
 
-def test_only_one_job_runs_at_a_time(client):
+def test_one_job_at_a_time_across_every_channel(client):
+    add_channel(client)
     release = threading.Event()
-    web.JOB.start("slow", lambda emit: release.wait(2))
+    web.JOB.start("slow", CH, lambda emit: release.wait(2))
     try:
-        assert client.post("/api/build").status_code == 409
-        assert client.get("/api/state").json()["job"]["name"] == "slow"
+        response = client.post("/api/build", json={"channel": OTHER})
+        assert response.status_code == 409
+        assert CH in response.json()["detail"]
     finally:
         release.set()

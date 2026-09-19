@@ -54,9 +54,26 @@ def ready_generators() -> dict[str, Generator]:
     return {name: gen for name, gen in _REGISTRY.items() if getattr(gen, "ready", True)}
 
 
-def catalogue() -> str:
+def available(allowed: list[str] | None = None) -> dict[str, list[str]]:
+    """Ready generator -> its variants, narrowed to what a channel allows.
+
+    `allowed` holds "generator/variant" strings; empty or None means the channel
+    takes anything that is ready.
+    """
+    out: dict[str, list[str]] = {}
+    for name, gen in ready_generators().items():
+        variants = [
+            v for v in gen.variants if not allowed or f"{name}/{v}" in allowed
+        ]
+        if variants:
+            out[name] = variants
+    return out
+
+
+def catalogue(allowed: list[str] | None = None) -> str:
     """The generator menu, as text for the Idea agent's prompt. Ready modules only."""
+    registry = ready_generators()
     return "\n".join(
-        f"- {gen.name} (variants: {', '.join(gen.variants)}): {gen.blurb}"
-        for gen in ready_generators().values()
+        f"- {name} (variants: {', '.join(variants)}): {registry[name].blurb}"
+        for name, variants in available(allowed).items()
     )

@@ -37,13 +37,14 @@ class Publisher(Protocol):
     def fetch_metrics(self, remote_id: str) -> Metrics: ...
 
 
-def get(name: str) -> Publisher:
+def get(name: str, channel) -> Publisher:
+    """Drivers are per channel: separate output folder, separate credentials."""
     if name == "manual":
         from .manual import ManualPublisher
 
-        return ManualPublisher()
+        return ManualPublisher(channel)
     if name == "youtube":
         from .youtube import YouTubePublisher
 
-        return YouTubePublisher()
+        return YouTubePublisher(channel)
     raise KeyError(f"unknown publish driver {name!r}: use 'manual' or 'youtube'")

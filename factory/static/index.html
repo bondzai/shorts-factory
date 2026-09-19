@@ -15,11 +15,11 @@
     font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, sans-serif;
   }
   header {
-    display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
-    padding: 14px 22px; border-bottom: 1px solid var(--line); position: sticky;
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    padding: 13px 22px; border-bottom: 1px solid var(--line); position: sticky;
     top: 0; background: var(--bg); z-index: 5;
   }
-  h1 { font-size: 16px; font-weight: 600; margin: 0; letter-spacing: .02em; }
+  h1 { font-size: 15px; font-weight: 600; margin: 0; letter-spacing: .02em; }
   .pills { display: flex; gap: 8px; flex-wrap: wrap; }
   .pill {
     background: var(--panel); border: 1px solid var(--line); border-radius: 999px;
@@ -27,12 +27,12 @@
   }
   .pill b { color: var(--ink); font-weight: 600; }
   .grow { flex: 1; }
-  button {
+  button, select {
     background: var(--panel); color: var(--ink); border: 1px solid var(--line);
     border-radius: 8px; padding: 7px 13px; font: inherit; font-size: 13.5px;
     cursor: pointer;
   }
-  button:hover:not(:disabled) { border-color: #45455a; }
+  button:hover:not(:disabled), select:hover { border-color: #45455a; }
   button:disabled { opacity: .45; cursor: default; }
   button.ok { border-color: #3f5a24; color: var(--ok); }
   button.no { border-color: #5e2422; color: var(--no); }
@@ -68,27 +68,28 @@
   .strip button[aria-current="true"] { border-color: var(--key); color: var(--key); }
   .empty { color: var(--dim); padding: 40px 0; }
   .hint { color: var(--dim); font-size: 12.5px; }
-  a { color: #6f9fd8; }
 </style>
 </head>
 <body>
 <header>
   <h1>shorts factory</h1>
+  <label for="channel" class="hint">Channel</label>
+  <select id="channel"></select>
   <div class="pills" id="pills"></div>
   <div class="grow"></div>
-  <span class="pill">spend <b id="spend">$0</b></span>
-  <span class="pill">driver <b id="driver">—</b></span>
+  <span class="pill">this channel <b id="spend">$0</b></span>
+  <span class="pill">all <b id="spendall">$0</b></span>
 </header>
 
 <main>
   <div class="bar">
     <button data-plan="1">Plan 1</button>
     <button data-plan="3">Plan 3</button>
-    <button data-plan="5">Plan 5</button>
     <button id="build">Build</button>
     <button id="publish">Publish approved</button>
     <button id="digest">Digest</button>
     <span class="grow"></span>
+    <button id="addchannel">Add channel</button>
     <button id="sound">Sound: off</button>
   </div>
 
@@ -98,7 +99,7 @@
 
 <script>
 const $ = (s) => document.querySelector(s);
-let state = null, index = 0, sound = false, busy = false;
+let state = null, channels = [], channel = null, index = 0, sound = false, busy = false;
 
 const fmt = (n, d = 1) => (n === null || n === undefined) ? "—" : Number(n).toFixed(d);
 
@@ -111,19 +112,40 @@ async function api(path, options) {
   return res.json();
 }
 
-async function post(path, body) {
-  return api(path, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body || {}),
-  });
+const post = (path, body) => api(path, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(body || {}),
+});
+
+function escape(text) {
+  return String(text).replace(/[&<>"]/g, (ch) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
+}
+
+async function loadChannels() {
+  const body = await api("/api/channels");
+  channels = body.channels;
+  if (!channels.length) return;
+  if (!channel || !channels.some((c) => c.id === channel)) {
+    channel = (channels.find((c) => c.active) || channels[0]).id;
+  }
+  $("#channel").innerHTML = channels.map((c) =>
+    `<option value="${escape(c.id)}" ${c.id === channel ? "selected" : ""}>
+      ${escape(c.name)}${c.queue ? ` · ${c.queue} waiting` : ""}${c.active ? "" : " (paused)"}
+    </option>`).join("");
 }
 
 async function refresh() {
   try {
-    state = await api("/api/state");
+    if (!channels.length) await loadChannels();
+    if (!channels.length) {
+      $("#stage").innerHTML = `<p class="empty">No channels yet. Add one to start.</p>`;
+      return;
+    }
+    state = await api(`/api/state?channel=${encodeURIComponent(channel)}`);
   } catch (err) {
-    $("#stage").innerHTML = `<p class="empty">cannot reach the server: ${err.message}</p>`;
+    $("#stage").innerHTML = `<p class="empty">cannot reach the server: ${escape(err.message)}</p>`;
     return;
   }
   busy = state.job.running;
@@ -138,7 +160,7 @@ function renderPills() {
     .map((k) => `<span class="pill">${k.replace(/_/g, " ")} <b>${counts[k]}</b></span>`)
     .join("");
   $("#spend").textContent = "$" + Number(state.spend_usd).toFixed(4);
-  $("#driver").textContent = state.driver;
+  $("#spendall").textContent = "$" + Number(state.spend_total_usd).toFixed(4);
 }
 
 function renderLog() {
@@ -146,7 +168,8 @@ function renderLog() {
   const lines = state.job.log;
   log.hidden = lines.length === 0;
   if (lines.length) {
-    const label = state.job.running ? `${state.job.name} running…\n` : "";
+    const job = state.job;
+    const label = job.running ? `${job.name} running on ${job.channel_id}…\n` : "";
     log.textContent = label + lines.join("\n");
     log.scrollTop = log.scrollHeight;
   }
@@ -158,8 +181,9 @@ function renderClip() {
   const queue = state.queue;
   const stage = $("#stage");
   if (!queue.length) {
-    stage.innerHTML = `<p class="empty">Queue is empty. Plan some clips, then Build —
-      whatever survives QC shows up here.</p>`;
+    stage.innerHTML = `<p class="empty">Queue is empty on ${escape(state.channel.name)}.
+      ${state.planned ? state.planned + " clip(s) planned — press Build." :
+        "Plan some clips, then Build; whatever survives QC shows up here."}</p>`;
     return;
   }
   index = Math.min(index, queue.length - 1);
@@ -203,11 +227,6 @@ function renderClip() {
   });
 }
 
-function escape(text) {
-  return String(text).replace(/[&<>"]/g, (ch) =>
-    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
-}
-
 async function decide(id, what) {
   const body = what === "reject" ? { reason: "rejected in review" } : {};
   try {
@@ -215,6 +234,7 @@ async function decide(id, what) {
   } catch (err) {
     alert(err.message);
   }
+  await loadChannels();
   await refresh();
 }
 
@@ -224,16 +244,36 @@ function render() {
   renderClip();
 }
 
+$("#channel").onchange = async (event) => {
+  channel = event.target.value;
+  index = 0;
+  await refresh();
+};
+
+$("#addchannel").onclick = async () => {
+  const name = prompt("Channel name (for example: HODL Tales)");
+  if (!name) return;
+  const handle = prompt("Handle, or leave blank") || null;
+  try {
+    const created = await post("/api/channels", { name, handle });
+    channels = [];
+    channel = created.id;
+    await refresh();
+  } catch (err) {
+    alert(err.message);
+  }
+};
+
 document.querySelectorAll("button[data-plan]").forEach((b) => {
   b.onclick = async () => {
-    try { await post("/api/plan", { count: Number(b.dataset.plan) }); }
+    try { await post("/api/plan", { channel, count: Number(b.dataset.plan) }); }
     catch (err) { alert(err.message); }
     refresh();
   };
 });
 for (const [id, path] of [["build", "/api/build"], ["publish", "/api/publish"], ["digest", "/api/digest"]]) {
   $("#" + id).onclick = async () => {
-    try { await post(path); } catch (err) { alert(err.message); }
+    try { await post(path, { channel }); } catch (err) { alert(err.message); }
     refresh();
   };
 }
@@ -247,7 +287,7 @@ $("#sound").onclick = () => {
 document.addEventListener("keydown", (event) => {
   // event.target can be the document, which has no matches() — calling it
   // blind throws and silently kills every shortcut.
-  if (event.target?.matches?.("input, textarea")) return;
+  if (event.target?.matches?.("input, textarea, select")) return;
   const queue = state?.queue || [];
   if (!queue.length) return;
   const current = queue[index];

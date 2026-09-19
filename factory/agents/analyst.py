@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from pathlib import Path
 
 from .. import llm, settings
 from ..models import Digest
@@ -66,11 +67,11 @@ MARKER_BEGIN = "<!-- analyst:begin -->"
 MARKER_END = "<!-- analyst:end -->"
 
 
-def apply_rules(bullets: list[str]) -> int:
-    """Append accepted rules between the markers in rules.md. Returns how many."""
+def apply_rules(bullets: list[str], rules_path: Path) -> int:
+    """Append accepted rules between the markers in a channel's rules.md."""
     if not bullets:
         return 0
-    path = settings.load().rules_path
+    path = rules_path
     text = path.read_text()
     if MARKER_BEGIN not in text or MARKER_END not in text:
         raise ValueError(f"{path} is missing the analyst markers")

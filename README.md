@@ -11,6 +11,38 @@ Generator slot            Shared pipe
   sysviz       ──┘        rules.md ◀────────────── Analyst ◀───────────────────────────┘
 ```
 
+## Channels
+
+A channel owns its clips, its rules, its publish driver, its credentials and its
+sameness history. Nothing crosses between them, and that is the point: what a
+marble audience rewards says nothing about a crypto one, so one shared rules file
+would actively mislead both.
+
+```bash
+factory channels list
+factory channels add "HODL Tales" --handle @HODLTales --variant sysviz/hash_avalanche
+factory channels edit hodl --pause
+```
+
+Every command works on one channel. With a single active channel it is chosen for
+you; with several, pass `--channel <id>`. Pausing a channel takes it out of that
+choice without deleting anything.
+
+| What | Where |
+|---|---|
+| Rules | `channels/<id>/rules.md` |
+| OAuth token | `channels/<id>/token.json` |
+| Manual publish queue | `data/out/<id>/publish-queue/` |
+| Clips, runs, digests | one `channel_id` column each |
+
+`--variant generator/variant` restricts what the Idea agent may propose for that
+channel; leave it empty and the channel takes any ready module. The id is
+internal and never changes — rename the display name whenever you like.
+
+An existing single-channel database migrates itself on the next connect: the
+column is added, a channel called `main` is created, and every clip is adopted
+into it. Nothing is lost and the migration is a no-op the second time.
+
 ## The review UI
 
 ```bash
@@ -21,6 +53,10 @@ Opens on http://127.0.0.1:8765. One clip at a time, playing, with its QC verdict
 and technical numbers beside it; <kbd>A</kbd> approves, <kbd>R</kbd> rejects,
 <kbd>J</kbd>/<kbd>K</kbd> move, <kbd>space</kbd> pauses. Plan, Build, Publish and
 Digest are buttons that stream their log into the page.
+
+The channel picker in the header switches everything on the page, and shows how
+many clips are waiting on each. One job runs at a time across all channels — a
+build on one channel blocks a build on another, and the page says which.
 
 This exists because the approval step is the one part of the day you cannot do
 from a table of text — a hook is either there in the first second or it is not,

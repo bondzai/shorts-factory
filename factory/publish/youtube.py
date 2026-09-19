@@ -7,8 +7,10 @@ Needs the optional extras and an OAuth client:
 Create a Desktop-app OAuth client in Google Cloud Console for a project with
 both "YouTube Data API v3" and "YouTube Analytics API" enabled, download it as
 client_secrets.json into the repo root, then run any command that publishes; a
-browser window will ask you to authorise once and the token is cached in
-token.json. Both files are gitignored.
+browser window will ask you to authorise once per channel and that channel's
+token is cached at channels/<id>/token.json. Authorise each channel while
+signed in to that channel's account — one token per channel is the whole point.
+All of it is gitignored.
 
 A note on the retention number: YouTube has no "swipe-away" metric. What this
 reads is audienceWatchRatio in the first 2% of the clip, and swipe_away_pct is
@@ -28,10 +30,9 @@ SCOPES = [
     "https://www.googleapis.com/auth/yt-analytics.readonly",
 ]
 CLIENT_SECRETS = ROOT / "client_secrets.json"
-TOKEN = ROOT / "token.json"
 
 
-def _credentials():
+def _credentials(token_path):
     try:
         from google.auth.transport.requests import Request
         from google.oauth2.credentials import Credentials
@@ -40,8 +41,8 @@ def _credentials():
         raise RuntimeError("install the youtube extra: pip install -e '.[youtube]'") from exc
 
     creds = None
-    if TOKEN.exists():
-        creds = Credentials.from_authorized_user_file(str(TOKEN), SCOPES)
+    if token_path.exists():
+        creds = Credentials.from_authorized_user_file(str(token_path), SCOPES)
     if creds and creds.expired and creds.refresh_token:
         creds.refresh(Request())
     if not creds or not creds.valid:
@@ -49,18 +50,28 @@ def _credentials():
             raise RuntimeError(f"missing {CLIENT_SECRETS}; see this module's docstring")
         flow = InstalledAppFlow.from_client_secrets_file(str(CLIENT_SECRETS), SCOPES)
         creds = flow.run_local_server(port=0)
-    TOKEN.write_text(creds.to_json())
+    token_path.parent.mkdir(parents=True, exist_ok=True)
+    token_path.write_text(creds.to_json())
     return creds
 
 
-def _service(name: str, version: str):
+def _service(name: str, version: str, token_path):
     from googleapiclient.discovery import build
 
-    return build(name, version, credentials=_credentials(), cache_discovery=False)
+    return build(
+        name, version, credentials=_credentials(token_path), cache_discovery=False
+    )
 
 
 class YouTubePublisher:
     name = "youtube"
+
+    def __init__(self, channel) -> None:
+        # One token per channel. Sharing one would publish to whichever account
+        # authorised last, which is the kind of mistake you find out about from
+        # a viewer.
+        self.channel = channel
+        self.token_path = channel.token_path
 
     def publish(
         self,
@@ -84,7 +95,7 @@ class YouTubePublisher:
             "status": {"privacyStatus": "private", "selfDeclaredMadeForKids": False},
         }
         media = MediaFileUpload(str(video_path), mimetype="video/mp4", resumable=True)
-        request = _service("youtube", "v3").videos().insert(
+        request = _service("youtube", "v3", self.token_path).videos().insert(
             part="snippet,status", body=body, media_body=media
         )
         response = None
@@ -98,7 +109,7 @@ class YouTubePublisher:
 
     def fetch_metrics(self, remote_id: str) -> Metrics:
         stats = (
-            _service("youtube", "v3")
+            _service("youtube", "v3", self.token_path)
             .videos()
             .list(part="statistics", id=remote_id)
             .execute()
@@ -108,7 +119,7 @@ class YouTubePublisher:
             raise RuntimeError(f"video {remote_id} not found")
         statistics = items[0]["statistics"]
 
-        analytics = _service("youtubeAnalytics", "v2")
+        analytics = _service("youtubeAnalytics", "v2", self.token_path)
         summary = analytics.reports().query(
             ids="channel==MINE",
             startDate="2005-01-01",

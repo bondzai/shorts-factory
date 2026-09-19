@@ -2,8 +2,8 @@
 
     plan -> render -> metadata -> qc -> (queue) -> approve -> publish -> metrics
 
-Each stage reads and writes exactly one clip row, so a crash costs one clip and
-`factory build` can be run again without redoing finished work.
+Every stage is scoped to one channel: its rules, its allowed generators, its
+publish driver, its credentials, its sameness history. Nothing crosses.
 """
 
 from __future__ import annotations
@@ -13,8 +13,9 @@ import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import db, generators, phash, publish, render, settings
+from . import channels, db, generators, phash, publish, render, settings
 from .agents import analyst, idea, metadata as metadata_agent, qc
+from .channels import Channel
 from .models import (
     APPROVED,
     AWAITING_APPROVAL,
@@ -35,10 +36,6 @@ class StageOutcome:
     cost_usd: float = 0.0
 
 
-def _rules() -> str:
-    return settings.load().rules_path.read_text()
-
-
 def _sample_times(duration: float) -> list[float]:
     return [
         min(0.3, duration / 10),
@@ -48,19 +45,34 @@ def _sample_times(duration: float) -> list[float]:
     ]
 
 
+def resolve(conn: sqlite3.Connection, channel: Channel | str | None) -> Channel:
+    if isinstance(channel, Channel):
+        return channel
+    return channels.resolve(conn, channel)
+
+
 # --- stage 1: plan -----------------------------------------------------------
 
-def plan(conn: sqlite3.Connection, count: int) -> tuple[list[str], float]:
-    recent = db.recent(conn, limit=12)
+def plan(
+    conn: sqlite3.Connection, channel: Channel | str | None, count: int
+) -> tuple[list[str], float]:
+    ch = resolve(conn, channel)
+    recent = db.recent(conn, ch.id, limit=12)
     used = {row["seed"] for row in conn.execute("SELECT seed FROM clips").fetchall()}
     plans, cost = idea.propose(
-        count=count, rules=_rules(), recent=recent, used_seeds=used
+        count=count,
+        rules=ch.rules(),
+        recent=recent,
+        used_seeds=used,
+        channel_name=ch.name,
+        allowed=ch.variants,
     )
     ids = []
     for item in plans:
         ids.append(
             db.insert_clip(
                 conn,
+                channel_id=ch.id,
                 generator=item.generator,
                 variant=item.variant,
                 seed=item.seed,
@@ -80,16 +92,21 @@ def build(conn: sqlite3.Connection, clip_id: str) -> StageOutcome:
     row = db.get(conn, clip_id)
     if row is None:
         raise KeyError(f"no clip {clip_id!r}")
+    ch = channels.get(conn, row["channel_id"])
     cfg = settings.load()
     spent = 0.0
 
     try:
+        if not ch.allows(row["generator"], row["variant"]):
+            raise ValueError(
+                f"{ch.id} no longer allows {row['generator']}/{row['variant']}"
+            )
         gen = generators.get(row["generator"])
         clip = gen.generate(
             seed=row["seed"],
             variant=row["variant"],
             params=json.loads(row["params_json"]),
-            work_dir=cfg.work_dir / clip_id,
+            work_dir=cfg.work_dir / ch.id / clip_id,
         )
         info = render.probe(clip.video_path)
         loudness = render.loudness_lufs(clip.video_path)
@@ -97,7 +114,9 @@ def build(conn: sqlite3.Connection, clip_id: str) -> StageOutcome:
         if not frames:
             raise RuntimeError("could not sample any frame from the render")
         digest_hash = phash.clip_hash(frames)
-        sameness = phash.max_similarity(digest_hash, db.known_phashes(conn, exclude=clip_id))
+        sameness = phash.max_similarity(
+            digest_hash, db.known_phashes(conn, ch.id, exclude=clip_id)
+        )
 
         db.update(
             conn,
@@ -118,13 +137,13 @@ def build(conn: sqlite3.Connection, clip_id: str) -> StageOutcome:
         db.update(conn, clip_id, status=FAILED, reject_reason=f"render: {exc}")
         return StageOutcome(clip_id, FAILED, f"render failed: {exc}")
 
-    recent = [r for r in db.recent(conn, limit=8) if r["id"] != clip_id]
+    recent = [r for r in db.recent(conn, ch.id, limit=8) if r["id"] != clip_id]
     try:
         meta, cost = metadata_agent.write_metadata(
             description=clip.description,
             facts=clip.facts,
             hook=row["hook"] or "",
-            rules=_rules(),
+            rules=ch.rules(),
             recent_titles=[r["title"] for r in recent if r["title"]],
             frames=frames,
         )
@@ -172,14 +191,18 @@ def build(conn: sqlite3.Connection, clip_id: str) -> StageOutcome:
         return StageOutcome(clip_id, FAILED, f"qc failed: {exc}", spent)
 
 
-def build_all(conn: sqlite3.Connection, limit: int = 20) -> list[StageOutcome]:
-    return [build(conn, row["id"]) for row in db.by_status(conn, PLANNED, limit)]
+def build_all(
+    conn: sqlite3.Connection, channel: Channel | str | None, limit: int = 20
+) -> list[StageOutcome]:
+    ch = resolve(conn, channel)
+    return [build(conn, row["id"]) for row in db.by_status(conn, ch.id, PLANNED, limit)]
 
 
 # --- stage 5: the human gate -------------------------------------------------
 
-def queue(conn: sqlite3.Connection) -> list[sqlite3.Row]:
-    return db.by_status(conn, AWAITING_APPROVAL)
+def queue(conn: sqlite3.Connection, channel: Channel | str | None) -> list[sqlite3.Row]:
+    ch = resolve(conn, channel)
+    return db.by_status(conn, ch.id, AWAITING_APPROVAL)
 
 
 def approve(conn: sqlite3.Connection, clip_id: str) -> None:
@@ -198,15 +221,15 @@ def reject(conn: sqlite3.Connection, clip_id: str, reason: str) -> None:
 # --- stage 6: publish --------------------------------------------------------
 
 def publish_approved(
-    conn: sqlite3.Connection, *, dry_run: bool = False
+    conn: sqlite3.Connection, channel: Channel | str | None, *, dry_run: bool = False
 ) -> list[StageOutcome]:
-    driver_name = settings.load().raw["publish"]["driver"]
-    driver = publish.get(driver_name)
+    ch = resolve(conn, channel)
+    driver = publish.get(ch.driver, ch)
     results = []
-    for row in db.by_status(conn, APPROVED):
+    for row in db.by_status(conn, ch.id, APPROVED):
         if dry_run:
             results.append(
-                StageOutcome(row["id"], APPROVED, f"would publish via {driver_name}")
+                StageOutcome(row["id"], APPROVED, f"would publish via {ch.driver}")
             )
             continue
         try:
@@ -233,10 +256,13 @@ def publish_approved(
 
 # --- stage 7: metrics and the feedback loop ---------------------------------
 
-def pull_metrics(conn: sqlite3.Connection) -> list[StageOutcome]:
-    driver = publish.get(settings.load().raw["publish"]["driver"])
+def pull_metrics(
+    conn: sqlite3.Connection, channel: Channel | str | None
+) -> list[StageOutcome]:
+    ch = resolve(conn, channel)
+    driver = publish.get(ch.driver, ch)
     results = []
-    for row in db.by_status(conn, PUBLISHED, limit=500):
+    for row in db.by_status(conn, ch.id, PUBLISHED, limit=500):
         if not row["remote_id"]:
             continue
         try:
@@ -279,16 +305,20 @@ def set_metrics(
     )
 
 
-def digest(conn: sqlite3.Connection, *, apply_rules: bool) -> tuple[str, float, int]:
-    rows = db.published_with_metrics(conn)
+def digest(
+    conn: sqlite3.Connection, channel: Channel | str | None, *, apply_rules: bool
+) -> tuple[str, float, int]:
+    ch = resolve(conn, channel)
+    rows = db.published_with_metrics(conn, ch.id)
     if not rows:
-        return ("No published clip has metrics yet. Nothing to analyse.", 0.0, 0)
+        return (f"No published clip on {ch.name} has metrics yet.", 0.0, 0)
     result, cost, allowed = analyst.digest(rows)
     body = analyst.render_digest(result, len(rows), allowed)
     applied = 0
     if apply_rules and result.proposed_rules:
-        applied = analyst.apply_rules(result.proposed_rules)
+        ch.rules()  # make sure the file exists before appending to it
+        applied = analyst.apply_rules(result.proposed_rules, ch.rules_path)
     db.record_digest(
-        conn, n_published=len(rows), body=body, rules_applied=bool(applied)
+        conn, channel_id=ch.id, n_published=len(rows), body=body, rules_applied=bool(applied)
     )
     return body, cost, applied
