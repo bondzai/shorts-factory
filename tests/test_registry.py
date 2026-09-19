@@ -3,23 +3,23 @@ import pytest
 from factory import generators
 
 
-def test_physics_is_ready_and_stubs_are_not():
+def test_ready_modules_are_separated_from_stubs():
     all_gens = generators.all_generators()
     assert set(all_gens) == {"physics", "market_replay", "sysviz"}
     assert all_gens["physics"].ready is True
-    assert all_gens["market_replay"].ready is False
+    assert all_gens["market_replay"].ready is True
     assert all_gens["sysviz"].ready is False
 
 
 def test_catalogue_hides_stubs():
     text = generators.catalogue()
     assert "physics" in text
-    assert "market_replay" not in text
+    assert "market_replay" in text
     assert "sysviz" not in text
 
 
 def test_ready_generators_is_the_idea_agents_menu():
-    assert set(generators.ready_generators()) == {"physics"}
+    assert set(generators.ready_generators()) == {"physics", "market_replay"}
 
 
 def test_get_unknown_names_what_exists():

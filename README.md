@@ -130,6 +130,32 @@ so a build an agent ran while the tab sat there still shows up. It only
 re-renders when something actually differs — rebuilding the review pane would
 restart the clip that is playing.
 
+## How many clips a variant can hold
+
+`sameness` is the highest similarity against every earlier clip on the channel,
+so it can only climb as the library grows. Generating 25 `marble_race` clips in
+a row and applying the guard each time, 17 were accepted and 8 rejected, with
+rejections clustering towards the end: the first five all passed, the last few
+mostly did not. A variant has a capacity, and that is arithmetic rather than
+taste.
+
+The same test on `market_replay` accepted 21 of 25, and market clips score
+0.52-0.60 against marble clips — far below the line, so the two never crowd each
+other. Adding a variant adds capacity; tuning one variant's looks moves its
+ceiling but does not remove it.
+
+This is the reason a 100-clip target needs more than one variant.
+
+### market_replay and where its data comes from
+
+Put real bars at `data/market/<name>.csv` with the columns
+`time,open,high,low,close,volume`, using data you have the right to redistribute
+as a rendered chart. With no CSV present the series is generated from the seed,
+the clip is marked `synthetic` in its facts, and its description opens with "A
+simulated price series, not real market data" — because the description is what
+the title gets written from, and a chart of invented data captioned as a real
+crash is a lie told to a viewer who cannot check it.
+
 ## Disk, and clips that stopped halfway
 
 ```bash
@@ -311,7 +337,7 @@ factory render-check --variant marble_race --seed 42
 | Piece | State |
 |---|---|
 | `factory/generators/physics.py` | Real. Two variants, pymunk simulation, PIL frames, synthesised impact audio, deterministic from the seed. |
-| `factory/generators/market_replay.py` | Stub. Docstring lists the four steps; nothing else in the pipeline changes when you finish it. |
+| `factory/generators/market_replay.py` | Real. Candles forming one bar at a time with a volume panel, from a CSV you provide or a simulated series the clip labels as simulated. |
 | `factory/generators/sysviz.py` | Stub, same. |
 | `factory/agents/` | Real. Four agents: Idea, Metadata, QC, Analyst. |
 | `factory/publish/manual.py` | Real, and the default. Writes `data/out/publish-queue/` for you to upload by hand. |
