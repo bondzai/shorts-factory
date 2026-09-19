@@ -27,6 +27,7 @@ class Refused(RuntimeError):
 def client() -> anthropic.Anthropic:
     # Resolves ANTHROPIC_API_KEY, then ANTHROPIC_AUTH_TOKEN, then an
     # `ant auth login` profile. Do not pass a key in here.
+    settings.load_env()
     return anthropic.Anthropic()
 
 

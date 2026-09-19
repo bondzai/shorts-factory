@@ -73,8 +73,9 @@ def cmd_doctor(args) -> int:
             print("auth      ok")
         else:
             print(
-                "auth      MISSING — export ANTHROPIC_API_KEY, or run `ant auth login`.\n"
-                "          Claude Code's own login does not carry into this process."
+                "auth      MISSING — put ANTHROPIC_API_KEY=... in this repo's .env,\n"
+                "          export it, or run `ant auth login`. An export only\n"
+                "          exists in the terminal you typed it in."
             )
             ok = False
     except Exception as exc:

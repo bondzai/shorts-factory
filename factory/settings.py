@@ -1,11 +1,38 @@
 from __future__ import annotations
 
+import os
 import tomllib
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+
+
+@lru_cache(maxsize=1)
+def load_env() -> int:
+    """Read KEY=VALUE lines from .env into the environment, if it exists.
+
+    A real environment variable always wins, so this can never quietly override
+    a key you exported on purpose. The file is gitignored. It exists because an
+    export in one terminal is invisible to every other process, which is a
+    confusing way to lose half an hour.
+    """
+    path = ROOT / ".env"
+    if not path.exists():
+        return 0
+    loaded = 0
+    for line in path.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key and value and key not in os.environ:
+            os.environ[key] = value
+            loaded += 1
+    return loaded
 
 
 @dataclass(frozen=True)
