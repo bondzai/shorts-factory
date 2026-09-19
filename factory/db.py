@@ -41,6 +41,10 @@ def migrate(conn: sqlite3.Connection) -> list[str]:
             )
             done.append(f"{table}.channel_id added")
 
+    if "purged_at" not in _columns(conn, "clips"):
+        conn.execute("ALTER TABLE clips ADD COLUMN purged_at TEXT")
+        done.append("clips.purged_at added")
+
     if "proposals_json" not in _columns(conn, "digests"):
         conn.execute("ALTER TABLE digests ADD COLUMN proposals_json TEXT NOT NULL DEFAULT '[]'")
         done.append("digests.proposals_json added")
@@ -122,7 +126,7 @@ _ALLOWED_COLUMNS = {
     "loudness_lufs", "phash", "sameness", "title", "description",
     "hashtags_json", "qc_json", "reject_reason", "platform", "remote_id",
     "published_at", "views", "avg_view_pct", "swipe_away_pct", "likes",
-    "metrics_at",
+    "metrics_at", "purged_at",
 }
 
 

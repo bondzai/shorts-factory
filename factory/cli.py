@@ -395,6 +395,66 @@ def cmd_logs(args) -> int:
     return 0
 
 
+def cmd_gc(args) -> int:
+    from . import gc
+
+    before = gc.disk_usage()
+    verb = "would free" if args.dry_run else "freed"
+    print(f"data/work {before['work_mb']} MB · data/out {before['out_mb']} MB\n")
+
+    leftovers = gc.sweep_all_intermediates(dry_run=args.dry_run)
+    if leftovers.files:
+        print(
+            f"intermediates: {verb} {leftovers.mb} MB across {leftovers.files} "
+            f"file(s) in {len(leftovers.clips)} directory(ies)"
+        )
+
+    with db.connect() as conn:
+        swept = gc.sweep_clips(conn, dry_run=args.dry_run, channel_id=args.channel)
+    if not swept.clips:
+        print("settled clips: nothing old enough to remove")
+    else:
+        print(
+            f"settled clips: {verb} {swept.mb} MB across {swept.files} file(s) "
+            f"from {len(swept.clips)} clip(s)"
+        )
+        for clip_id in swept.clips:
+            print(f"  {clip_id}")
+    if not leftovers.files and not swept.clips:
+        return 0
+    if args.dry_run:
+        print("\nnothing was deleted; drop --dry-run to do it")
+    return 0
+
+
+def cmd_resume(args) -> int:
+    with db.connect() as conn:
+        channel = channels.resolve(conn, args.channel)
+        rows = pipeline.stuck(conn, channel.id, include_failed=args.include_failed)
+        if not rows:
+            print(f"{channel.name}: nothing stuck")
+            return 0
+        print(f"{channel.name}: {len(rows)} stuck clip(s)")
+        for row in rows:
+            print(f"  {row['id']}  {row['status']:<12} {row['title'] or row['hook'] or ''}")
+        if args.dry_run:
+            print("\nnothing was run; drop --dry-run to resume them")
+            return 0
+        run = db.start_run(conn, channel.id, "resume")
+        outcomes = pipeline.resume(
+            conn, channel, include_failed=args.include_failed, limit=args.limit
+        )
+        total = sum(o.cost_usd for o in outcomes)
+        print()
+        for outcome in outcomes:
+            print(f"{outcome.clip_id}  {outcome.status:18} {outcome.detail}")
+        db.finish_run(
+            conn, run, status="ok", detail=f"{len(outcomes)} resumed", cost_usd=total
+        )
+        print(f"\n{len(outcomes)} resumed, ${total:.4f}")
+    return 0
+
+
 def cmd_cost(args) -> int:
     from . import analytics, llm
 
@@ -534,6 +594,16 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--event", default=None, help="prefix, for example clip. or agent.")
     p.add_argument("--clip", default=None)
     p.set_defaults(func=cmd_logs)
+
+    p = sub.add_parser("gc", help="delete rendered files whose outcome is settled")
+    p.add_argument("--dry-run", action="store_true")
+    p.set_defaults(func=cmd_gc)
+
+    p = sub.add_parser("resume", help="push clips that stopped between stages the rest of the way")
+    p.add_argument("--include-failed", action="store_true", dest="include_failed")
+    p.add_argument("--limit", type=int, default=20)
+    p.add_argument("--dry-run", action="store_true")
+    p.set_defaults(func=cmd_resume)
 
     p = sub.add_parser("cost", help="spend per agent and per model, from the event log")
     p.add_argument("--days", type=int, default=7)

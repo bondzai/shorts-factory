@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS clips (
     swipe_away_pct  REAL,
     likes           INTEGER,
     metrics_at      TEXT,
+    purged_at       TEXT,
     cost_usd        REAL NOT NULL DEFAULT 0
 );
 

@@ -18,6 +18,13 @@ seconds = 2.6
 marble_race = "WHICH ONE WINS?"
 funnel_drop = ""
 
+[retention]
+# Days to keep the rendered file after a clip's outcome is settled. -1 keeps it
+# forever. Intermediates (the silent mp4 and the wav) are always dropped as
+# soon as the muxed clip exists — clip.mp4 already contains both.
+rejected_days = 3
+published_days = 30
+
 [qc]
 min_seconds = 10
 max_seconds = 60

@@ -76,6 +76,35 @@ refused, not just that it was.
 Every tool call is written to the event log with `actor: "mcp"`, so
 `factory logs --event mcp.` answers what the agent did without asking it.
 
+## Disk, and clips that stopped halfway
+
+```bash
+factory gc --dry-run      # say what would go
+factory gc
+factory resume --dry-run  # list clips stuck between stages
+factory resume
+```
+
+Every clip leaves `video.mp4` (silent, pre-mux), `audio.wav` and `clip.mp4`
+behind — about 4.5 MB, of which roughly 3 MB is dead the moment the mux lands.
+The pre-mux pair is dropped automatically after each build; `gc` also sweeps
+directories left by earlier runs and by `render-check`, which never goes through
+the pipeline.
+
+`clip.mp4` itself is only removed once a clip's outcome is settled *and* it is
+old enough: `[retention] rejected_days = 3`, `published_days = 30`, `-1` to keep
+forever. A clip waiting in the review queue is never touched whatever its age,
+and a swept clip is marked `purged_at` so it is never counted twice. `data/out`
+is left alone entirely — the copy in the publish queue is what you actually
+shipped.
+
+**Resume** exists because a build that dies after the render but before QC used
+to strand the clip: re-running it paid to re-render and re-title work already on
+disk. Each stage is now skipped when its output is present and still valid, so
+resuming a stranded clip costs one QC call instead of a full rebuild — measured
+at 0.6s against roughly 6s. `--include-failed` picks up clips that errored;
+`build --force` ignores all of it and redoes everything.
+
 ## Choosing a model per agent
 
 The four agents are not the same job, so they do not have to share a model.

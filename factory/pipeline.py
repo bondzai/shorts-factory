@@ -13,7 +13,7 @@ import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import channels, db, generators, logs, phash, publish, render, settings
+from . import channels, db, gc, generators, logs, phash, publish, render, settings
 from .agents import analyst, idea, metadata as metadata_agent, qc
 from .channels import Channel
 from .models import (
@@ -26,6 +26,15 @@ from .models import (
     QC_REJECTED,
     RENDERED,
 )
+
+
+@dataclass
+class _Written:
+    """Metadata already on the row, shaped like the agent's return value."""
+
+    title: str
+    description: str
+    hashtags: list[str]
 
 
 @dataclass
@@ -94,7 +103,15 @@ def plan(
 
 # --- stages 2-4: render, metadata, qc ---------------------------------------
 
-def build(conn: sqlite3.Connection, clip_id: str) -> StageOutcome:
+def build(conn: sqlite3.Connection, clip_id: str, *, force: bool = False) -> StageOutcome:
+    """Take a clip as far as the review queue, resuming from wherever it stopped.
+
+    A build that dies after the render but before QC used to leave the clip
+    stranded: re-running it would re-render and re-title, paying twice for work
+    already on disk. Each stage is skipped when its output is already there and
+    still valid, so `resume` is just `build` on a clip that is not `planned`.
+    `force` ignores all of that and redoes everything.
+    """
     row = db.get(conn, clip_id)
     if row is None:
         raise KeyError(f"no clip {clip_id!r}")
@@ -102,48 +119,78 @@ def build(conn: sqlite3.Connection, clip_id: str) -> StageOutcome:
     cfg = settings.load()
     spent = 0.0
 
-    try:
-        if not ch.allows(row["generator"], row["variant"]):
-            raise ValueError(
-                f"{ch.id} no longer allows {row['generator']}/{row['variant']}"
-            )
-        gen = generators.get(row["generator"])
-        clip = gen.generate(
-            seed=row["seed"],
-            variant=row["variant"],
-            params=json.loads(row["params_json"]),
-            work_dir=cfg.work_dir / ch.id / clip_id,
-        )
-        info = render.probe(clip.video_path)
-        loudness = render.loudness_lufs(clip.video_path)
-        frames = render.sample_frames(clip.video_path, _sample_times(info["duration_s"]))
-        if not frames:
-            raise RuntimeError("could not sample any frame from the render")
-        digest_hash = phash.clip_hash(frames)
-        sameness = phash.max_similarity(
-            digest_hash, db.known_phashes(conn, ch.id, exclude=clip_id)
-        )
+    existing = Path(row["video_path"]) if row["video_path"] else None
+    reuse_render = (
+        not force
+        and existing is not None
+        and existing.exists()
+        and row["duration_s"]
+        and not row["purged_at"]
+    )
 
-        db.update(
-            conn,
-            clip_id,
-            status=RENDERED,
-            video_path=str(clip.video_path),
-            render_desc=clip.description,
-            facts_json=json.dumps(clip.facts, default=str),
-            duration_s=info["duration_s"],
-            width=info["width"],
-            height=info["height"],
-            fps=info["fps"],
-            loudness_lufs=loudness,
-            phash=digest_hash,
-            sameness=round(sameness, 4),
-        )
-        logs.event(
-            "clip.rendered", channel=ch.id, clip=clip_id,
-            duration_s=info["duration_s"], loudness_lufs=loudness,
-            sameness=round(sameness, 4), facts=clip.facts,
-        )
+    try:
+        if reuse_render:
+            info = {
+                "width": row["width"], "height": row["height"],
+                "fps": row["fps"], "duration_s": row["duration_s"],
+            }
+            loudness = row["loudness_lufs"]
+            frames = render.sample_frames(existing, _sample_times(info["duration_s"]))
+            if not frames:
+                raise RuntimeError(f"cannot read frames back from {existing}")
+            sameness = row["sameness"] or 0.0
+            clip = generators.GeneratedClip(
+                video_path=existing,
+                duration_s=info["duration_s"],
+                description=row["render_desc"] or "",
+                facts=json.loads(row["facts_json"] or "{}"),
+            )
+            logs.event("clip.render_reused", channel=ch.id, clip=clip_id, path=str(existing))
+        else:
+            if not ch.allows(row["generator"], row["variant"]):
+                raise ValueError(
+                    f"{ch.id} no longer allows {row['generator']}/{row['variant']}"
+                )
+            gen = generators.get(row["generator"])
+            clip = gen.generate(
+                seed=row["seed"],
+                variant=row["variant"],
+                params=json.loads(row["params_json"]),
+                work_dir=cfg.work_dir / ch.id / clip_id,
+            )
+            info = render.probe(clip.video_path)
+            loudness = render.loudness_lufs(clip.video_path)
+            frames = render.sample_frames(clip.video_path, _sample_times(info["duration_s"]))
+            if not frames:
+                raise RuntimeError("could not sample any frame from the render")
+            digest_hash = phash.clip_hash(frames)
+            sameness = phash.max_similarity(
+                digest_hash, db.known_phashes(conn, ch.id, exclude=clip_id)
+            )
+
+            db.update(
+                conn,
+                clip_id,
+                status=RENDERED,
+                video_path=str(clip.video_path),
+                render_desc=clip.description,
+                facts_json=json.dumps(clip.facts, default=str),
+                duration_s=info["duration_s"],
+                width=info["width"],
+                height=info["height"],
+                fps=info["fps"],
+                loudness_lufs=loudness,
+                phash=digest_hash,
+                sameness=round(sameness, 4),
+            )
+            # The silent mp4 and the wav are dead the moment the mux lands.
+            swept = gc.sweep_intermediates(clip.video_path.parent)
+            logs.event(
+                "clip.rendered", channel=ch.id, clip=clip_id,
+                duration_s=info["duration_s"], loudness_lufs=loudness,
+                sameness=round(sameness, 4), facts=clip.facts,
+                mb_reclaimed=swept.mb,
+            )
     except Exception as exc:
         db.update(conn, clip_id, status=FAILED, reject_reason=f"render: {exc}")
         logs.event(
@@ -153,28 +200,37 @@ def build(conn: sqlite3.Connection, clip_id: str) -> StageOutcome:
         return StageOutcome(clip_id, FAILED, f"render failed: {exc}")
 
     recent = [r for r in db.recent(conn, ch.id, limit=8) if r["id"] != clip_id]
+    reuse_metadata = not force and bool(row["title"]) and bool(row["hashtags_json"])
     try:
-        meta, cost = metadata_agent.write_metadata(
+        if reuse_metadata:
+            meta = _Written(
+                title=row["title"],
+                description=row["description"] or "",
+                hashtags=json.loads(row["hashtags_json"]),
+            )
+            logs.event("clip.metadata_reused", channel=ch.id, clip=clip_id, title=meta.title)
+        else:
+            meta, cost = metadata_agent.write_metadata(
             description=clip.description,
-            facts=clip.facts,
-            hook=row["hook"] or "",
+                facts=clip.facts,
+                hook=row["hook"] or "",
             rules=ch.rules(),
-            recent_titles=[r["title"] for r in recent if r["title"]],
-            frames=frames,
-        )
-        spent += cost
-        db.update(
-            conn,
-            clip_id,
-            status=DESCRIBED,
-            title=meta.title,
-            description=meta.description,
-            hashtags_json=json.dumps(meta.hashtags),
-        )
-        logs.event(
-            "clip.described", channel=ch.id, clip=clip_id,
-            title=meta.title, hashtags=meta.hashtags, cost_usd=round(cost, 6),
-        )
+                recent_titles=[r["title"] for r in recent if r["title"]],
+                frames=frames,
+            )
+            spent += cost
+            db.update(
+                conn,
+                clip_id,
+                status=DESCRIBED,
+                title=meta.title,
+                description=meta.description,
+                hashtags_json=json.dumps(meta.hashtags),
+            )
+            logs.event(
+                "clip.described", channel=ch.id, clip=clip_id,
+                title=meta.title, hashtags=meta.hashtags, cost_usd=round(cost, 6),
+            )
     except Exception as exc:
         db.add_cost(conn, clip_id, spent)
         db.update(conn, clip_id, status=FAILED, reject_reason=f"metadata: {exc}")
@@ -230,6 +286,37 @@ def build_all(
 ) -> list[StageOutcome]:
     ch = resolve(conn, channel)
     return [build(conn, row["id"]) for row in db.by_status(conn, ch.id, PLANNED, limit)]
+
+
+STUCK = (RENDERED, DESCRIBED)
+
+
+def stuck(conn: sqlite3.Connection, channel_id: str, *, include_failed: bool = False):
+    """Clips that stopped between stages, oldest first."""
+    statuses = list(STUCK) + ([FAILED] if include_failed else [])
+    marks = ", ".join("?" for _ in statuses)
+    return conn.execute(
+        f"""SELECT * FROM clips WHERE channel_id = ? AND status IN ({marks})
+            ORDER BY created_at""",
+        (channel_id, *statuses),
+    ).fetchall()
+
+
+def resume(
+    conn: sqlite3.Connection,
+    channel: Channel | str | None,
+    *,
+    include_failed: bool = False,
+    limit: int = 20,
+) -> list[StageOutcome]:
+    """Push stranded clips the rest of the way, reusing what is already on disk."""
+    ch = resolve(conn, channel)
+    rows = stuck(conn, ch.id, include_failed=include_failed)[:limit]
+    out = []
+    for row in rows:
+        logs.event("clip.resumed", channel=ch.id, clip=row["id"], was=row["status"])
+        out.append(build(conn, row["id"]))
+    return out
 
 
 # --- stage 5: the human gate -------------------------------------------------
