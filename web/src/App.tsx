@@ -6,6 +6,8 @@ import { fmt, statusWord } from "./lib/format";
 import { act } from "./lib/toast";
 import { useRoute } from "./lib/route";
 import { Toasts } from "./ui";
+import { Logo } from "./ui/Logo";
+import { useTheme, type Theme } from "./lib/theme";
 import { Today } from "./screens/Today";
 import { Queue } from "./screens/Queue";
 import { Clips, ClipDrawer } from "./screens/Clips";
@@ -34,6 +36,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [sound, setSound] = useState(false);
   const [openClip, setOpenClip] = useState<string | null>(null);
+  const [theme, setTheme] = useTheme();
 
   const loadChannels = useCallback(async () => {
     const body = await api<{ channels: Channel[] }>("/api/channels");
@@ -59,13 +62,14 @@ export default function App() {
   return (
     <div className="shell">
       <nav className="side">
-        <div className="brand">shorts factory</div>
+        <div className="brand"><Logo />shorts factory</div>
         {VIEWS.map((v) => (
           <a key={v.id} href={`#/${v.id}`} aria-current={view === v.id ? "page" : undefined}>
             <span className="name">{v.name}{v.id === "today" && queueCount > 0 && <span className="count">{queueCount}</span>}{v.id === "queue" && taskCount > 0 && <span className="count">{taskCount}</span>}</span>
             <span className="meaning">{v.meaning}</span>
           </a>
         ))}
+        <div className="foot"><ThemeSwitch theme={theme} setTheme={setTheme} /></div>
       </nav>
       <div className="main">
         <Header channels={channels || []} channelId={channelId} setChannelId={setChannelId} snap={snap} refresh={reload} error={error} navigate={navigate} />
@@ -115,5 +119,19 @@ function Header({ channels, channelId, setChannelId, snap, refresh, error, navig
       {error && <span className="job no-text">{error}</span>}
       {job && (job.running || job.log.length > 0) && <div className={"job" + (job.running ? " running" : "")}>{job.running ? `${job.name} is running on ${job.channel_id}… ` : "last job: "}{job.log[job.log.length - 1] || ""}</div>}
     </header>
+  );
+}
+
+const THEMES: { id: Theme; label: string; title: string }[] = [
+  { id: "light", label: "Light", title: "Light theme" },
+  { id: "dark", label: "Dark", title: "Dark theme" },
+  { id: "system", label: "Auto", title: "Follow the device" },
+];
+
+function ThemeSwitch({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }) {
+  return (
+    <div className="theme" role="group" aria-label="Theme">
+      {THEMES.map((t) => <button key={t.id} type="button" title={t.title} aria-pressed={theme === t.id} onClick={() => setTheme(t.id)}>{t.label}</button>)}
+    </div>
   );
 }

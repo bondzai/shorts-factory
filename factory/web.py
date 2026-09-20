@@ -134,10 +134,10 @@ def _token(password: str) -> str:
 
 
 LOGIN_PAGE = """<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
-<title>shorts factory</title><style>body{margin:0;background:#12121a;color:#e8e8ef;font:16px system-ui;display:grid;place-items:center;min-height:100vh}
-form{display:grid;gap:12px;width:min(320px,90vw)}input,button{font:inherit;padding:12px;border-radius:10px;border:1px solid #2b2b38;background:#1a1a24;color:inherit}
+<link rel=icon type=image/svg+xml href=/static/logo.svg><title>shorts factory</title><style>body{margin:0;background:#12121a;color:#e8e8ef;font:16px system-ui;display:grid;place-items:center;min-height:100vh}@media(prefers-color-scheme:light){body{background:#f7f7fa;color:#1b1b26}}
+form{display:grid;gap:12px;width:min(320px,90vw)}input,button{font:inherit;padding:12px;border-radius:10px;border:1px solid #2b2b38;background:#1a1a24;color:inherit}@media(prefers-color-scheme:light){input{border-color:#d9d9e2;background:#fff}}b{display:flex;align-items:center;gap:8px}b img{width:26px;height:26px}
 button{background:#efa027;color:#412402;border:0;font-weight:600}p{color:#8f8fa3;margin:0}</style>
-<form method=post action=/login><b>shorts factory</b><p>%s</p><input type=password name=password placeholder=password autofocus><button>Open</button></form>"""
+<form method=post action=/login><b><img src=/static/logo.svg alt="">shorts factory</b><p>%s</p><input type=password name=password placeholder=password autofocus><button>Open</button></form>"""
 
 
 @app.middleware("http")
