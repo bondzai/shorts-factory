@@ -1119,6 +1119,7 @@ def restore(clip_id: str) -> dict[str, str]:
 
 class TextBody(BaseModel):
     title: str | None = None
+    description: str | None = None
     comment_prompt: str | None = None
     why: str = ""
 
@@ -1141,6 +1142,8 @@ def edit_text(clip_id: str, body: TextBody) -> dict[str, Any]:
         try:
             if body.title is not None:
                 out = pipeline.retitle(conn, clip_id, body.title, by="human", why=body.why)
+            if body.description is not None:
+                out["description"] = pipeline.redescribe(conn, clip_id, body.description, by="human")
             if body.comment_prompt is not None:
                 if db.get(conn, clip_id) is None:
                     raise ValueError(f"no clip {clip_id}")

@@ -434,6 +434,28 @@ def attach_metadata(conn: sqlite3.Connection, clip_id: str, meta) -> None:
         rehook(conn, clip_id, wanted, by="agent")
 
 
+def redescribe(conn: sqlite3.Connection, clip_id: str, description: str, *, by: str = "human") -> str:
+    """Change a description. Held to the same bounds as an agent's, and its
+    first sentence to the same spoiler gate as a title, because it is the
+    sentence the feed shows under the title."""
+    from .models import Metadata
+
+    row = db.get(conn, clip_id)
+    if row is None:
+        raise ValueError(f"no clip {clip_id}")
+    description = description.strip()
+    lo, hi = Metadata.model_fields["description"].metadata[0].min_length, Metadata.model_fields["description"].metadata[1].max_length
+    if not lo <= len(description) <= hi:
+        raise ValueError(f"description must be {lo}-{hi} characters")
+    first_sentence = re.split(r"(?<=[.!?])\s", description, 1)[0]
+    problem = spoiler(json.loads(row["facts_json"] or "{}"), description=first_sentence)
+    if problem:
+        raise ValueError(problem)
+    db.update(conn, clip_id, description=description)
+    logs.event("clip.redescribed", channel=row["channel_id"], clip=clip_id, by=by)
+    return description
+
+
 def rehook(conn: sqlite3.Connection, clip_id: str, text: str | None, *, by: str = "human",
            background: str | None = None) -> StageOutcome:
     """Burn a different opening caption into a clip that has not shipped.

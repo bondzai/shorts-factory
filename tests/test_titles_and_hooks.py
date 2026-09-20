@@ -538,3 +538,15 @@ def test_the_hooks_skill_rides_on_every_playbook(channel):
     for name in ("make-clip", "retitle", "work"):
         text = playbooks.render(name, CH)
         assert "Never name the winner" in text and "Never tell the result" in text
+
+
+def test_the_description_can_be_edited_within_the_same_bounds_and_gate(channel):
+    client = TestClient(web.app)
+    clip_id = clip(AWAITING_APPROVAL, facts_json=json.dumps(FACTS), description="Three marbles, two rounds. Amber takes it.")
+    r = client.patch(f"/api/clip/{clip_id}/text", json={"description": "Pick a marble and watch it through 75 pegs. Amber wins by 0.04s."})
+    assert r.status_code == 200 and r.json()["description"].startswith("Pick a marble")
+    with db.connect() as conn:
+        assert db.get(conn, clip_id)["description"].startswith("Pick a marble")
+    assert client.patch(f"/api/clip/{clip_id}/text", json={"description": "too short"}).status_code == 400
+    r = client.patch(f"/api/clip/{clip_id}/text", json={"description": "Amber wins the final by a hair. Then more."})
+    assert r.status_code == 400 and "names the winner" in r.json()["detail"]

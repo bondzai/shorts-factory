@@ -88,6 +88,7 @@ function ClipCard({ clip: c, sound, refresh, decide, position, channelId, onOpen
   const [backdrop, setBackdrop] = useState(String(c.facts?.backdrop || "#1a1a2a"));
   const [customBackdrop, setCustomBackdrop] = useState(false);
   const [prompt, setPrompt] = useState(c.comment_prompt || "");
+  const [desc, setDesc] = useState(c.description || "");
   const [rendering, setRendering] = useState(false);
   const [version, setVersion] = useState(0);
   const [copied, setCopied] = useState(false);
@@ -98,6 +99,7 @@ function ClipCard({ clip: c, sound, refresh, decide, position, channelId, onOpen
   const saveText = () => act(async () => {
     const body: Record<string, string> = { comment_prompt: prompt.trim() };
     if (title.trim() !== (c.title || "")) body.title = title.trim();
+    if (desc.trim() !== (c.description || "")) body.description = desc.trim();
     const out = await send<{ needs_manual_update?: boolean }>(`/api/clip/${c.id}/text`, body, "PATCH");
     if (out.needs_manual_update) toast("Saved. This clip is published on a manual channel — change the title in YouTube Studio too.");
   }, { ok: "Saved", after: refresh });
@@ -142,15 +144,15 @@ function ClipCard({ clip: c, sound, refresh, decide, position, channelId, onOpen
           </label>
           <button className="sm" onClick={rerender} disabled={rendering}>{rendering ? "Re-rendering…" : "Re-render"}</button>
         </div>
+        <textarea value={desc} maxLength={900} spellCheck={false} rows={4} placeholder="description (20-900 characters); the first sentence shows in the feed and is checked like a title" onChange={(e) => setDesc(e.target.value)} />
         <input value={prompt} maxLength={140} spellCheck={false} placeholder="question to pin as the first comment" onChange={(e) => setPrompt(e.target.value)} />
         <div className="row wrap">
-          <button className="sm" onClick={saveText}>Save title & prompt</button>
+          <button className="sm" onClick={saveText}>Save text</button>
           <button className="sm" onClick={copy}>{copied ? "Copied" : "Copy for upload"}</button>
           <button className="sm ghost" onClick={() => onOpen(c.id)}>Details</button>
           {c.title_history?.length ? <span className="hint">retitled {c.title_history.length}×</span> : null}
         </div>
         <div className="tags">{(c.hashtags || []).join(" ")}</div>
-        <div className="desc">{c.description}</div>
         <dl className="facts">
           <dt>clip</dt><dd>{c.id} · {c.generator}/{c.variant} · seed {c.seed}</dd>
           <dt>shows</dt><dd>{c.render_desc || "—"}</dd>
