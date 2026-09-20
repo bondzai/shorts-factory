@@ -323,10 +323,16 @@ def create_and_render(
             f"{ch.id} does not allow {generator}/{variant}; "
             f"allowed: {ch.variants or 'any ready module'}"
         )
-    used = {r["seed"] for r in conn.execute("SELECT seed FROM clips").fetchall()}
-    rng = random.Random()
-    while seed is None or seed in used:
-        seed = rng.randrange(2**31 - 1)
+    # A seed the caller named is used as named. This used to re-roll any seed
+    # a clip had ever carried, so a task that said "seed 7301" — a seed that
+    # sat in the bin — rendered a random race three times running and
+    # reported it done; the sameness gate is what guards against repeats,
+    # not this. Only an unnamed seed avoids the ones already taken.
+    if seed is None:
+        used = {r["seed"] for r in conn.execute("SELECT seed FROM clips").fetchall()}
+        rng = random.Random()
+        while seed is None or seed in used:
+            seed = rng.randrange(2**31 - 1)
 
     clip_id = db.insert_clip(
         conn, channel_id=ch.id, generator=generator, variant=variant, seed=seed,
