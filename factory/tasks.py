@@ -118,7 +118,10 @@ def instructions(conn: sqlite3.Connection, row: sqlite3.Row) -> str:
         head.append("do not change the seed to make it work.")
     else:
         head.append("This task has no parameters; the playbook below is the whole brief.")
-    head += ["", f"When finished, call `finish_task` with task_id={row['id']}, ok=true and a one-line",
+    head += ["", f"This task is on channel `{row['channel_id']}`. Pass channel=\"{row['channel_id']}\" to "
+             "every tool call that takes one: a call without it uses the default channel, "
+             "which is the wrong one whenever more than one agent is working.", ""]
+    head += [f"When finished, call `finish_task` with task_id={row['id']}, ok=true and a one-line",
              "summary (and the clip_id if you made one). If it cannot be done, finish it with",
              "ok=false and say why — do not leave it claimed.", "", "---", ""]
     return "\n".join(head) + playbooks.render(KINDS[row["kind"]]["playbook"], row["channel_id"])

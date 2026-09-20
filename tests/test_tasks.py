@@ -11,7 +11,7 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
-from factory import channels, db, tasks, web
+from factory import channels, db, playbooks, tasks, web
 
 CH = "gravity-lab"
 
@@ -229,3 +229,21 @@ def test_a_named_seed_is_rendered_as_named_even_if_a_binned_clip_had_it(sandbox,
         with pytest.raises(RuntimeError, match="stop here"):
             pipeline.create_and_render(conn, "main", variant="marble_race")
         assert seen["seed"] != 7301  # unnamed: still avoids a taken seed
+
+
+def test_a_task_tells_the_agent_which_channel_it_is_on(sandbox):
+    """next_task and render_clip both fall back to the default channel, so an
+    agent that is not told its channel does another channel's work the moment
+    two of them run at once."""
+    from factory import tasks
+    with db.connect() as conn:
+        db.migrate(conn)
+        channels.create(conn, name="Main", channel_id="main")
+        channels.create(conn, name="HODL Tales", channel_id="hodl")
+        tasks.enqueue(conn, "hodl", "make-clip", {"variant": "coin_pour", "generator": "asmr"})
+        row = db.claim_task(conn, "worker", channel_id="hodl")
+        text = tasks.instructions(conn, row)
+        assert 'channel="hodl"' in text
+        assert "make-clip on hodl" in text
+        work = playbooks.render("work", "hodl")
+        assert 'channel="hodl"' in work and "works `hodl`" not in work
