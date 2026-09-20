@@ -66,6 +66,10 @@ analyst = "claude-opus-5"
 "claude-haiku-4-5" = [1.0, 5.0]
 default = [5.0, 25.0]
 
+[themes]
+# "" picks by calendar (see factory/themes.py); a theme id forces it.
+force = ""
+
 [analyst]
 min_published_for_rules = 30
 

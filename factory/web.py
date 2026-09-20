@@ -26,7 +26,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import analytics, channels, db, generators, llm, logs, pipeline, playbooks, settings, tasks
+from . import analytics, channels, db, generators, llm, logs, pipeline, playbooks, settings, tasks, themes
 from .agents import analyst
 from .models import APPROVED, AWAITING_APPROVAL, PLANNED, PUBLISHED
 
@@ -392,6 +392,98 @@ def reset_setting(section: str, key: str) -> dict[str, Any]:
     settings.invalidate()
     logs.event("settings.reset", section=section, key=key, by="human")
     return _settings_view()
+
+
+# --- themes: seasons, as data the page can edit ---------------------------------
+
+def _themes_view() -> dict[str, Any]:
+    from datetime import date
+
+    today = date.today()
+    cfg = settings.load()
+    return {
+        "themes": [t.as_dict() for t in themes.themes()],
+        "active": themes.active(today).id,
+        "today": today.isoformat(),
+        "force": (cfg.raw.get("themes", {}).get("force") or ""),
+        "decorations": list(themes.DECORATIONS),
+        "overridden": ("themes", "list") in cfg.overrides or ("themes", "force") in cfg.overrides,
+    }
+
+
+@app.get("/api/themes")
+def get_themes() -> dict[str, Any]:
+    return _themes_view()
+
+
+class ThemesBody(BaseModel):
+    themes: list[dict[str, Any]]
+    force: str = ""
+
+
+@app.put("/api/themes")
+def put_themes(body: ThemesBody) -> dict[str, Any]:
+    try:
+        parsed = [themes.from_dict(t) for t in body.themes]
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from None
+    ids = [t.id for t in parsed]
+    if len(set(ids)) != len(ids):
+        raise HTTPException(400, "two themes share an id")
+    if body.force and body.force not in ids and body.force != "default":
+        raise HTTPException(400, f"cannot force {body.force!r}: not a theme here")
+    with db.connect() as conn:
+        db.set_override(conn, "themes", "list", [t.as_dict() for t in parsed])
+        db.set_override(conn, "themes", "force", body.force)
+    settings.invalidate()
+    logs.event("settings.changed", section="themes", key="list", force=body.force, by="human")
+    # Echo what was just saved rather than re-reading: the read is right too,
+    # but the page should never see a stale value for the thing it just set.
+    return {**_themes_view(), "themes": [t.as_dict() for t in parsed], "force": body.force, "overridden": True}
+
+
+# --- docs: the hand-written pages plus a reference generated from the code ----
+
+DOCS = Path(__file__).resolve().parent.parent / "docs"
+
+
+def _reference() -> str:
+    from .generators import physics
+    from . import cli
+
+    lines = ["# Reference", "", "Generated from the code at the moment you opened this page, so it cannot be stale.", ""]
+    lines += ["## Settings the page can change", "", "| section | key | type | range | meaning |", "|---|---|---|---|---|"]
+    for f in settings.SCHEMA:
+        rng = f"{f['min']}–{f['max']}" if "min" in f else (", ".join(str(o) for o in f["options"]) if "options" in f else "")
+        lines.append(f"| {f['section']} | `{f['key']}` | {f['type']} | {rng} | {f['label']}{' — ' + f['help'] if f.get('help') else ''} |")
+    lines += ["", "## Task kinds", "", "| kind | meaning | parameters | built-in agents can do it |", "|---|---|---|---|"]
+    for k, v in tasks.KINDS.items():
+        lines.append(f"| `{k}` | {v['meaning']} | {', '.join(v['params']) or '—'} | {'yes' if v['builtin'] else 'no'} |")
+    lines += ["", "## Courses", "", "| course | weight | gravity |", "|---|---|---|"]
+    for c, w in physics.COURSES.items():
+        lines.append(f"| `{c}` | {w} | {physics.COURSE_GRAVITY[c]} |")
+    lines += ["", "## Themes", "", "| id | window | decoration | marbles |", "|---|---|---|---|"]
+    for t in themes.themes():
+        lines.append(f"| `{t.id}` | {'–'.join(t.window) if t.window else 'default'} | {t.decoration} | {', '.join(n for n, _ in t.marbles)} |")
+    lines += ["", "## Playbooks", "", *[f"- `{n}`" for n in playbooks.available()]]
+    lines += ["", "## Commands", "", "```"]
+    parser = cli.build_parser()
+    for action in parser._subparsers._group_actions:  # noqa: SLF001 - argparse has no public walk
+        for name, sub in action.choices.items():
+            lines.append(f"factory {name:14s} {sub.description or ''}")
+    lines += ["```", ""]
+    return "\n".join(lines)
+
+
+@app.get("/api/docs")
+def list_docs() -> dict[str, Any]:
+    pages = []
+    for path in sorted(DOCS.glob("*.md")):
+        text = path.read_text(encoding="utf-8")
+        title = next((l[2:] for l in text.splitlines() if l.startswith("# ")), path.stem)
+        pages.append({"id": path.stem, "title": title, "text": text})
+    pages.append({"id": "reference", "title": "Reference", "text": _reference()})
+    return {"pages": pages}
 
 
 # --- brains: which model each built-in agent runs on ---------------------------

@@ -654,24 +654,21 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
-    sub.add_parser("init", help="create the database, migrate, seed a channel").set_defaults(func=cmd_init)
-    sub.add_parser("doctor", help="check ffmpeg, dependencies, credentials").set_defaults(func=cmd_doctor)
-    sub.add_parser("generators", help="list generator modules").set_defaults(func=cmd_generators)
+    sub.add_parser("init", help="create the database, migrate, seed a channel", description="create the database, migrate, seed a channel").set_defaults(func=cmd_init)
+    sub.add_parser("doctor", help="check ffmpeg, dependencies, credentials", description="check ffmpeg, dependencies, credentials").set_defaults(func=cmd_doctor)
+    sub.add_parser("generators", help="list generator modules", description="list generator modules").set_defaults(func=cmd_generators)
 
-    p = sub.add_parser(
-        "playbook",
-        help="print a reusable agent prompt, filled in from the live database",
-    )
+    p = sub.add_parser("playbook", help="print a reusable agent prompt, filled in from the live database", description="print a reusable agent prompt, filled in from the live database")
     p.add_argument("name", nargs="?", help="playbook name; omit to list them")
     p.add_argument("--channel", default=None)
     p.set_defaults(func=cmd_playbook)
-    sub.add_parser("status", help="counts by stage per channel").set_defaults(func=cmd_status)
+    sub.add_parser("status", help="counts by stage per channel", description="counts by stage per channel").set_defaults(func=cmd_status)
 
-    channel_parser = sub.add_parser("channels", help="add, list and edit channels")
+    channel_parser = sub.add_parser("channels", help="add, list and edit channels", description="add, list and edit channels")
     channel_sub = channel_parser.add_subparsers(dest="channel_command", required=True)
     channel_sub.add_parser("list").set_defaults(func=cmd_channels_list)
 
-    p = channel_sub.add_parser("add", help="create a channel")
+    p = channel_sub.add_parser("add", help="create a channel", description="create a channel")
     p.add_argument("name")
     p.add_argument("--id", default=None, help="internal id; defaults to a slug of the name")
     p.add_argument("--handle", default=None)
@@ -681,7 +678,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--cadence", type=int, default=1)
     p.set_defaults(func=cmd_channels_add)
 
-    p = channel_sub.add_parser("edit", help="change a channel")
+    p = channel_sub.add_parser("edit", help="change a channel", description="change a channel")
     p.add_argument("id")
     p.add_argument("--name", default=None)
     p.add_argument("--handle", default=None)
@@ -693,37 +690,37 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--resume", action="store_true")
     p.set_defaults(func=cmd_channels_edit)
 
-    p = sub.add_parser("runs", help="recent job history")
+    p = sub.add_parser("runs", help="recent job history", description="recent job history")
     p.add_argument("--limit", type=int, default=20)
     p.set_defaults(func=cmd_runs)
 
-    p = sub.add_parser("plan", help="ask the Idea agent what to make")
+    p = sub.add_parser("plan", help="ask the Idea agent what to make", description="ask the Idea agent what to make")
     p.add_argument("--count", type=int, default=3)
     p.set_defaults(func=cmd_plan)
 
-    p = sub.add_parser("build", help="render, describe and QC everything planned")
+    p = sub.add_parser("build", help="render, describe and QC everything planned", description="render, describe and QC everything planned")
     p.add_argument("--limit", type=int, default=20)
     p.set_defaults(func=cmd_build)
 
-    sub.add_parser("queue", help="clips awaiting your approval").set_defaults(func=cmd_queue)
+    sub.add_parser("queue", help="clips awaiting your approval", description="clips awaiting your approval").set_defaults(func=cmd_queue)
 
-    p = sub.add_parser("approve", help="approve one or more clips")
+    p = sub.add_parser("approve", help="approve one or more clips", description="approve one or more clips")
     p.add_argument("clip_ids", nargs="+")
     p.set_defaults(func=cmd_approve)
 
-    p = sub.add_parser("reject", help="reject a clip with a reason")
+    p = sub.add_parser("reject", help="reject a clip with a reason", description="reject a clip with a reason")
     p.add_argument("clip_id")
     p.add_argument("reason")
     p.set_defaults(func=cmd_reject)
 
-    p = sub.add_parser("bin", help="move clips to the bin, bring them back, or destroy them")
+    p = sub.add_parser("bin", help="move clips to the bin, bring them back, or destroy them", description="move clips to the bin, bring them back, or destroy them")
     p.add_argument("clip_ids", nargs="+")
     p.add_argument("--undo", action="store_true", help="bring binned clips back")
     p.add_argument("--destroy", action="store_true", help="delete binned clips and their files for good")
     p.add_argument("--yes", action="store_true")
     p.set_defaults(func=cmd_bin)
 
-    p = sub.add_parser("tasks", help="the queue agents pull from: add, list, cancel")
+    p = sub.add_parser("tasks", help="the queue agents pull from: add, list, cancel", description="the queue agents pull from: add, list, cancel")
     p.add_argument("action", choices=["add", "list", "cancel"])
     p.add_argument("value", nargs="?", help="kind to add (make-clip, plan-week, review, retitle) or id to cancel")
     p.add_argument("--variant"); p.add_argument("--generator"); p.add_argument("--seed", type=int)
@@ -731,45 +728,45 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--status")
     p.set_defaults(func=cmd_tasks)
 
-    p = sub.add_parser("work", help="run the queue with the built-in agents (needs a ready provider)")
+    p = sub.add_parser("work", help="run the queue with the built-in agents (needs a ready provider)", description="run the queue with the built-in agents (needs a ready provider)")
     p.add_argument("--once", action="store_true")
     p.set_defaults(func=cmd_work)
 
-    p = sub.add_parser("config", help="list or change the settings the page can change")
+    p = sub.add_parser("config", help="list or change the settings the page can change", description="list or change the settings the page can change")
     p.add_argument("action", choices=["list", "set", "reset"])
     p.add_argument("name", nargs="?", help="section.key, e.g. qc.max_sameness")
     p.add_argument("value", nargs="?")
     p.set_defaults(func=cmd_config)
 
-    p = sub.add_parser("brains", help="which model each built-in agent runs on, and whether it can")
+    p = sub.add_parser("brains", help="which model each built-in agent runs on, and whether it can", description="which model each built-in agent runs on, and whether it can")
     p.add_argument("--test", metavar="PROVIDER", help="one-word round trip through a provider")
     p.add_argument("--model", default=None)
     p.set_defaults(func=cmd_brains)
 
-    p = sub.add_parser("restore", help="put a rejected clip back in the review queue")
+    p = sub.add_parser("restore", help="put a rejected clip back in the review queue", description="put a rejected clip back in the review queue")
     p.add_argument("clip_ids", nargs="+")
     p.set_defaults(func=cmd_restore)
 
-    p = sub.add_parser("retitle", help="change a title, keeping the old one and its numbers")
+    p = sub.add_parser("retitle", help="change a title, keeping the old one and its numbers", description="change a title, keeping the old one and its numbers")
     p.add_argument("clip_id")
     p.add_argument("title")
     p.add_argument("--why", default="")
     p.set_defaults(func=cmd_retitle)
 
-    p = sub.add_parser("rehook", help="re-render an unpublished clip with a new opening caption")
+    p = sub.add_parser("rehook", help="re-render an unpublished clip with a new opening caption", description="re-render an unpublished clip with a new opening caption")
     p.add_argument("clip_id")
     p.add_argument("text", nargs="?", default=None)
     p.add_argument("--measured", action="store_true",
                    help="drop any fixed caption and let the render choose from what it measures")
     p.set_defaults(func=cmd_rehook)
 
-    p = sub.add_parser("publish", help="publish approved clips")
+    p = sub.add_parser("publish", help="publish approved clips", description="publish approved clips")
     p.add_argument("--dry-run", action="store_true")
     p.set_defaults(func=cmd_publish)
 
-    sub.add_parser("pull-metrics", help="refresh metrics from the platform").set_defaults(func=cmd_pull_metrics)
+    sub.add_parser("pull-metrics", help="refresh metrics from the platform", description="refresh metrics from the platform").set_defaults(func=cmd_pull_metrics)
 
-    p = sub.add_parser("set-metrics", help="enter metrics by hand (manual driver)")
+    p = sub.add_parser("set-metrics", help="enter metrics by hand (manual driver)", description="enter metrics by hand (manual driver)")
     p.add_argument("clip_id")
     p.add_argument("--views", type=int, required=True)
     p.add_argument("--avg-view-pct", type=float, required=True, dest="avg_view_pct")
@@ -777,41 +774,41 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--likes", type=int, default=0)
     p.set_defaults(func=cmd_set_metrics)
 
-    p = sub.add_parser("digest", help="Analyst digest over published clips")
+    p = sub.add_parser("digest", help="Analyst digest over published clips", description="Analyst digest over published clips")
     p.add_argument("--apply-rules", action="store_true")
     p.set_defaults(func=cmd_digest)
 
-    p = sub.add_parser("render-check", help="render one clip with no agents and no database")
+    p = sub.add_parser("render-check", help="render one clip with no agents and no database", description="render one clip with no agents and no database")
     p.add_argument("--generator", default="physics")
     p.add_argument("--variant", default="marble_race")
     p.add_argument("--seed", type=int, default=1)
     p.set_defaults(func=cmd_render_check)
 
-    p = sub.add_parser("brand", help="draw the channel avatar and banner")
+    p = sub.add_parser("brand", help="draw the channel avatar and banner", description="draw the channel avatar and banner")
     p.add_argument("--title", default="GRAVITY LAB")
     p.add_argument("--tagline", default="no talking  ·  sound on")
     p.set_defaults(func=cmd_brand)
 
-    p = sub.add_parser("logs", help="recent pipeline events")
+    p = sub.add_parser("logs", help="recent pipeline events", description="recent pipeline events")
     p.add_argument("--limit", type=int, default=60)
     p.add_argument("--level", choices=list(("debug", "info", "warn", "error")), default=None)
     p.add_argument("--event", default=None, help="prefix, for example clip. or agent.")
     p.add_argument("--clip", default=None)
     p.set_defaults(func=cmd_logs)
 
-    sub.add_parser("notify", help="post a test notification to the configured webhook").set_defaults(func=cmd_notify)
+    sub.add_parser("notify", help="post a test notification to the configured webhook", description="post a test notification to the configured webhook").set_defaults(func=cmd_notify)
 
-    p = sub.add_parser("gc", help="delete rendered files whose outcome is settled")
+    p = sub.add_parser("gc", help="delete rendered files whose outcome is settled", description="delete rendered files whose outcome is settled")
     p.add_argument("--dry-run", action="store_true")
     p.set_defaults(func=cmd_gc)
 
-    p = sub.add_parser("resume", help="push clips that stopped between stages the rest of the way")
+    p = sub.add_parser("resume", help="push clips that stopped between stages the rest of the way", description="push clips that stopped between stages the rest of the way")
     p.add_argument("--include-failed", action="store_true", dest="include_failed")
     p.add_argument("--limit", type=int, default=20)
     p.add_argument("--dry-run", action="store_true")
     p.set_defaults(func=cmd_resume)
 
-    p = sub.add_parser("cost", help="spend per agent and per model, from the event log")
+    p = sub.add_parser("cost", help="spend per agent and per model, from the event log", description="spend per agent and per model, from the event log")
     p.add_argument("--days", type=int, default=7)
     p.set_defaults(func=cmd_cost)
 
@@ -824,7 +821,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.set_defaults(func=cmd_mcp)
 
-    p = sub.add_parser("serve", help="open the review UI in a browser")
+    p = sub.add_parser("serve", help="open the review UI in a browser", description="open the review UI in a browser")
     p.add_argument("--host", default="127.0.0.1")
     p.add_argument("--port", type=int, default=8765)
     p.set_defaults(func=cmd_serve)

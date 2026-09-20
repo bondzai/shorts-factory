@@ -279,6 +279,28 @@ Python venv and the page should not be the thing that needs npm. It needs the
 network for the first load of React itself. Moving to a Vite build later is a
 move, not a rewrite.
 
+## Courses and themes
+
+A race needs a descent, and each shape is a different picture to the
+similarity gate. Three courses ship — **zigzag**, **pegboard** (a Galton
+board), **bumpers** (pinball) — each measured over 24 seeds and finishing 19
+inside the QC window with no seed stuck. Pace is set with gravity per course,
+not geometry. Mixed, the gate accepts 18 of 25 seeds against 15 for zigzag
+alone. A fourth course, wedges, was built and cut: marbles balanced on an
+apex, wedged between an arm and a wall lip, or sat in a wall corner — three
+traps, and fixing one opened another.
+
+A theme is colours, marble names, a caption colour and a decoration, with a
+window in the calendar: Halloween, Christmas, New Year, Valentine, Songkran,
+and whatever you add on Settings → Themes. The active theme is whatever is
+forced there, else today's season, else the default; nothing else in the
+factory knows the month. Marble names reach titles, so they are words a
+viewer would say.
+
+The **Docs** screen holds the user guide (`docs/*.md`) and a reference
+generated from the code on each open — settings, task kinds, courses, themes,
+playbooks, commands — so it cannot be stale.
+
 ## The queue: put the work in the system, let any brain pull it
 
 ```bash

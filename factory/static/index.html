@@ -96,6 +96,14 @@
   .step em { font-style: normal; color: var(--faint); }
   .step-line { width: 18px; height: 1px; background: var(--line); }
   @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+  a.docnav { display: block; padding: 6px 10px; border-radius: 8px; color: var(--dim); cursor: pointer; font-size: 13.5px; }
+  a.docnav[aria-current="true"] { background: var(--panel2); color: var(--ink); }
+  .prose { max-width: 720px; line-height: 1.7; font-size: 14.5px; }
+  .prose h1 { font-size: 22px; margin: 0 0 12px; } .prose h2 { font-size: 16px; margin: 26px 0 8px; } .prose h3 { font-size: 14px; margin: 18px 0 6px; }
+  .prose p, .prose li { color: var(--ink); } .prose code { background: var(--panel2); padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+  .prose pre { background: #0d0d14; border: 1px solid var(--line); border-radius: 8px; padding: 12px; overflow: auto; font-size: 12.5px; }
+  .prose table { margin: 10px 0; } .prose th, .prose td { font-size: 13px; }
+  input[type="color"] { width: 34px; height: 26px; padding: 1px; }
 </style>
 </head>
 <body>

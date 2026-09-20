@@ -221,7 +221,10 @@ def build_server():
         hook: str = "",
         channel: str | None = None,
         generator: str = "physics",
+        course: str | None = None,
     ) -> list[Any]:
+        """course: for physics/marble_race, one of zigzag, pegboard, bumpers; omit
+        to let the seed choose. A task's instructions say when to pass one."""
         from mcp.server.mcpserver.utilities.types import Image
 
         with db.connect() as conn:
@@ -229,6 +232,7 @@ def build_server():
                 clip_id, frames, facts = pipeline.create_and_render(
                     conn, channel, variant=variant, generator=generator,
                     seed=seed, hook=hook,
+                    params={"course": course} if course else None,
                 )
                 task_id = db.attach_clip_to_claimed_task(conn, resolve_channel_id(conn, channel), clip_id)
                 if task_id:

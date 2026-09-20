@@ -7,9 +7,12 @@ from factory.generators import physics
 W, H, FPS = 540, 960, 30
 
 
-def simulate(seed, variant="marble_race", frames=90):
+def simulate(seed, variant="marble_race", frames=90, course="zigzag"):
+    # Pinned to the zigzag course: these tests are about ramps. The other
+    # courses have their own tests below.
     return physics.PhysicsSandbox()._simulate(
-        seed=seed, variant=variant, sim_w=W, sim_h=H, fps=FPS, max_frames=frames
+        seed=seed, variant=variant, sim_w=W, sim_h=H, fps=FPS, max_frames=frames,
+        course=course if variant == "marble_race" else None,
     )
 
 
@@ -109,3 +112,46 @@ def test_a_course_finishing_under_the_qc_floor_is_refused(monkeypatch):
     monkeypatch.setitem(raw, "qc", {**raw["qc"], "min_seconds": 999})
     with pytest.raises(physics._Stalled, match="floor"):
         simulate(4242, frames=600)
+
+
+# --- courses ------------------------------------------------------------------
+# Each course was measured over 24 seeds before it was allowed in; these pin
+# the shape, not the numbers — the numbers live in the README.
+
+def test_every_offered_course_builds_and_moves():
+    for course in physics.COURSES:
+        states, impacts, balls, segments, *_ , style, _ = simulate(4242, frames=60, course=course)
+        assert style.course == course
+        assert states[0] != states[1], f"{course}: nothing moved on frame one"
+        assert impacts, f"{course}: silent"
+
+
+def test_pegboard_and_bumpers_are_circles_not_ramps():
+    *_, style, _ = simulate(4242, frames=5, course="pegboard")
+    assert style.circles and len(style.circles) >= 30
+    *_, style, _ = simulate(4242, frames=5, course="bumpers")
+    assert style.circles and 20 <= len(style.circles) <= 40
+
+
+def test_an_unknown_course_names_the_known_ones():
+    with pytest.raises(ValueError, match="zigzag"):
+        simulate(1, frames=5, course="wedges")
+
+
+def test_the_seed_picks_the_course_when_none_is_given():
+    seen = set()
+    for seed in range(40):
+        *_, style, _ = physics.PhysicsSandbox()._simulate(
+            seed=seed, variant="marble_race", sim_w=W, sim_h=H, fps=FPS, max_frames=3)
+        seen.add(style.course)
+    assert seen == set(physics.COURSES)
+
+
+def test_the_theme_dresses_the_race(monkeypatch):
+    from datetime import date
+    from factory import themes, settings
+
+    monkeypatch.setitem(settings.load().raw.setdefault("themes", {}), "force", "christmas")
+    *_, balls, _, _, _, style, _ = simulate(4242, frames=5)
+    assert style.theme == "christmas" and style.decoration == "snow"
+    assert {b.name for b in balls} <= {"red", "green", "gold", "white", "blue"}

@@ -310,8 +310,10 @@ def create_and_render(
     seed: int | None = None,
     hook: str = "",
     why: str = "",
+    params: dict | None = None,
 ) -> tuple[str, list[bytes], dict]:
     """Render one clip with no model involved. Returns (clip_id, frames, facts)."""
+    params = params or {}
     import random
 
     ch = resolve(conn, channel)
@@ -327,14 +329,14 @@ def create_and_render(
 
     clip_id = db.insert_clip(
         conn, channel_id=ch.id, generator=generator, variant=variant, seed=seed,
-        params={}, hook=hook, plan_why=why or "created by an external agent",
+        params=params, hook=hook, plan_why=why or "created by an external agent",
     )
     logs.event(
         "clip.planned", channel=ch.id, clip=clip_id, generator=generator,
         variant=variant, seed=seed, hook=hook, by="agent",
     )
 
-    clip, info, loudness, frames, sameness = _render_stage(conn, ch, clip_id, {}, by="agent")
+    clip, info, loudness, frames, sameness = _render_stage(conn, ch, clip_id, params, by="agent")
     facts = {
         **info,
         "loudness_lufs": loudness,

@@ -13,6 +13,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "https://esm.sh/react@18.3.1";
 import { createRoot } from "https://esm.sh/react-dom@18.3.1/client";
 import htm from "https://esm.sh/htm@3.1.1";
+import { marked } from "https://esm.sh/marked@12";
 
 const html = htm.bind(React.createElement);
 
@@ -44,6 +45,7 @@ const VIEWS = [
   { id: "activity", name: "Activity", meaning: "what ran, and what happened" },
   { id: "bin", name: "Bin", meaning: "what you threw away" },
   { id: "settings", name: "Settings", meaning: "this channel and its rules" },
+  { id: "docs", name: "Docs", meaning: "how it all works" },
 ];
 
 /* ---------- app ---------- */
@@ -120,6 +122,7 @@ function App() {
         : view === "results" ? html`<${Results} ...${props} />`
         : view === "activity" ? html`<${Activity} ...${props} />`
         : view === "bin" ? html`<${Clips} ...${props} bin=${true} />`
+        : view === "docs" ? html`<${Docs} />`
         : html`<${Settings} ...${props} channels=${channels} />`}
       </main>
     </div>`;
@@ -204,6 +207,8 @@ function Queue({ snap, channelId, refresh, open }) {
   const paramInput = (k) => {
     if (k === "variant") return html`<select key=${k} value=${params.variant || ""} onChange=${(e) => setParams({ ...params, variant: e.target.value, generator: e.target.value.split("/")[0] })}>
       <option value="">variant…</option>${variants.map((v) => html`<option key=${v} value=${v.split("/")[1]}>${v}</option>`)}</select>`;
+    if (k === "course") return html`<select key=${k} value=${params.course || ""} onChange=${(e) => setParams({ ...params, course: e.target.value })} title="the shape of the descent; empty lets the seed choose">
+      <option value="">any course</option><option value="zigzag">zigzag</option><option value="pegboard">pegboard</option><option value="bumpers">bumpers</option></select>`;
     if (k === "generator") return null;
     return html`<input key=${k} placeholder=${k} value=${params[k] ?? ""} onChange=${(e) => setParams({ ...params, [k]: e.target.value })} style=${{ width: 140 }} />`;
   };
@@ -779,6 +784,7 @@ function Settings({ snap, channelId, refresh, channels }) {
       </form>
     </div>
     <${Brains} refresh=${refresh} />
+    <${Themes} />
     <${FactorySettings} />
     ${rules ? html`<${Rules} rules=${rules} channelId=${channelId} reload=${loadRules} />` : null}
     <${AddChannel} onDone=${refresh} />`;
@@ -901,6 +907,82 @@ function Brains({ refresh }) {
         <button class="ok" onClick=${save} disabled=${saving}>${saving ? "Saving…" : "Save brains"}</button>
         <span class="hint">${b.overridden ? "set on this page (config.toml is the default underneath)" : "from config.toml"}</span>
       </div>
+    </div>`;
+}
+
+/* ---------- Themes: seasons, as data ---------- */
+
+const hex = (rgb) => "#" + rgb.map((c) => Number(c).toString(16).padStart(2, "0")).join("");
+const rgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+
+function Themes() {
+  const [v, setV] = useState(null);
+  const [list, setList] = useState([]);
+  const [force, setForce] = useState("");
+  const [saving, setSaving] = useState(false);
+  const load = useCallback(() => api("/api/themes").then((b) => { setV(b); setList(b.themes); setForce(b.force); }), []);
+  useEffect(() => { load().catch((err) => alert(err.message)); }, [load]);
+  if (!v) return null;
+  const setT = (i, k, val) => setList((ts) => ts.map((t, j) => j === i ? { ...t, [k]: val } : t));
+  const save = async () => {
+    setSaving(true);
+    try { const out = await send("/api/themes", { themes: list, force }, "PUT"); setV(out); setList(out.themes); setForce(out.force); }
+    catch (err) { alert(err.message); }
+    setSaving(false);
+  };
+  const add = () => setList([...list, { id: `theme${list.length + 1}`, name: "New theme", decoration: "none", window: ["01-01", "01-07"], enabled: true,
+    palettes: [[[18, 18, 26], [58, 58, 74]]], marbles: [["red", [232, 76, 74]], ["blue", [55, 138, 221]], ["gold", [240, 200, 80]]], caption: [255, 255, 255] }]);
+  return html`
+    <div class="card">
+      <h3>Themes</h3>
+      <div class="hint" style=${{ marginBottom: 10 }}>A theme is colours, marble names, a caption colour and a decoration, with a window in the calendar. Today is ${v.today}; the active theme is <b>${v.active}</b>${force ? " (forced)" : " (by calendar)"}. Marble names end up in titles, so use words a viewer would say.</div>
+      <div class="row"><span class="hint" style=${{ width: 140 }}>force a theme</span>
+        <select value=${force} onChange=${(e) => setForce(e.target.value)}><option value="">— by calendar —</option>${list.map((t) => html`<option key=${t.id} value=${t.id}>${t.name}</option>`)}</select></div>
+      <table>
+        <thead><tr><th>on</th><th>id / name</th><th>window</th><th>decoration</th><th>backdrop → structure</th><th>marbles</th><th>caption</th><th></th></tr></thead>
+        <tbody>${list.map((t, i) => html`
+          <tr key=${i}>
+            <td><input type="checkbox" checked=${t.enabled !== false} onChange=${(e) => setT(i, "enabled", e.target.checked)} /></td>
+            <td><input value=${t.id} onChange=${(e) => setT(i, "id", e.target.value)} style=${{ width: 90 }} /><br /><input value=${t.name} onChange=${(e) => setT(i, "name", e.target.value)} style=${{ width: 120, marginTop: 4 }} /></td>
+            <td>${t.id === "default" ? html`<span class="hint">always</span>` : html`<input value=${t.window ? t.window[0] : ""} placeholder="MM-DD" onChange=${(e) => setT(i, "window", [e.target.value, t.window ? t.window[1] : ""])} style=${{ width: 64 }} /> – <input value=${t.window ? t.window[1] : ""} placeholder="MM-DD" onChange=${(e) => setT(i, "window", [t.window ? t.window[0] : "", e.target.value])} style=${{ width: 64 }} />`}</td>
+            <td><select value=${t.decoration} onChange=${(e) => setT(i, "decoration", e.target.value)}>${v.decorations.map((d) => html`<option key=${d} value=${d}>${d}</option>`)}</select></td>
+            <td>${t.palettes.map((p, k) => html`<div key=${k} class="row" style=${{ margin: "2px 0" }}>
+              <input type="color" value=${hex(p[0])} onChange=${(e) => setT(i, "palettes", t.palettes.map((q, m) => m === k ? [rgb(e.target.value), q[1]] : q))} />
+              <input type="color" value=${hex(p[1])} onChange=${(e) => setT(i, "palettes", t.palettes.map((q, m) => m === k ? [q[0], rgb(e.target.value)] : q))} />
+              ${t.palettes.length > 1 ? html`<button class="small" onClick=${() => setT(i, "palettes", t.palettes.filter((_, m) => m !== k))}>×</button>` : null}</div>`)}
+              <button class="small" onClick=${() => setT(i, "palettes", [...t.palettes, [[18, 18, 26], [58, 58, 74]]])}>+ palette</button></td>
+            <td>${t.marbles.map((m, k) => html`<div key=${k} class="row" style=${{ margin: "2px 0" }}>
+              <input value=${m[0]} onChange=${(e) => setT(i, "marbles", t.marbles.map((q, n) => n === k ? [e.target.value, q[1]] : q))} style=${{ width: 70 }} />
+              <input type="color" value=${hex(m[1])} onChange=${(e) => setT(i, "marbles", t.marbles.map((q, n) => n === k ? [q[0], rgb(e.target.value)] : q))} />
+              ${t.marbles.length > 3 ? html`<button class="small" onClick=${() => setT(i, "marbles", t.marbles.filter((_, n) => n !== k))}>×</button>` : null}</div>`)}
+              <button class="small" onClick=${() => setT(i, "marbles", [...t.marbles, ["new", [200, 200, 200]]])}>+ marble</button></td>
+            <td><input type="color" value=${hex(t.caption)} onChange=${(e) => setT(i, "caption", rgb(e.target.value))} /></td>
+            <td>${t.id !== "default" ? html`<button class="small" onClick=${() => setList(list.filter((_, j) => j !== i))}>Remove</button>` : null}</td>
+          </tr>`)}</tbody>
+      </table>
+      <div class="row" style=${{ marginTop: 10 }}>
+        <button class="ok" onClick=${save} disabled=${saving}>${saving ? "Saving…" : "Save themes"}</button>
+        <button class="small" onClick=${add}>Add a theme</button>
+        <span class="hint">${v.overridden ? "set on this page" : "shipped defaults"} · changes apply to the next render</span>
+      </div>
+    </div>`;
+}
+
+/* ---------- Docs: the hand-written pages, and a reference generated from the code ---------- */
+
+function Docs() {
+  const [pages, setPages] = useState(null);
+  const [current, setCurrent] = useState(null);
+  useEffect(() => { api("/api/docs").then((b) => { setPages(b.pages); setCurrent(b.pages[0]?.id); }).catch((err) => alert(err.message)); }, []);
+  if (!pages) return html`<p class="empty">loading…</p>`;
+  const page = pages.find((p) => p.id === current) || pages[0];
+  return html`
+    <div style=${{ display: "grid", gridTemplateColumns: "200px minmax(0,1fr)", gap: 24 }}>
+      <div>
+        ${pages.map((p) => html`<a key=${p.id} class="docnav" aria-current=${p.id === page.id} onClick=${() => setCurrent(p.id)}>${p.title}</a>`)}
+        <div class="hint" style=${{ marginTop: 14 }}>Pages live in <code>docs/*.md</code>; the Reference is generated from the code each time.</div>
+      </div>
+      <div class="prose" dangerouslySetInnerHTML=${{ __html: marked.parse(page.text) }}></div>
     </div>`;
 }
 
