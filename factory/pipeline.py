@@ -395,6 +395,11 @@ def spoiler(facts: dict, **texts: str | None) -> str | None:
     Naming the whole lineup ("red, blue or amber — which did you back?") gives
     nothing away, so that passes; singling out a winner does not."""
     won, field_ = winners(facts), lineup(facts)
+    if not won and not field_:
+        # Nothing raced, so there is no result to give away. An ASMR clip of
+        # coins falling has no winner, and refusing its title for the word
+        # "took" would be a rule enforcing itself rather than the point.
+        return None
     for field, text in texts.items():
         if not text:
             continue

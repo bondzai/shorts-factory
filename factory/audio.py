@@ -28,24 +28,69 @@ LIMIT_DRIVE = 3.6  # tanh drive; higher trades crest factor for loudness
 
 
 @dataclass(frozen=True)
+class Timbre:
+    """What kind of object made the sound.
+
+    A marble is a small dense sphere: a short thud with a near-harmonic body.
+    A coin is a thin metal disc, and a disc does not ring in harmonics — its
+    modes are inharmonic (1, 1.59, 2.14, 2.30, 2.65, 3.16 are the first
+    Chladni ratios of a free circular plate), the high modes die away first,
+    and the whole thing rings far longer than a marble. Using a harmonic
+    series for a coin is what makes cheap sound design read as a xylophone.
+    """
+
+    partials: tuple[tuple[float, float], ...]  # (frequency ratio, amplitude)
+    decay: float  # 1/s, the fundamental's decay
+    high_bias: float  # extra decay per unit of ratio; higher modes die first
+    click_decay: float
+    click_level: float
+    pitches: tuple[float, ...]
+
+
+TIMBRES: dict[str, Timbre] = {
+    # Unchanged from the version the loudness constants were swept against.
+    "marble": Timbre(
+        partials=((1.0, 0.6), (2.02, 0.25)),
+        decay=IMPACT_DECAY, high_bias=0.0, click_decay=320.0, click_level=0.45,
+        pitches=tuple(PITCHES),
+    ),
+    # Metal disc. An octave above the marbles so the two never sound like the
+    # same object, and quiet on the click so a long clip is not fatiguing —
+    # ASMR is listened to at volume, and a bright transient that is pleasant
+    # once is painful forty times.
+    "coin": Timbre(
+        partials=((1.0, 0.5), (1.594, 0.3), (2.136, 0.2), (2.296, 0.15), (2.653, 0.1), (3.156, 0.07)),
+        decay=5.5, high_bias=1.9, click_decay=900.0, click_level=0.22,
+        pitches=(392.0, 466.2, 523.3, 622.3, 698.5, 784.0),
+    ),
+}
+
+
+@dataclass(frozen=True)
 class Impact:
     t: float
     strength: float  # 0..1
     index: int  # which object hit
     pan: float  # -1 left .. 1 right
+    timbre: str = "marble"
 
 
-def _transient(strength: float, pitch: float) -> np.ndarray:
+def _transient(strength: float, pitch: float, timbre: str = "marble") -> np.ndarray:
     # Long enough that the envelope has decayed to nothing before the buffer
     # ends; cutting a ring off mid-decay is an audible click of its own.
-    length = int(SAMPLE_RATE * min(0.6, 6.0 / IMPACT_DECAY))
+    spec = TIMBRES.get(timbre) or TIMBRES["marble"]
+    length = int(SAMPLE_RATE * min(1.2, 6.0 / spec.decay))
     t = np.arange(length) / SAMPLE_RATE
-    env = np.exp(-t * IMPACT_DECAY)
-    body = np.sin(2 * np.pi * pitch * t) * 0.6
-    body += np.sin(2 * np.pi * pitch * 2.02 * t) * 0.25
+    body = np.zeros(length)
+    for ratio, amplitude in spec.partials:
+        # Each mode gets its own envelope, so the sound grows darker as it
+        # decays the way a struck object does, rather than fading as a block.
+        body += np.sin(2 * np.pi * pitch * ratio * t) * amplitude * np.exp(
+            -t * (spec.decay + spec.high_bias * (ratio - 1.0))
+        )
     click = np.random.default_rng(int(pitch * 100)).normal(0, 1, length)
-    click *= np.exp(-t * 320.0) * 0.45
-    return (body + click) * env * np.clip(strength, 0.05, 1.0)
+    click *= np.exp(-t * spec.click_decay) * spec.click_level
+    return (body + click * np.exp(-t * spec.decay)) * np.clip(strength, 0.05, 1.0)
 
 
 def _room_tone(length: int, rng: np.random.Generator) -> np.ndarray:
@@ -116,8 +161,9 @@ def render_wav(impacts: list[Impact], duration_s: float, out_path: Path) -> Path
         start = int(impact.t * SAMPLE_RATE)
         if start >= length:
             continue
-        pitch = PITCHES[impact.index % len(PITCHES)]
-        sample = _transient(impact.strength, pitch)
+        spec = TIMBRES.get(impact.timbre) or TIMBRES["marble"]
+        pitch = spec.pitches[impact.index % len(spec.pitches)]
+        sample = _transient(impact.strength, pitch, impact.timbre)
         end = min(length, start + len(sample))
         sample = sample[: end - start]
         pan = float(np.clip(impact.pan, -1.0, 1.0))

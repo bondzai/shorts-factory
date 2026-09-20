@@ -5,10 +5,11 @@ from factory import generators
 
 def test_every_registered_module_is_built():
     all_gens = generators.all_generators()
-    assert set(all_gens) == {"physics", "market_replay", "sysviz"}
+    assert set(all_gens) == {"physics", "market_replay", "sysviz", "asmr"}
     assert all_gens["physics"].ready is True
     assert all_gens["market_replay"].ready is True
     assert all_gens["sysviz"].ready is True
+    assert all_gens["asmr"].ready is True
 
 
 def test_catalogue_lists_every_ready_module():
@@ -16,10 +17,11 @@ def test_catalogue_lists_every_ready_module():
     assert "physics" in text
     assert "market_replay" in text
     assert "sysviz" in text
+    assert "asmr" in text
 
 
 def test_ready_generators_is_the_idea_agents_menu():
-    assert set(generators.ready_generators()) == {"physics", "market_replay", "sysviz"}
+    assert set(generators.ready_generators()) == {"physics", "market_replay", "sysviz", "asmr"}
 
 
 def test_get_unknown_names_what_exists():
