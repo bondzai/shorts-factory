@@ -34,4 +34,8 @@ build-backend = "setuptools.build_meta"
 include = ["factory*"]
 
 [tool.setuptools.package-data]
-factory = ["schema.sql", "static/*.html"]
+# The whole static tree: the Vite build under static/dist (index.html and
+# hashed assets) and the logo. This said static/*.html once, from before
+# there was a build, and a pip-installed factory served a console with no
+# assets — found when the Docker image would not start.
+factory = ["schema.sql", "static/*", "static/dist/*", "static/dist/assets/*"]

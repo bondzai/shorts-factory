@@ -10,7 +10,11 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parent.parent
+# Where config.toml, prompts/, channels/, .env and data/ live. From a git
+# checkout that is the checkout; from a pip install the package sits in
+# site-packages and none of those are next to it, so FACTORY_ROOT names the
+# directory instead — the Docker image sets it to /app.
+ROOT = Path(os.environ.get("FACTORY_ROOT") or Path(__file__).resolve().parent.parent).resolve()
 
 # What the Settings screen can change without anyone opening config.toml.
 # config.toml stays the default; a value set on the page is an override in the

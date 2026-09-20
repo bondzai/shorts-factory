@@ -277,3 +277,36 @@ def test_a_download_is_named_after_the_title():
     assert download_name(row) == "marble_race-7-abcdef.mp4"
     row["title"] = "!!!"
     assert download_name(row) == "marble_race-7-abcdef.mp4"
+
+
+def test_the_built_console_is_packaged_with_the_module():
+    """pip install must carry static/dist and the logo: the package-data
+    glob said static/*.html once and the Docker image started with no
+    console at all. Read the declaration rather than building a wheel."""
+    import tomllib
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    data = tomllib.loads((root / "pyproject.toml").read_text())["tool"]["setuptools"]["package-data"]["factory"]
+    dist = root / "factory" / "static" / "dist"
+    assert dist.joinpath("index.html").exists() and any(dist.joinpath("assets").glob("*.js"))
+    globs = set(data)
+    assert "static/dist/assets/*" in globs and "static/dist/*" in globs and "static/*" in globs
+
+
+def test_factory_root_can_be_pointed_elsewhere(tmp_path):
+    """From a pip install the package is in site-packages and nothing it
+    reads at runtime is next to it; FACTORY_ROOT says where that is. Found
+    when the Docker image looked for config.toml in site-packages."""
+    import importlib
+    import os
+    import subprocess
+    import sys
+
+    code = "import factory.settings as s; print(s.ROOT)"
+    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True,
+                         env={**os.environ, "FACTORY_ROOT": str(tmp_path)}).stdout.strip()
+    assert out == str(tmp_path.resolve())
+    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True,
+                         env={k: v for k, v in os.environ.items() if k != "FACTORY_ROOT"}).stdout.strip()
+    assert out.endswith("shorts-factory")

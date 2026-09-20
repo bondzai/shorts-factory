@@ -10,7 +10,8 @@ COPY docs ./docs
 COPY data/concepts ./data/concepts
 COPY config.toml ./
 RUN pip install --no-cache-dir . && mkdir -p /app/data /app/channels
+# The package lands in site-packages; everything it reads at runtime is here.
+ENV FACTORY_ROOT=/app
 VOLUME ["/app/data", "/app/channels"]
-ENV FACTORY_PASSWORD=""
 EXPOSE 8765
 CMD ["factory", "serve", "--host", "0.0.0.0", "--port", "8765"]
