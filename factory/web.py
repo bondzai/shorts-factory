@@ -992,12 +992,29 @@ def video(clip_id: str, download: bool = False) -> FileResponse:
     if not path.exists():
         raise HTTPException(410, f"file is gone: {path}")
     if download:
-        # A name you can find in the upload dialog, not clip.mp4 twelve times.
-        return FileResponse(
-            path, media_type="video/mp4",
-            filename=f"{row['variant']}-{row['seed']}-{clip_id[:6]}.mp4",
-        )
+        # Named after the title, so the file you find in the upload dialog
+        # is the one you meant. Before a title exists it falls back to the
+        # variant and seed — never clip.mp4 twelve times.
+        return FileResponse(path, media_type="video/mp4", filename=download_name(row))
     return FileResponse(path, media_type="video/mp4")
+
+
+def download_name(row) -> str:
+    """The title as a filename: letters and digits kept (any script), runs
+    of anything else become one hyphen, trimmed to a length a file dialog
+    shows in full. Combining marks are kept with their letters — \\w alone
+    drops Thai vowels and tone marks, and "เลือก" came out "เล-อก"."""
+    import re
+    import unicodedata
+
+    title = (row["title"] or "").strip()
+    if title:
+        keep = lambda ch: ch.isalnum() or ch == "_" or unicodedata.category(ch).startswith("M")
+        slug = "".join(ch if keep(ch) else "-" for ch in title).strip("-")
+        slug = re.sub(r"-{2,}", "-", slug)[:80].rstrip("-")
+        if slug:
+            return f"{slug}.mp4"
+    return f"{row['variant']}-{row['seed']}-{row['id'][:6]}.mp4"
 
 
 @app.post("/api/clip/{clip_id}/publish")

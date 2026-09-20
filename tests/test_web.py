@@ -259,3 +259,21 @@ def test_with_a_password_everything_waits_at_the_door(sandbox, monkeypatch):
         r = c.post("/login", data={"password": "sesame"}, follow_redirects=False)
         assert r.status_code == 303 and "factory_session" in r.headers.get("set-cookie", "")
         assert c.get("/api/channels").status_code == 200
+
+
+
+def test_a_download_is_named_after_the_title():
+    from factory.web import download_name
+
+    row = {"title": "Pick your marble: red, blue or green", "variant": "marble_race", "seed": 7, "id": "abcdef123456"}
+    assert download_name(row) == "Pick-your-marble-red-blue-or-green.mp4"
+    row["title"] = "Call it now — only one gets out!"
+    assert download_name(row) == "Call-it-now-only-one-gets-out.mp4"
+    row["title"] = "เลือกลูกแก้วของคุณ: แดง น้ำเงิน"  # any script keeps its letters
+    assert download_name(row) == "เลือกลูกแก้วของคุณ-แดง-น้ำเงิน.mp4"
+    row["title"] = "x" * 200
+    assert len(download_name(row)) == 84
+    row["title"] = None
+    assert download_name(row) == "marble_race-7-abcdef.mp4"
+    row["title"] = "!!!"
+    assert download_name(row) == "marble_race-7-abcdef.mp4"
