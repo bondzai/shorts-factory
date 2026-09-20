@@ -209,3 +209,13 @@ def test_the_final_caption_states_the_structure_not_the_heat_result():
     text = FINAL_CAPTION.format(count=_count_word(3))
     assert text == "FINAL · SAME THREE, NEW COURSE"
     assert "TOOK" not in text and "{" not in text
+
+
+def test_running_out_of_frames_with_no_winner_is_a_stall_not_a_clip(sandbox):
+    """A wedged marble that keeps rattling never trips the speed check, so a
+    race that reaches max_seconds with nobody across the line is retried,
+    and after every attempt fails it is an error rather than a clip."""
+    from factory import settings
+    cfg = settings.load().render
+    with pytest.raises(RuntimeError, match="no winner"):
+        physics.PhysicsSandbox()._round(4242, "marble_race", {"course": "bumpers", "max_seconds": 0.5}, cfg, W, H, FPS)

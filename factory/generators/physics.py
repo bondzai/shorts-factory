@@ -548,6 +548,14 @@ class PhysicsSandbox:
                     fps=fps, max_frames=max_frames, course=params.get("course"),
                     background=params.get("background"), lineup=lineup,
                 )
+                if variant == "marble_race" and sim[4] is None:
+                    # Ran out of frames with nobody across the line. A marble
+                    # rattling against a spinning bar never drops below
+                    # STALL_SPEED, so the speed check misses it: measured on a
+                    # bumpers seed that jittered for 18 seconds and shipped.
+                    # (A progress-based check was tried and cut: it burned 6
+                    # of 24 seeds that would have finished.)
+                    raise _Stalled(f"no winner in {max_frames / fps:.1f}s")
                 break
             except _Stalled as exc:
                 if attempt == MAX_ATTEMPTS - 1:
@@ -633,7 +641,6 @@ class PhysicsSandbox:
                 if finish_y is None:
                     break
                 raise _Stalled(f"no winner by {frame / fps:.1f}s")
-
             if finish_y is not None:
                 # Every crossing is recorded, not only the first: the gap to
                 # the runner-up is what the opening caption is built from.

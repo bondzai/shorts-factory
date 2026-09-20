@@ -130,8 +130,10 @@ def fake_generate(monkeypatch, tmp_path, seen):
 
     def generate(*, seed, variant, params, work_dir):
         seen.append(params)
+        # A race has to finish to be a clip now, so the shortest real one:
+        # seed 33 on bumpers crosses at 9.7s.
         return original(seed=seed, variant=variant,
-                        params={**params, "max_seconds": 4}, work_dir=work_dir)
+                        params={**params, "max_seconds": 12, "course": "bumpers"}, work_dir=work_dir)
 
     monkeypatch.setattr(real, "generate", generate)
 
