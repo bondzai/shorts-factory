@@ -449,6 +449,28 @@ def cancel_task(conn: sqlite3.Connection, task_id: int) -> None:
     conn.commit()
 
 
+def delete_tasks(conn: sqlite3.Connection, task_ids: list[int]) -> list[int]:
+    """Remove task rows. A claimed task is cancelled first so nothing is
+    working on a row that no longer exists; the clips it made are untouched."""
+    done = []
+    for task_id in task_ids:
+        row = conn.execute("SELECT id, status FROM tasks WHERE id = ?", (task_id,)).fetchone()
+        if row is None:
+            continue
+        conn.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
+        done.append(int(task_id))
+    conn.commit()
+    return done
+
+
+def clear_finished_tasks(conn: sqlite3.Connection, channel_id: str) -> int:
+    cur = conn.execute(
+        "DELETE FROM tasks WHERE channel_id = ? AND status IN ('done', 'failed', 'cancelled')", (channel_id,)
+    )
+    conn.commit()
+    return cur.rowcount
+
+
 def tasks(
     conn: sqlite3.Connection, channel_id: str | None = None, status: str | None = None, limit: int = 100,
     *, kind: str | None = None, query: str | None = None, sort: str | None = None, direction: str | None = None,

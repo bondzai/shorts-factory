@@ -16,7 +16,13 @@ export function Queue({ snap, channelId, refresh, onOpen, route, navigate }: {
   const [kinds, setKinds] = useState<Record<string, TaskKind>>({});
   useEffect(() => { api<{ kinds: Record<string, TaskKind> }>(`/api/tasks?${q({ channel: channelId, page_size: 25 })}`).then((b) => setKinds(b.kinds)).catch(() => {}); }, [channelId]);
   const active = (list.data?.items || []).filter((t) => t.status === "claimed");
-  const cancel = (id: number) => act(() => api(`/api/tasks/${id}`, { method: "DELETE" }), { ok: "Cancelled", after: async () => { list.reload(); await refresh(); } });
+  const after = async () => { list.reload(); await refresh(); };
+  const cancel = (id: number) => act(() => api(`/api/tasks/${id}`, { method: "DELETE" }), { ok: "Cancelled", after });
+  const [picked, setPicked] = useState<Set<string | number>>(new Set());
+  useEffect(() => setPicked(new Set()), [list.data]);
+  const ids = (list.data?.items || []).map((t) => t.id);
+  const n = picked.size;
+  const bulk = (path: string, body: unknown, confirmText?: string) => { if (confirmText && !window.confirm(confirmText)) return; act(() => send(path, body), { after: async () => { setPicked(new Set()); await after(); } }); };
   const tone = (s: string) => s === "done" ? "ok" : s === "failed" ? "no" : s === "claimed" ? "key" : undefined;
 
   const columns: Column<Task>[] = [
@@ -41,12 +47,17 @@ export function Queue({ snap, channelId, refresh, onOpen, route, navigate }: {
       <Directions channelId={channelId} />
       <HandOff snap={snap} channelId={channelId} refresh={refresh} />
       <Toolbar total={list.data?.total}>
+        <button className="sm" disabled={!n} onClick={() => bulk("/api/tasks/cancel", { ids: [...picked] })}>Cancel {n || ""}</button>
+        <button className="sm danger" disabled={!n} onClick={() => bulk("/api/tasks/delete", { ids: [...picked] }, `Delete ${n} task(s) from the queue? Clips they made stay.`)}>Delete {n || ""}</button>
+        <button className="sm" onClick={() => bulk("/api/tasks/clear", { channel: channelId }, "Remove every done, failed and cancelled task on this channel?")}>Clear finished</button>
         <SearchBox value={query.get("q")} onChange={(v) => query.set({ q: v, page: 1 })} placeholder="search parameters, results, who" />
         <Chips options={["queued", "claimed", "done", "failed", "cancelled"].map((v) => ({ value: v }))} value={query.get("status")} onChange={(v) => query.set({ status: v, page: 1 })} />
         <Chips options={Object.keys(kinds).map((v) => ({ value: v }))} value={query.get("kind")} onChange={(v) => query.set({ kind: v, page: 1 })} all="any kind" />
       </Toolbar>
       <DataTable columns={columns} rows={list.data?.items || []} loading={list.loading} sort={query.get("sort")} dir={query.get("dir")}
         onSort={(k) => query.set({ sort: k, dir: query.get("sort") === k && query.get("dir") !== "asc" ? "asc" : "desc", page: 1 })}
+        selectable selected={picked} onSelect={(id) => setPicked((p) => { const s = new Set(p); s.has(id) ? s.delete(id) : s.add(id); return s; })}
+        onSelectAll={() => setPicked((p) => p.size === ids.length ? new Set() : new Set(ids))}
         empty="Nothing queued. Add work above." />
       {(list.data?.items || []).some((t) => t.status !== "queued") && null}
       {list.data && <Pagination page={list.data.page} pageSize={list.data.page_size} total={list.data.total} onPage={(p) => query.set({ page: p })} onPageSize={(s) => query.set({ page_size: s, page: 1 })} />}

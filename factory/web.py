@@ -385,6 +385,43 @@ def cancel_task(task_id: int) -> dict[str, str]:
     return {"status": "cancelled"}
 
 
+class TaskIdsBody(BaseModel):
+    ids: list[int]
+
+
+@app.post("/api/tasks/delete")
+def delete_tasks(body: TaskIdsBody) -> dict[str, Any]:
+    with db.connect() as conn:
+        removed = db.delete_tasks(conn, body.ids)
+    logs.event("task.deleted", ids=removed, by="human")
+    return {"deleted": removed}
+
+
+@app.post("/api/tasks/cancel")
+def cancel_tasks(body: TaskIdsBody) -> dict[str, Any]:
+    cancelled = []
+    with db.connect() as conn:
+        for task_id in body.ids:
+            try:
+                db.cancel_task(conn, task_id); cancelled.append(task_id)
+            except ValueError:
+                continue
+    return {"cancelled": cancelled}
+
+
+class TaskClearBody(BaseModel):
+    channel: str | None = None
+
+
+@app.post("/api/tasks/clear")
+def clear_tasks(body: TaskClearBody) -> dict[str, Any]:
+    with db.connect() as conn:
+        ch = _resolve(conn, body.channel)
+        n = db.clear_finished_tasks(conn, ch.id)
+    logs.event("task.cleared", channel=ch.id, count=n, by="human")
+    return {"cleared": n}
+
+
 @app.post("/api/tasks/work")
 def work_tasks(body: ChannelOnly) -> dict[str, Any]:
     """Run the queue with the built-in agents, as a job."""

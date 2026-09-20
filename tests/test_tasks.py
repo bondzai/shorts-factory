@@ -177,3 +177,13 @@ def test_a_queued_task_has_no_current_step_and_a_done_one_has_none_pending(conn)
     row = conn.execute("SELECT * FROM tasks WHERE id = ?", (tid,)).fetchone()
     assert [s["state"] for s in tasks.steps(row)] == ["done", "done"]
     assert tasks.steps(row)[-1]["note"] == "done"
+
+
+def test_tasks_can_be_deleted_and_finished_ones_cleared(client):
+    ids = client.post("/api/tasks", json={"channel": CH, "kind": "make-clip", "params": {"variant": "marble_race"}, "count": 3}).json()["ids"]
+    with db.connect() as conn:
+        db.claim_task(conn, "x"); db.finish_task(conn, ids[0], ok=True)
+    assert client.post("/api/tasks/cancel", json={"ids": [ids[1]]}).json()["cancelled"] == [ids[1]]
+    assert client.post("/api/tasks/clear", json={"channel": CH}).json()["cleared"] == 2
+    assert client.post("/api/tasks/delete", json={"ids": [ids[2], 9999]}).json()["deleted"] == [ids[2]]
+    assert client.get(f"/api/tasks?channel={CH}").json()["total"] == 0
