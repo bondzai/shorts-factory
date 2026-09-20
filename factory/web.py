@@ -467,6 +467,16 @@ class RejectBody(BaseModel):
     reason: str = "not good enough"
 
 
+@app.post("/api/clip/{clip_id}/restore")
+def restore(clip_id: str) -> dict[str, str]:
+    with db.connect() as conn:
+        try:
+            pipeline.restore(conn, clip_id)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from None
+    return {"status": AWAITING_APPROVAL}
+
+
 class TextBody(BaseModel):
     title: str | None = None
     comment_prompt: str | None = None

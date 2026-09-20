@@ -310,7 +310,13 @@ function renderReview() {
 }
 
 async function decide(id, what) {
-  try { await send(`/api/clip/${id}/${what}`, what === "reject" ? { reason: "rejected in review" } : {}); }
+  let body = {};
+  if (what === "reject") {
+    const reason = prompt("Why? This is what the next planner reads. Cancel keeps the clip.", "");
+    if (reason === null) return;
+    body = { reason: reason.trim() || "rejected in review" };
+  }
+  try { await send(`/api/clip/${id}/${what}`, body); }
   catch (err) { alert(err.message); }
   channels = [];
   await refresh({ force: true });
@@ -339,7 +345,7 @@ async function renderLibrary() {
       <tbody>${body.clips.map((c) => `
         <tr>
           <td><div>${esc(c.title || "(untitled)")}</div>
-              <div class="hint">${c.id} · seed ${c.seed}${c.title_history?.length ? ` · retitled ${c.title_history.length}×` : ""}${c.reject_reason ? ` · <span style="color:var(--no)">${esc(c.reject_reason.slice(0, 70))}</span>` : ""}</div></td>
+              <div class="hint">${c.id} · seed ${c.seed}${c.title_history?.length ? ` · retitled ${c.title_history.length}×` : ""}${c.reject_reason ? ` · <span style="color:var(--no)">${esc(c.reject_reason.slice(0, 70))}</span>` : ""}${c.status === "qc_rejected" && c.has_video && !(c.reject_reason || "").startsWith("too similar") ? ` <button class="small" data-restore="${c.id}">Back to queue</button>` : ""}</div></td>
           <td class="hint">${esc(c.variant)}</td>
           <td><span class="badge" style="background:var(--panel2);color:var(--dim)">${esc(c.status.replace(/_/g, " "))}</span></td>
           <td>${num(c.views)}</td><td>${fmt(c.avg_view_pct)}${c.avg_view_pct != null ? "%" : ""}</td>
@@ -355,6 +361,15 @@ async function renderLibrary() {
     };
   });
   $("#q").onchange = (e) => { filters.q = e.target.value; renderLibrary(); };
+  document.querySelectorAll("[data-restore]").forEach((b) => {
+    b.onclick = async () => {
+      try { await send(`/api/clip/${b.dataset.restore}/restore`, {}); }
+      catch (err) { alert(err.message); return; }
+      channels = [];
+      await refresh({ force: true });
+      renderLibrary();
+    };
+  });
 }
 
 /* ---------- analytics ---------- */

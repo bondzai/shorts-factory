@@ -267,6 +267,14 @@ def cmd_rehook(args) -> int:
     return 0 if outcome.status != "failed" else 1
 
 
+def cmd_restore(args) -> int:
+    with db.connect() as conn:
+        for clip_id in args.clip_ids:
+            pipeline.restore(conn, clip_id)
+            print(f"{clip_id} back in the queue")
+    return 0
+
+
 def cmd_publish(args) -> int:
     with db.connect() as conn:
         channel = channels.resolve(conn, args.channel)
@@ -622,6 +630,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("clip_id")
     p.add_argument("reason")
     p.set_defaults(func=cmd_reject)
+
+    p = sub.add_parser("restore", help="put a rejected clip back in the review queue")
+    p.add_argument("clip_ids", nargs="+")
+    p.set_defaults(func=cmd_restore)
 
     p = sub.add_parser("retitle", help="change a title, keeping the old one and its numbers")
     p.add_argument("clip_id")

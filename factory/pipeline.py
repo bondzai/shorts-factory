@@ -545,6 +545,24 @@ def approve(conn: sqlite3.Connection, clip_id: str) -> None:
     logs.event("clip.approved", channel=row["channel_id"], clip=clip_id, title=row["title"])
 
 
+def restore(conn: sqlite3.Connection, clip_id: str) -> None:
+    """Put a rejected clip back in the review queue.
+
+    Reject is one keystroke on the Review screen and had no undo; the third
+    clip of the day went out on an R. The render is still on disk, so nothing
+    is redone — the clip just gets looked at again.
+    """
+    row = db.get(conn, clip_id)
+    if row is None or row["status"] != QC_REJECTED:
+        raise ValueError(f"{clip_id} is not a rejected clip")
+    if not row["video_path"] or not Path(row["video_path"]).exists():
+        raise ValueError(f"{clip_id} has no render on disk; rebuild it instead")
+    if row["reject_reason"] and row["reject_reason"].startswith("too similar"):
+        raise ValueError(f"{clip_id} failed a measured gate ({row['reject_reason'].split(';')[0]}); that does not change by looking again")
+    db.update(conn, clip_id, status=AWAITING_APPROVAL, reject_reason=None)
+    logs.event("clip.restored", channel=row["channel_id"], clip=clip_id, was=row["reject_reason"])
+
+
 def reject(conn: sqlite3.Connection, clip_id: str, reason: str) -> None:
     row = db.get(conn, clip_id)
     if row is None:

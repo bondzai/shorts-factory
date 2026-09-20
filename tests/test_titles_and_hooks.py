@@ -255,3 +255,30 @@ def test_a_stamped_then_rejected_clip_is_not_published_anywhere(channel):
     with db.connect() as conn:
         out = pipeline.retitle(conn, clip_id, "Eight ramps and one marble ahead at the line")
     assert out["published"] is False and out["needs_manual_update"] is False
+
+
+# --- reject has an undo now ---------------------------------------------------
+
+def test_a_rejected_clip_can_go_back_to_the_queue(channel, tmp_path):
+    video = tmp_path / "clip.mp4"; video.write_bytes(b"x")
+    clip_id = clip(QC_REJECTED, reject_reason="rejected in review", video_path=str(video))
+    with db.connect() as conn:
+        pipeline.restore(conn, clip_id)
+        row = db.get(conn, clip_id)
+    assert row["status"] == AWAITING_APPROVAL and row["reject_reason"] is None
+
+
+def test_a_measured_rejection_does_not_come_back_by_asking(channel, tmp_path):
+    video = tmp_path / "clip.mp4"; video.write_bytes(b"x")
+    clip_id = clip(QC_REJECTED, reject_reason="too similar to an existing clip: 0.91 > 0.88",
+                   video_path=str(video))
+    with db.connect() as conn:
+        with pytest.raises(ValueError, match="measured gate"):
+            pipeline.restore(conn, clip_id)
+
+
+def test_restore_is_on_the_web_too(client, tmp_path):
+    video = tmp_path / "clip.mp4"; video.write_bytes(b"x")
+    clip_id = clip(QC_REJECTED, reject_reason="rejected in review", video_path=str(video))
+    assert client.post(f"/api/clip/{clip_id}/restore").status_code == 200
+    assert client.get(f"/api/state?channel={CH}").json()["queue"][0]["id"] == clip_id
