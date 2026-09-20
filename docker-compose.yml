@@ -1,0 +1,31 @@
+# One container, one operator.
+#
+#   docker compose up -d --build      # build and run; the console is on :8765
+#   docker compose logs -f            # watch it
+#   docker compose down               # stop; the data volume below survives
+#
+# What lives outside the image, on purpose:
+#   ./data       the database, every render, the logs — the whole factory state
+#   ./channels   per-channel rules files
+#   .env         FACTORY_PASSWORD and FACTORY_WEBHOOK_URL; never baked in
+# Lose those and you have a fresh factory; keep them and a rebuilt image is
+# the same factory. Back up ./data — it is small (tens of MB).
+services:
+  factory:
+    build: .
+    image: shorts-factory
+    container_name: shorts-factory
+    restart: unless-stopped
+    ports:
+      - "8765:8765"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./channels:/app/channels
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8765/login', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

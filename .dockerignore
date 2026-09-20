@@ -1,8 +1,17 @@
+# The image takes source, prompts, docs and the built console (committed
+# under factory/static/dist). Everything below is either state that belongs
+# in a volume, or a local build environment the container rebuilds itself.
 .venv
-data/work
+web/node_modules
+node_modules
 data/out
+data/work
 data/logs
 data/*.db*
-__pycache__
-.pytest_cache
+.env
 .git
+.claude
+__pycache__
+*.pyc
+tests
+.pytest_cache
