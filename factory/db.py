@@ -171,9 +171,20 @@ def recent(conn: sqlite3.Connection, channel_id: str, limit: int = 10) -> list[s
 def known_phashes(
     conn: sqlite3.Connection, channel_id: str, exclude: str | None = None
 ) -> list[str]:
-    """Sameness is judged within a channel — two channels may share a look."""
+    """Sameness is judged within a channel — two channels may share a look.
+
+    Only clips that can still reach the platform count. The gate exists for
+    the inauthentic-content policy, which is about what gets uploaded; a clip
+    that QC threw out is one the platform never sees. Counting it did real
+    damage: a funnel_drop scored 0.984 against a rejected funnel and 0.731
+    against everything that could ship, and was refused for resembling a clip
+    that does not exist anywhere but this table. Every rejection was quietly
+    shrinking the channel's future.
+    """
     rows = conn.execute(
-        "SELECT id, phash FROM clips WHERE channel_id = ? AND phash IS NOT NULL",
+        "SELECT id, phash FROM clips"
+        " WHERE channel_id = ? AND phash IS NOT NULL"
+        "   AND status NOT IN ('qc_rejected', 'failed')",
         (channel_id,),
     ).fetchall()
     return [r["phash"] for r in rows if r["id"] != exclude]

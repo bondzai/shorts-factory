@@ -131,3 +131,17 @@ def test_migration_adopts_clips_from_a_single_channel_database(sandbox):
     assert row["channel_id"] == channels.DEFAULT_ID
     assert db.migrate(old) == []
     old.close()
+
+
+def test_rejected_clips_do_not_count_against_new_ones(conn):
+    """A funnel scored 0.984 against a rejected funnel and 0.731 against every
+    clip that could ship, and was refused for resembling something YouTube will
+    never see. Sinks are out of the comparison set."""
+    live = db.insert_clip(conn, channel_id=CH, generator="g", variant="v", seed=1,
+                          params={}, hook="", plan_why="")
+    db.update(conn, live, phash="b" * 64, status="published")
+    for status in ("qc_rejected", "failed"):
+        dead = db.insert_clip(conn, channel_id=CH, generator="g", variant="v", seed=2,
+                              params={}, hook="", plan_why="")
+        db.update(conn, dead, phash="c" * 64, status=status)
+    assert db.known_phashes(conn, CH) == ["b" * 64]
