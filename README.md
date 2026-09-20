@@ -261,69 +261,28 @@ clip's stored description at the time was the seed number. It cannot be
 checked now. Every race rendered from here on records its margin, and the
 title playbook says to use it.
 
-## The console: five screens, named for what you do on them
+## The console
 
-| screen | what it is for |
-|---|---|
-| **Today** | decide on what is waiting, then upload what you approved — approve, fix the caption, download, "I uploaded it", all on one card |
-| **Clips** | everything ever made, with the file a click away and rejected clips restorable |
-| **Results** | how published clips did, enter the numbers from Studio, retitle with the receipt kept |
-| **Activity** | what ran and what happened inside it — each job is a box with its events, loose events (CLI, an agent over MCP, a keypress) between them |
-| **Settings** | this channel (driver, cadence, allowed modules) and the rules its agents read |
+Eight screens, named for what you do on them: **Today** (decide, then
+upload), **Queue** (what agents will do next), **Clips**, **Results**,
+**Activity**, **Bin**, **Settings**, **Docs**.
 
-Runs and Logs used to be two screens showing the same afternoon from two
-angles; Activity is the one they should have been.
+Every screen follows one contract — title row, toolbar (search · filter
+chips · sort · count), content, pagination — and every list answers one
+shape from the server: `{items, total, page, page_size}` with a whitelisted
+`sort`/`dir`, `page_size` of 25/50/100, and the filters kept in the URL
+(`#/clips?status=published&sort=views&dir=desc&page=2`), so refresh, back
+and a shared link land on the same view. The pieces are in `web/src/ui`;
+a screen that needs a ninth is a screen that is doing too much.
 
-React 18 with `htm` from a CDN, no build step: the rest of the project is one
-Python venv and the page should not be the thing that needs npm. It needs the
-network for the first load of React itself. Moving to a Vite build later is a
-move, not a rewrite.
-
-## Courses and themes
-
-A race needs a descent, and each shape is a different picture to the
-similarity gate. Three courses ship — **zigzag**, **pegboard** (a Galton
-board), **bumpers** (pinball) — each measured over 24 seeds and finishing 19
-inside the QC window with no seed stuck. Pace is set with gravity per course,
-not geometry. Mixed, the gate accepts 18 of 25 seeds against 15 for zigzag
-alone. A fourth course, wedges, was built and cut: marbles balanced on an
-apex, wedged between an arm and a wall lip, or sat in a wall corner — three
-traps, and fixing one opened another.
-
-A theme is colours, marble names, a caption colour and a decoration, with a
-window in the calendar: Halloween, Christmas, New Year, Valentine, Songkran,
-and whatever you add on Settings → Themes. The active theme is whatever is
-forced there, else today's season, else the default; nothing else in the
-factory knows the month. Marble names reach titles, so they are words a
-viewer would say.
-
-The **Docs** screen holds the user guide (`docs/*.md`) and a reference
-generated from the code on each open — settings, task kinds, courses, themes,
-playbooks, commands — so it cannot be stale.
-
-## The queue: put the work in the system, let any brain pull it
+Vite + React + TypeScript, source under `web/`. The build is committed to
+`factory/static/dist` so `factory serve` needs no node; after changing the
+source:
 
 ```bash
-factory tasks add make-clip --variant marble_race --count 3
-factory tasks add retitle
-factory tasks list
+cd web && npm install && npm run build   # typechecks, then builds into the package
+npm run dev                              # live reload on :5173, API proxied to :8765
 ```
-
-A task is a unit of work with a kind and parameters, sitting in the `tasks`
-table until something takes it. Two things can:
-
-* **An external agent** calls `next_task` over MCP and gets the playbook for
-  that kind with the task's parameters on top, does it, and calls
-  `finish_task`. The standing prompt in `prompts/work.md` is the whole brief —
-  the same six lines for every task and every model, because the task carries
-  its own instructions.
-* **`factory work`** does the same with the built-in agents, for the kinds
-  that need no person's judgement (today: `make-clip`). It refuses politely
-  when no provider is ready.
-
-Claims expire after 45 minutes, so an agent that vanished mid-task does not
-hold it forever. A task that cannot be done is finished with `ok=false` and
-the reason, never abandoned. The Queue screen adds, watches and cancels.
 
 ## Brains: any model, one database
 

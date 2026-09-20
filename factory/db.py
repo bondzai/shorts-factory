@@ -284,6 +284,26 @@ def latest_digest(conn: sqlite3.Connection, channel_id: str) -> sqlite3.Row | No
     ).fetchone()
 
 
+# --- paging: the one shape every list on the page uses --------------------------
+# A list endpoint takes page/page_size/sort and answers {items, total, page,
+# page_size}. Sort fields are whitelisted per table: the page never sends SQL.
+
+PAGE_SIZES = (25, 50, 100)
+CLIP_SORTS = {"created_at", "title", "status", "views", "avg_view_pct", "swipe_away_pct", "sameness", "duration_s"}
+TASK_SORTS = {"id", "kind", "status", "created_at", "claimed_by"}
+RUN_SORTS = {"id", "kind", "status", "started_at", "cost_usd"}
+
+
+def page_args(page: int | None, page_size: int | None) -> tuple[int, int]:
+    size = page_size if page_size in PAGE_SIZES else PAGE_SIZES[0]
+    return max(1, int(page or 1)), size
+
+
+def _order(sort: str | None, direction: str | None, allowed: set[str], default: str) -> str:
+    field = sort if sort in allowed else default
+    return f" ORDER BY {field} {'ASC' if direction == 'asc' else 'DESC'}, id DESC"
+
+
 def search_clips(
     conn: sqlite3.Connection,
     channel_id: str,
@@ -294,7 +314,12 @@ def search_clips(
     query: str | None = None,
     limit: int = 200,
     binned: bool = False,
-) -> list[sqlite3.Row]:
+    sort: str | None = None,
+    direction: str | None = None,
+    page: int | None = None,
+    page_size: int | None = None,
+) -> list[sqlite3.Row] | tuple[list[sqlite3.Row], int]:
+    """Rows, or (rows, total) when a page is asked for."""
     sql = "SELECT * FROM clips WHERE channel_id = ? AND deleted_at IS " + ("NOT NULL" if binned else "NULL")
     args: list[Any] = [channel_id]
     if status:
@@ -309,9 +334,15 @@ def search_clips(
     if query:
         sql += " AND (title LIKE ? OR id LIKE ? OR render_desc LIKE ?)"
         args.extend([f"%{query}%"] * 3)
-    sql += " ORDER BY created_at DESC LIMIT ?"
-    args.append(limit)
-    return conn.execute(sql, args).fetchall()
+    if page is None:
+        sql += " ORDER BY created_at DESC LIMIT ?"
+        args.append(limit)
+        return conn.execute(sql, args).fetchall()
+    total = conn.execute(sql.replace("SELECT *", "SELECT COUNT(*)", 1), args).fetchone()[0]
+    p, size = page_args(page, page_size)
+    rows = conn.execute(sql + _order(sort, direction, CLIP_SORTS, "created_at") + " LIMIT ? OFFSET ?",
+                        args + [size, (p - 1) * size]).fetchall()
+    return rows, total
 
 
 # --- the task queue: what agents will do next ---------------------------------
@@ -420,16 +451,30 @@ def cancel_task(conn: sqlite3.Connection, task_id: int) -> None:
 
 def tasks(
     conn: sqlite3.Connection, channel_id: str | None = None, status: str | None = None, limit: int = 100,
-) -> list[sqlite3.Row]:
+    *, kind: str | None = None, query: str | None = None, sort: str | None = None, direction: str | None = None,
+    page: int | None = None, page_size: int | None = None,
+) -> list[sqlite3.Row] | tuple[list[sqlite3.Row], int]:
     sql = "SELECT * FROM tasks WHERE 1 = 1"
     args: list[Any] = []
     if channel_id:
         sql += " AND channel_id = ?"; args.append(channel_id)
     if status:
         sql += " AND status = ?"; args.append(status)
-    sql += " ORDER BY CASE status WHEN 'claimed' THEN 0 WHEN 'queued' THEN 1 ELSE 2 END, priority DESC, id DESC LIMIT ?"
-    args.append(limit)
-    return conn.execute(sql, args).fetchall()
+    if kind:
+        sql += " AND kind = ?"; args.append(kind)
+    if query:
+        sql += " AND (params_json LIKE ? OR result_json LIKE ? OR error LIKE ? OR claimed_by LIKE ?)"
+        args.extend([f"%{query}%"] * 4)
+    if page is None:
+        sql += " ORDER BY CASE status WHEN 'claimed' THEN 0 WHEN 'queued' THEN 1 ELSE 2 END, priority DESC, id DESC LIMIT ?"
+        args.append(limit)
+        return conn.execute(sql, args).fetchall()
+    total = conn.execute(sql.replace("SELECT *", "SELECT COUNT(*)", 1), args).fetchone()[0]
+    p, size = page_args(page, page_size)
+    order = (" ORDER BY CASE status WHEN 'claimed' THEN 0 WHEN 'queued' THEN 1 ELSE 2 END, priority DESC, id DESC"
+             if not sort else _order(sort, direction, TASK_SORTS, "id"))
+    rows = conn.execute(sql + order + " LIMIT ? OFFSET ?", args + [size, (p - 1) * size]).fetchall()
+    return rows, total
 
 
 def task_counts(conn: sqlite3.Connection, channel_id: str) -> dict[str, int]:
@@ -503,6 +548,23 @@ def finish_run(
         )
     except Exception:  # pragma: no cover - notifying must never fail a run
         pass
+
+
+def runs_page(
+    conn: sqlite3.Connection, channel_id: str, *, status: str | None = None, kind: str | None = None,
+    sort: str | None = None, direction: str | None = None, page: int | None = None, page_size: int | None = None,
+) -> tuple[list[sqlite3.Row], int]:
+    sql = "SELECT * FROM runs WHERE channel_id = ?"
+    args: list[Any] = [channel_id]
+    if status:
+        sql += " AND status = ?"; args.append(status)
+    if kind:
+        sql += " AND kind = ?"; args.append(kind)
+    total = conn.execute(sql.replace("SELECT *", "SELECT COUNT(*)", 1), args).fetchone()[0]
+    p, size = page_args(page, page_size)
+    rows = conn.execute(sql + _order(sort, direction, RUN_SORTS, "id") + " LIMIT ? OFFSET ?",
+                        args + [size, (p - 1) * size]).fetchall()
+    return rows, total
 
 
 def recent_runs(

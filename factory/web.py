@@ -206,10 +206,20 @@ def _clip_json(row) -> dict[str, Any]:
 
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
+# The console is a Vite build in static/dist (source under web/). Its hashed
+# assets are served from /assets, the page from /. The build is committed, so
+# nothing at runtime needs node; `npm run build` in web/ refreshes it.
+DIST = STATIC / "dist"
+if (DIST / "assets").exists():
+    app.mount("/assets", StaticFiles(directory=DIST / "assets"), name="assets")
+
 
 @app.get("/", response_class=HTMLResponse)
 def index() -> str:
-    return (STATIC / "index.html").read_text()
+    page = DIST / "index.html"
+    if not page.exists():
+        raise HTTPException(503, "the console is not built: run `npm install && npm run build` in web/")
+    return page.read_text()
 
 
 @app.get("/api/channels")
@@ -326,12 +336,21 @@ class IdsBody(BaseModel):
 # --- the task queue -----------------------------------------------------------
 
 @app.get("/api/tasks")
-def list_tasks(channel: str | None = None, status: str | None = None) -> dict[str, Any]:
+def list_tasks(
+    channel: str | None = None, status: str | None = None, kind: str | None = None, q: str | None = None,
+    sort: str | None = None, dir: str | None = None, page: int = 1, page_size: int = 25,
+) -> dict[str, Any]:
     with db.connect() as conn:
         ch = _resolve(conn, channel)
-        rows = db.tasks(conn, ch.id, status)
+        rows, total = db.tasks(conn, ch.id, status, kind=kind, query=q, sort=sort, direction=dir,
+                               page=page, page_size=page_size)
+        counts = db.task_counts(conn, ch.id)
+    items = [tasks.as_dict(r) for r in rows]
+    p, size = db.page_args(page, page_size)
     return {
-        "tasks": [tasks.as_dict(r) for r in rows],
+        "items": items, "total": total, "page": p, "page_size": size,
+        "tasks": items,
+        "counts": counts,
         "kinds": {k: {"meaning": v["meaning"], "params": v["params"], "builtin": v["builtin"]} for k, v in tasks.KINDS.items()},
     }
 
@@ -676,30 +695,37 @@ def clips(
     variant: str | None = None,
     q: str | None = None,
     bin: bool = False,
+    sort: str | None = None,
+    dir: str | None = None,
+    page: int = 1,
+    page_size: int = 25,
 ) -> dict[str, Any]:
     with db.connect() as conn:
         ch = _resolve(conn, channel)
-        rows = db.search_clips(
+        rows, total = db.search_clips(
             conn, ch.id, status=status, generator=generator, variant=variant, query=q,
-            binned=bin,
+            binned=bin, sort=sort, direction=dir, page=page, page_size=page_size,
         )
         counts = db.status_counts(conn, ch.id)
         binned = conn.execute(
             "SELECT COUNT(*) n FROM clips WHERE channel_id = ? AND deleted_at IS NOT NULL", (ch.id,)
         ).fetchone()["n"]
+    items = [
+        {
+            **_clip_json(row),
+            "created_at": row["created_at"],
+            "published_at": row["published_at"],
+            "views": row["views"],
+            "avg_view_pct": row["avg_view_pct"],
+            "swipe_away_pct": row["swipe_away_pct"],
+            "deleted_at": row["deleted_at"],
+        }
+        for row in rows
+    ]
+    p, size = db.page_args(page, page_size)
     return {
-        "clips": [
-            {
-                **_clip_json(row),
-                "created_at": row["created_at"],
-                "published_at": row["published_at"],
-                "views": row["views"],
-                "avg_view_pct": row["avg_view_pct"],
-                "swipe_away_pct": row["swipe_away_pct"],
-                "deleted_at": row["deleted_at"],
-            }
-            for row in rows
-        ],
+        "items": items, "total": total, "page": p, "page_size": size,
+        "clips": items,  # the previous name; the page reads `items`
         "counts": counts,
         "binned": binned,
         # The filter chips are built from this, so a new generator module
@@ -717,10 +743,15 @@ def analytics_summary(channel: str | None = None) -> dict[str, Any]:
 
 
 @app.get("/api/runs")
-def runs(channel: str | None = None, limit: int = 30) -> dict[str, Any]:
+def runs(channel: str | None = None, status: str | None = None, kind: str | None = None,
+         sort: str | None = None, dir: str | None = None, page: int = 1, page_size: int = 25) -> dict[str, Any]:
     with db.connect() as conn:
         ch = _resolve(conn, channel)
-        return {"runs": [dict(r) for r in db.recent_runs(conn, ch.id, limit)]}
+        rows, total = db.runs_page(conn, ch.id, status=status, kind=kind, sort=sort, direction=dir,
+                                   page=page, page_size=page_size)
+    items = [dict(r) for r in rows]
+    p, size = db.page_args(page, page_size)
+    return {"items": items, "total": total, "page": p, "page_size": size, "runs": items}
 
 
 @app.get("/api/logs")
@@ -728,13 +759,21 @@ def read_logs(
     channel: str | None = None,
     level: str | None = None,
     event: str | None = None,
+    q: str | None = None,
     limit: int = 120,
+    page: int = 1,
+    page_size: int = 25,
 ) -> dict[str, Any]:
+    """The event log is files, not SQL: read a generous window, filter, then page."""
     with db.connect() as conn:
         ch = _resolve(conn, channel)
-    return {
-        "events": logs.read(limit=limit, channel=ch.id, level=level, event_name=event)
-    }
+    events = logs.read(limit=max(limit, page * page_size, 2000), channel=ch.id, level=level, event_name=event)
+    if q:
+        needle = q.lower()
+        events = [e for e in events if needle in json.dumps(e, default=str).lower()]
+    p, size = db.page_args(page, page_size)
+    items = events[(p - 1) * size : p * size]
+    return {"items": items, "total": len(events), "page": p, "page_size": size, "events": events[:limit]}
 
 
 @app.get("/api/rules")
