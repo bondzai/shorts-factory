@@ -13,6 +13,10 @@ max_seconds = 22
 # marbles bouncing rather than leaving the gate. The swipe decision is made in
 # the first two seconds; the gate is the least interesting thing in the clip.
 skip_start_s = 0.6
+# Races per clip. Two — a heat and a final with the same marbles on a different
+# course — lands the clip in the 30-45 s band where Shorts reach is, and gives
+# the viewer a marble to follow.
+rounds = 2
 
 [overlay]
 # On-screen text for the opening seconds. A viewer only waits for an outcome

@@ -96,6 +96,7 @@ class _Style:
     decoration: str = "none"
     caption: tuple[int, int, int] = (255, 255, 255)
     seed: int = 0
+    spinners: list[tuple[float, float, float, float, float]] = field(default_factory=list)  # x, y, half-length, rad/s, phase
 
 
 @dataclass
@@ -238,8 +239,43 @@ def _structure_for(background: tuple[int, int, int]) -> tuple[int, int, int]:
     return tuple(max(0, min(255, c + delta)) for c in background)
 
 
+def _spinner(space: pymunk.Space, x: float, y: float, half: float, omega: float, phase: float, thickness: float) -> None:
+    body = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
+    body.position = (x, y)
+    body.angle = phase
+    body.angular_velocity = omega
+    shape = pymunk.Segment(body, (-half, 0), (half, 0), thickness)
+    shape.elasticity = 0.72
+    shape.friction = 0.10
+    space.add(body, shape)
+
+
+def _add_spinners(space, w, h, rng, style):
+    """One or two rotating bars, in the open middle of the course.
+
+    A still frame of ramps is a diagram; a bar turning through the marbles is
+    a thing happening. They are kinematic — nothing a marble does slows them —
+    so they cannot be trapped, only strike. Not on the pegboard: a bar sweeping
+    through a field of pegs reads as a glitch, not a mechanism.
+    """
+    if style.course != "bumpers":
+        # Measured: on the zigzag a bar across the lane knocked marbles back
+        # up the ramp until 10 seeds in 24 never finished; among pegs it reads
+        # as a glitch. In the bumper field it is one more thing to bounce off,
+        # and 21 of 24 seeds finished — the best of the three courses.
+        return
+    for i in range(rng.randint(1, 2)):
+        y = h * (0.58 if i == 0 else 0.34) + rng.uniform(-h * 0.03, h * 0.03)
+        x = w * rng.uniform(0.42, 0.58)
+        half = w * rng.uniform(0.10, 0.14)
+        omega = rng.choice([-1, 1]) * rng.uniform(1.4, 2.2)
+        phase = rng.uniform(0, 3.14)
+        _spinner(space, x, y, half, omega, phase, style.thickness / 2)
+        style.spinners.append((x, y, half, omega, phase))
+
+
 def _build_race(space: pymunk.Space, w: int, h: int, rng: random.Random, course: str | None = None,
-                background: str | None = None):
+                background: str | None = None, lineup: list | None = None):
     """A course from the registry, dressed by the active theme.
 
     Everything a viewer can see in a single frame is varied: which course, the
@@ -266,6 +302,7 @@ def _build_race(space: pymunk.Space, w: int, h: int, rng: random.Random, course:
     _wall(space, (4, 6), (w - 4, 6))
 
     segments, runway, lanes_for = _COURSES[style.course](space, w, h, rng, style)
+    _add_spinners(space, w, h, rng, style)
 
     # Identical marbles keep their starting order for the whole run, which kills
     # the only question the clip asks. Varying the radius makes them overtake,
@@ -276,6 +313,9 @@ def _build_race(space: pymunk.Space, w: int, h: int, rng: random.Random, course:
 
     colours = list(theme.marbles)
     rng.shuffle(colours)
+    if lineup:
+        # The final is run by the marbles that ran the heat, in the same colours.
+        colours, count = list(lineup), len(lineup)
     lanes = lanes_for(count)
     rng.shuffle(lanes)
 
@@ -362,93 +402,71 @@ class PhysicsSandbox:
         scale = float(cfg["render_scale"])
         sim_w, sim_h = int(out_w * scale), int(out_h * scale)
         fps = int(cfg["fps"])
-        max_frames = int(float(params.get("max_seconds", cfg["max_seconds"])) * fps)
 
-        # About one race seed in six wedges a marble and never finishes. Rather
-        # than burn the seed, derive the next course from it: still fully
-        # determined by `seed`, just not by its first attempt.
-        for attempt in range(MAX_ATTEMPTS):
-            try:
-                sim = self._simulate(
-                    seed=seed + attempt * 7919,
-                    variant=variant,
-                    sim_w=sim_w,
-                    sim_h=sim_h,
-                    fps=fps,
-                    max_frames=max_frames,
-                    course=params.get("course"),
-                    background=params.get("background"),
-                )
-                break
-            except _Stalled as exc:
-                if attempt == MAX_ATTEMPTS - 1:
-                    raise RuntimeError(
-                        f"{variant} seed {seed} stalled on every one of "
-                        f"{MAX_ATTEMPTS} attempts ({exc})"
-                    ) from None
-        states, impacts, balls, segments, winner, winner_frame, style, finishes = sim
-        attempts_used = attempt + 1
-        # Open mid-action: drop the gate. Everything time-based shifts with it.
-        skip = int(float(params.get("skip_start_s", cfg.get("skip_start_s", 0))) * fps)
-        skip = max(0, min(skip, max(0, len(states) - fps * 2)))
-        if skip:
-            states = states[skip:]
-            impacts = [audio.Impact(im.t - skip / fps, im.strength, im.index, im.pan) for im in impacts if im.t >= skip / fps]
-            winner_frame = None if winner_frame is None else max(0, winner_frame - skip)
-            finishes = {name: max(0, f - skip) for name, f in finishes.items()}
-        duration_s = len(states) / fps
-        impacts = [im for im in impacts if im.t < duration_s]
-
-        finish_s = {
-            name: round(f / fps, 2)
-            for name, f in sorted(finishes.items(), key=lambda kv: kv[1])
-        }
-        order = list(finish_s)
-        runner_up = order[1] if len(order) > 1 else None
-        margin_s = round(finish_s[order[1]] - finish_s[order[0]], 2) if runner_up else None
-        hook_text = (params.get("hook_text") or "").strip() or self._default_hook(variant, margin_s)
+        rounds_wanted = int(params.get("rounds", cfg.get("rounds", 1))) if variant == "marble_race" else 1
+        rounds = [self._round(seed, variant, params, cfg, sim_w, sim_h, fps)]
+        if rounds_wanted >= 2:
+            # The final: same marbles, a different course, a seed derived from
+            # this one so the whole clip is still one number.
+            heat = rounds[0]
+            lineup = [(b.name, b.color) for b in heat["balls"]]
+            other = [c for c in COURSES if c != heat["style"].course] or list(COURSES)
+            final_course = params.get("final_course") or random.Random(seed ^ 0x5F3759DF).choice(other)
+            rounds.append(self._round(seed + 104729, variant, {**params, "course": final_course},
+                                      cfg, sim_w, sim_h, fps, lineup=lineup))
 
         clip_dir = work_dir
         clip_dir.mkdir(parents=True, exist_ok=True)
+
+        # Captions: the heat states its measured stake; the final says who took the heat.
+        hook_text = (params.get("hook_text") or "").strip() or self._default_hook(variant, rounds[0]["margin_s"])
+        overlays = [self._overlay(variant, sim_w, sim_h, fps, text=hook_text)]
+        if len(rounds) > 1:
+            w1 = rounds[0]["winner"]
+            overlays.append(self._overlay(variant, sim_w, sim_h, fps,
+                                          text=f"FINAL · {w1.upper()} TOOK THE HEAT" if w1 else "FINAL"))
+
+        impacts: list[audio.Impact] = []
+        offset = 0.0
+        for r in rounds:
+            impacts += [audio.Impact(im.t + offset, im.strength, im.index, im.pan) for im in r["impacts"]]
+            offset += r["duration_s"]
+        duration_s = offset
         wav = audio.render_wav(impacts, duration_s, clip_dir / "audio.wav")
+
+        def all_frames():
+            for r, overlay in zip(rounds, overlays):
+                yield from self._frames(r["states"], r["balls"], r["segments"], sim_w, sim_h,
+                                        overlay=overlay, style=r["style"],
+                                        winner_frame=r["winner_frame"], winner=r["winner"])
+
         silent = render.encode_frames(
-            self._frames(
-                states, balls, segments, sim_w, sim_h,
-                overlay=self._overlay(variant, sim_w, sim_h, fps, text=hook_text),
-                style=style,
-            ),
-            out_path=clip_dir / "video.mp4",
-            src_size=(sim_w, sim_h),
-            out_size=(out_w, out_h),
-            fps=fps,
+            all_frames(), out_path=clip_dir / "video.mp4",
+            src_size=(sim_w, sim_h), out_size=(out_w, out_h), fps=fps,
         )
         final = render.mux(silent, wav, clip_dir / "clip.mp4")
 
+        last = rounds[-1]
+        balls, style = last["balls"], last["style"]
         if variant == "marble_race":
-            names = ", ".join(b.name for b in balls)
-            obstacles = len(style.circles) or len(segments)
-            course_text = {
-                "zigzag": f"a {obstacles}-ramp zigzag course",
-                "pegboard": f"a pegboard of {obstacles} pegs",
-                "bumpers": f"a field of {obstacles} bumpers",
-            }[style.course]
+            names = ", ".join(b.name for b in rounds[0]["balls"])
             themed = "" if style.theme == "default" else f" Styled for {style.theme}."
-            if winner:
-                gap = (
-                    f", {margin_s:.1f} seconds ahead of {runner_up}"
-                    if runner_up else
-                    f"; no other marble crosses in the next {POST_WIN_S} seconds"
-                )
-                description = (
-                    f"{len(balls)} marbles ({names}) race down {course_text}. The "
-                    f"{winner} marble reaches the bottom first, at "
-                    f"{winner_frame / fps:.1f} seconds{gap}.{themed}"
-                )
-            else:
-                description = (
-                    f"{len(balls)} marbles race down {course_text}; "
-                    f"none reaches the bottom within {duration_s:.1f} seconds.{themed}"
-                )
+            parts = []
+            for i, r in enumerate(rounds):
+                label = ("The heat" if i == 0 else "The final") if len(rounds) > 1 else f"{len(r['balls'])} marbles ({names}) race"
+                if len(rounds) > 1:
+                    label += f" runs down {self._course_text(r)}"
+                else:
+                    label += f" down {self._course_text(r)}"
+                if r["winner"]:
+                    gap = (f", {r['margin_s']:.1f} seconds ahead of {r['runner_up']}" if r["runner_up"]
+                           else f"; no other marble crosses in the next {POST_WIN_S} seconds")
+                    parts.append(f"{label}. The {r['winner']} marble reaches the bottom first, at "
+                                 f"{r['winner_frame'] / fps:.1f} seconds{gap}.")
+                else:
+                    parts.append(f"{label}; none reaches the bottom within {r['duration_s']:.1f} seconds.")
+            head = f"Two rounds, same {len(rounds[0]['balls'])} marbles ({names}). " if len(rounds) > 1 else ""
+            description = head + " ".join(parts) + themed
         else:
             description = (
                 f"{len(balls)} small coloured balls pour through a narrow funnel throat "
@@ -462,33 +480,91 @@ class PhysicsSandbox:
             facts={
                 "variant": variant,
                 "seed": seed,
-                "winner": winner,
+                "rounds": [
+                    {"course": r["style"].course, "winner": r["winner"], "margin_s": r["margin_s"],
+                     "runner_up": r["runner_up"], "finishes": r["finish_s"], "seconds": round(r["duration_s"], 2),
+                     "obstacles": len(r["style"].circles) or len(r["segments"]), "spinners": len(r["style"].spinners)}
+                    for r in rounds
+                ],
+                "winner": last["winner"],
                 "impacts": len(impacts),
                 "objects": len(balls),
-                "ramps": len(segments),
+                "ramps": len(last["segments"]),
                 "course": style.course,
-                "obstacles": len(style.circles) or len(segments),
+                "obstacles": len(style.circles) or len(last["segments"]),
                 "theme": style.theme,
                 "palette": style.background,
-                "backdrop": "#%02x%02x%02x" % style.background,
-                "sim_attempts": attempts_used,
-                "finishes": finish_s,
-                "runner_up": runner_up,
-                "margin_s": margin_s,
+                "backdrop": "#%02x%02x%02x" % rounds[0]["style"].background,
+                "sim_attempts": sum(r["attempts"] for r in rounds),
+                "finishes": last["finish_s"],
+                "runner_up": last["runner_up"],
+                "margin_s": last["margin_s"],
                 "hook_text": hook_text,
             },
         )
 
+    def _course_text(self, r) -> str:
+        style, segments = r["style"], r["segments"]
+        obstacles = len(style.circles) or len(segments)
+        base = {
+            "zigzag": f"a {obstacles}-ramp zigzag course",
+            "pegboard": f"a pegboard of {obstacles} pegs",
+            "bumpers": f"a field of {obstacles} bumpers",
+        }[style.course]
+        if style.spinners:
+            base += f" with {len(style.spinners)} spinning bar{'s' if len(style.spinners) > 1 else ''}"
+        return base
+
+    def _round(self, seed, variant, params, cfg, sim_w, sim_h, fps, lineup=None) -> dict:
+        """One simulated race, opened mid-action, with its finish arithmetic."""
+        max_frames = int(float(params.get("max_seconds", cfg["max_seconds"])) * fps)
+        # About one race seed in six wedges a marble and never finishes. Rather
+        # than burn the seed, derive the next course from it: still fully
+        # determined by `seed`, just not by its first attempt.
+        for attempt in range(MAX_ATTEMPTS):
+            try:
+                sim = self._simulate(
+                    seed=seed + attempt * 7919, variant=variant, sim_w=sim_w, sim_h=sim_h,
+                    fps=fps, max_frames=max_frames, course=params.get("course"),
+                    background=params.get("background"), lineup=lineup,
+                )
+                break
+            except _Stalled as exc:
+                if attempt == MAX_ATTEMPTS - 1:
+                    raise RuntimeError(
+                        f"{variant} seed {seed} stalled on every one of {MAX_ATTEMPTS} attempts ({exc})"
+                    ) from None
+        states, impacts, balls, segments, winner, winner_frame, style, finishes = sim
+        # Open mid-action: drop the gate. Everything time-based shifts with it.
+        skip = int(float(params.get("skip_start_s", cfg.get("skip_start_s", 0))) * fps)
+        skip = max(0, min(skip, max(0, len(states) - fps * 2)))
+        if skip:
+            states = states[skip:]
+            impacts = [audio.Impact(im.t - skip / fps, im.strength, im.index, im.pan) for im in impacts if im.t >= skip / fps]
+            winner_frame = None if winner_frame is None else max(0, winner_frame - skip)
+            finishes = {name: max(0, f - skip) for name, f in finishes.items()}
+        duration_s = len(states) / fps
+        impacts = [im for im in impacts if im.t < duration_s]
+        finish_s = {name: round(f / fps, 2) for name, f in sorted(finishes.items(), key=lambda kv: kv[1])}
+        order = list(finish_s)
+        runner_up = order[1] if len(order) > 1 else None
+        margin_s = round(finish_s[order[1]] - finish_s[order[0]], 2) if runner_up else None
+        return {
+            "states": states, "impacts": impacts, "balls": balls, "segments": segments, "style": style,
+            "winner": winner, "winner_frame": winner_frame, "finishes": finishes, "finish_s": finish_s,
+            "runner_up": runner_up, "margin_s": margin_s, "duration_s": duration_s, "attempts": attempt + 1,
+        }
+
     def _simulate(
         self, *, seed: int, variant: str, sim_w: int, sim_h: int, fps: int, max_frames: int,
-        course: str | None = None, background: str | None = None,
+        course: str | None = None, background: str | None = None, lineup: list | None = None,
     ):
         """Run the physics only. Raises _Stalled when a race goes nowhere."""
         rng = random.Random(seed)
         space = pymunk.Space()
         if variant == "marble_race":
             space.gravity = (0.0, RACE_GRAVITY)
-            balls, segments, style = _build_race(space, sim_w, sim_h, rng, course, background)
+            balls, segments, style = _build_race(space, sim_w, sim_h, rng, course, background, lineup)
             style.seed = seed
             finish_y: float | None = 110.0
         else:
@@ -606,12 +682,45 @@ class PhysicsSandbox:
         )
 
     def _frames(
-        self, states, balls, segments, sim_w, sim_h, overlay=None, style=None
+        self, states, balls, segments, sim_w, sim_h, overlay=None, style=None,
+        winner_frame=None, winner=None,
     ) -> Iterator[bytes]:
         style = style or _Style()
+        finish_line = style.course in COURSES  # races have one; the funnel does not
+        winner_index = next((i for i, b in enumerate(balls) if b.name == winner), None)
+        burst_rng = random.Random(style.seed * 17 + 3)
+        burst = [(burst_rng.uniform(-1, 1), burst_rng.uniform(0.2, 1.0), burst_rng.uniform(0, 6.283),
+                  burst_rng.choice([(255, 210, 80), (255, 255, 255), (120, 200, 255), (255, 120, 140)]))
+                 for _ in range(46)]
         for frame_index, positions in enumerate(states):
             image = Image.new("RGB", (sim_w, sim_h), style.background)
             draw = ImageDraw.Draw(image)
+            if finish_line:
+                # A chequered band at the finish: the question the clip asks, drawn.
+                fy = sim_h - 110.0
+                cell = 14
+                for k in range(0, sim_w, cell):
+                    shade = style.structure if (k // cell) % 2 == 0 else tuple(min(255, c + 70) for c in style.structure)
+                    draw.rectangle([k, fy - 4, k + cell, fy + 4], fill=shade)
+            # Trails: where each marble just was, fading into the backdrop.
+            for ball, index in zip(balls, range(len(balls))):
+                for back in range(6, 0, -1):
+                    j = frame_index - back * 2
+                    if j < 0:
+                        continue
+                    px, py = states[j][index]
+                    mix = 0.08 + 0.05 * (6 - back)
+                    colour = tuple(int(bg + (c - bg) * mix) for c, bg in zip(ball.color, style.background))
+                    r = ball.radius * (0.35 + 0.08 * (6 - back))
+                    draw.ellipse([px - r, sim_h - py - r, px + r, sim_h - py + r], fill=colour)
+            t = frame_index / 30.0
+            for sx, sy, half, omega, phase in style.spinners:
+                angle = phase + omega * t
+                dx, dy = math.cos(angle) * half, math.sin(angle) * half
+                draw.line([(sx - dx, sim_h - (sy - dy)), (sx + dx, sim_h - (sy + dy))],
+                          fill=tuple(min(255, c + 60) for c in style.structure), width=style.thickness)
+                hub = style.thickness * 0.9
+                draw.ellipse([sx - hub, sim_h - sy - hub, sx + hub, sim_h - sy + hub], fill=style.structure)
             for a, b in segments:
                 draw.line(
                     [(a[0], sim_h - a[1]), (b[0], sim_h - b[1])],
@@ -633,6 +742,16 @@ class PhysicsSandbox:
                     [x - r * 0.42, iy - r * 0.55, x - r * 0.06, iy - r * 0.19],
                     fill=tuple(min(255, c + 60) for c in ball.color),
                 )
+            if winner_frame is not None and winner_index is not None and 0 <= frame_index - winner_frame < 40:
+                # The win: a burst from where the winner crossed, one second of it.
+                age = (frame_index - winner_frame) / 40.0
+                wx, wy = positions[winner_index]
+                for ux, uy, spin, colour in burst:
+                    dist = 26 + age * 170
+                    x = wx + ux * dist
+                    y = sim_h - (wy + uy * dist * (1 - age * 0.6) + 30 * age)
+                    r = 2.6 * (1 - age) + 0.6
+                    draw.ellipse([x - r, y - r, x + r, y + r], fill=colour)
             if overlay is not None:
                 text, font, tx, ty, last = overlay
                 if frame_index < last:

@@ -155,3 +155,37 @@ def test_the_theme_dresses_the_race(monkeypatch):
     *_, balls, _, _, _, style, _ = simulate(4242, frames=5)
     assert style.theme == "christmas" and style.decoration == "snow"
     assert {b.name for b in balls} <= {"red", "green", "gold", "white", "blue"}
+
+
+# --- two rounds, and the things that make a still frame move -----------------
+
+def test_the_final_is_run_by_the_marbles_that_ran_the_heat():
+    from factory import settings
+
+    gen = physics.PhysicsSandbox(); cfg = settings.load().render
+    heat = gen._round(7100, "marble_race", {}, cfg, W, H, FPS)
+    lineup = [(b.name, b.color) for b in heat["balls"]]
+    other = [c for c in physics.COURSES if c != heat["style"].course][0]
+    final = gen._round(7100 + 104729, "marble_race", {"course": other}, cfg, W, H, FPS, lineup=lineup)
+    assert [b.name for b in final["balls"]] == [b.name for b in heat["balls"]]
+    assert final["style"].course != heat["style"].course
+
+
+def test_spinners_live_only_in_the_bumper_field():
+    """On the zigzag a bar knocked marbles back up the ramp until 10 seeds in
+    24 never finished; among pegs it reads as a glitch. Measured, then pinned."""
+    for course in physics.COURSES:
+        *_, style, _ = simulate(4242, frames=3, course=course)
+        assert bool(style.spinners) == (course == "bumpers"), course
+
+
+def test_opening_mid_action_shifts_every_clock_together():
+    from factory import settings
+
+    gen = physics.PhysicsSandbox(); cfg = dict(settings.load().render)
+    whole = gen._round(4242, "marble_race", {"skip_start_s": 0}, cfg, W, H, FPS)
+    cut = gen._round(4242, "marble_race", {"skip_start_s": 1.0}, cfg, W, H, FPS)
+    assert len(cut["states"]) == len(whole["states"]) - FPS
+    assert cut["winner_frame"] == whole["winner_frame"] - FPS
+    assert cut["margin_s"] == whole["margin_s"]
+    assert all(im.t >= 0 for im in cut["impacts"])
