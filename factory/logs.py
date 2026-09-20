@@ -61,6 +61,14 @@ def event(
                 handle.write(line + "\n")
     except Exception:  # pragma: no cover - logging must never be fatal
         pass
+    # Some events are worth telling you about wherever you are. notify decides
+    # which; a broken webhook must not stop a build, and it never does.
+    try:
+        from . import notify
+
+        notify.from_log(name, record)
+    except Exception:
+        pass
     return record
 
 

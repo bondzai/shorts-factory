@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import atexit
 import json
+import os
 import threading
 import urllib.error
 import urllib.request
@@ -48,13 +49,61 @@ atexit.register(flush)
 
 
 def _config() -> dict[str, Any]:
-    return settings.load().raw.get("notify", {})
+    cfg = dict(settings.load().raw.get("notify", {}))
+    # The URL is a secret (anyone holding it can post as you), so it lives in
+    # .env, not in config.toml where it would be committed.
+    settings.load_env()
+    env_url = os.environ.get("FACTORY_WEBHOOK_URL")
+    if env_url:
+        cfg["webhook_url"] = env_url
+    return cfg
+
+
+# What is worth waking you for, and how to say it in one line. Anything not
+# here is visible on the Activity screen and nowhere else — a webhook that
+# fires on every render is a webhook you mute.
+def for_event(name: str, fields: dict[str, Any]) -> str | None:
+    f = fields
+    ch = f.get("channel") or "main"
+    clip = (f.get("clip") or "")[:6]
+    if name == "task.finished":
+        mark = "done" if f.get("status") == "done" else "FAILED"
+        tail = f.get("error") or ""
+        return f"[{ch}] task #{f.get('task')} {f.get('kind')} {mark} by {f.get('by')}" + (f" — {tail}" if tail else "")
+    if name == "clip.qc":
+        if f.get("passed"):
+            return f"[{ch}] clip {clip} passed QC — waiting for your approval"
+        reasons = f.get("hard_failures") or []
+        return f"[{ch}] clip {clip} rejected in QC" + (f" — {'; '.join(reasons)}" if reasons else "")
+    if name == "clip.published":
+        return f"[{ch}] published: {f.get('title') or clip}"
+    if name == "clip.failed":
+        return f"[{ch}] clip {clip} FAILED at {f.get('stage')}: {f.get('error')}"
+    if name == "clip.publish_failed":
+        return f"[{ch}] publish FAILED for clip {clip}: {f.get('error')}"
+    if name == "clip.retitled":
+        return f"[{ch}] retitled: “{f.get('was')}” → “{f.get('title')}” ({f.get('by')})"
+    if name == "clip.approved":
+        return f"[{ch}] approved: {f.get('title') or clip}"
+    return None
+
+
+def from_log(name: str, fields: dict[str, Any]) -> bool:
+    """Called for every logged event; posts the ones worth a notification."""
+    if name.startswith("notify."):
+        return False
+    text = for_event(name, fields)
+    if text is None:
+        return False
+    return post(name, text, **{k: v for k, v in fields.items() if k in ("channel", "clip", "task", "kind", "status", "title", "by")})
 
 
 def enabled_for(event: str) -> bool:
     cfg = _config()
     if not cfg.get("webhook_url"):
         return False
+    if event == "notify.test":
+        return True
     wanted = cfg.get("on")
     return True if wanted is None else event in wanted
 

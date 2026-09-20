@@ -511,13 +511,15 @@ def cmd_logs(args) -> int:
 def cmd_notify(args) -> int:
     from . import notify, settings as _settings
 
-    url = _settings.load().raw.get("notify", {}).get("webhook_url")
+    url = notify._config().get("webhook_url")
     if not url:
-        print("no webhook_url set in [notify]; nothing would be sent")
+        print("no webhook set: FACTORY_WEBHOOK_URL in .env, or webhook_url in [notify]")
         return 1
-    print(f"posting a test notification to {url}")
+    from urllib.parse import urlsplit
+
+    print(f"posting a test notification to {urlsplit(url).netloc} (the path is a secret and stays unprinted)")
     sent = notify.post(
-        "run.finished", "[test] shorts-factory can reach this endpoint",
+        "notify.test", "[test] shorts-factory can reach this endpoint",
         channel="test", kind="test", status="ok",
     )
     if not sent:

@@ -32,8 +32,9 @@ funnel_drop = ""
 # plus the structured fields. Empty disables it.
 # This points away from this machine on purpose: the CLI, the web UI and the MCP
 # server share one database, so none of them needs telling what the others did.
-webhook_url = ""
-on = ["run.finished", "run.failed"]
+webhook_url = ""   # or FACTORY_WEBHOOK_URL in .env, which wins and stays out of git
+on = ["run.failed", "task.finished", "clip.qc", "clip.published", "clip.failed",
+      "clip.publish_failed", "clip.retitled", "clip.approved"]
 
 [retention]
 # Days to keep the rendered file after a clip's outcome is settled. -1 keeps it
