@@ -5,15 +5,26 @@ import { act, toast } from "../lib/toast";
 import { Page, Card, Field, Chips } from "../ui";
 import type { Channel, Snap } from "../lib/types";
 
-export function Settings({ snap, channelId, refresh }: { snap: Snap; channelId: string; refresh: () => Promise<void> }) {
+const TABS = [
+  { id: "channel", label: "Channel", meaning: "name, handle, driver, what it may make" },
+  { id: "rules", label: "Rules", meaning: "what the agents read before every run" },
+  { id: "brains", label: "Brains", meaning: "which model each agent runs on" },
+  { id: "themes", label: "Themes", meaning: "seasons: colours, marbles, decorations" },
+  { id: "factory", label: "Factory", meaning: "the knobs: gates, captions, retention, rounds" },
+];
+
+export function Settings({ snap, channelId, refresh, tab, setTab }: { snap: Snap; channelId: string; refresh: () => Promise<void>; tab: string; setTab: (id: string) => void }) {
+  const current = TABS.find((t) => t.id === tab) || TABS[0];
   return (
-    <Page title={snap.channel.name} lead="What the agents are allowed to make here, how it gets published, and the rules they read before every run.">
-      <ChannelForm ch={snap.channel} refresh={refresh} />
-      <Brains refresh={refresh} />
-      <Themes />
-      <FactorySettings />
-      <Rules channelId={channelId} />
-      <AddChannel onDone={refresh} />
+    <Page title={snap.channel.name} lead={current.meaning}>
+      <div className="row wrap mb-3">
+        {TABS.map((t) => <button key={t.id} className="chip" aria-pressed={t.id === current.id} onClick={() => setTab(t.id)}>{t.label}</button>)}
+      </div>
+      {current.id === "channel" && <><ChannelForm ch={snap.channel} refresh={refresh} /><AddChannel onDone={refresh} /></>}
+      {current.id === "rules" && <Rules channelId={channelId} />}
+      {current.id === "brains" && <Brains refresh={refresh} />}
+      {current.id === "themes" && <Themes />}
+      {current.id === "factory" && <FactorySettings />}
     </Page>
   );
 }

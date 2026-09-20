@@ -80,7 +80,7 @@ export default function App() {
             : view === "results" ? <Results {...screenProps} />
             : view === "activity" ? <Activity {...screenProps} />
             : view === "docs" ? <Docs page={route.params.get("page") || ""} setPage={(id) => navigate("docs", { page: id })} />
-            : <Settings snap={snap} channelId={channelId!} refresh={reload} />}
+            : <Settings snap={snap} channelId={channelId!} refresh={reload} tab={route.params.get("tab") || "channel"} setTab={(id) => navigate("settings", { tab: id })} />}
         </div>
       </div>
     </div>
