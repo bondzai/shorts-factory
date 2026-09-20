@@ -134,13 +134,24 @@ def test_rehook_keeps_a_queued_clip_in_the_queue(channel, tmp_path, monkeypatch)
     assert json.loads(row["params_json"])["hook_text"] == "DECIDED BY 0.4s"
 
 
-def test_rehook_sends_an_approved_clip_back_for_another_look(channel, tmp_path, monkeypatch):
+def test_a_person_recaptioning_an_approved_clip_keeps_it_approved(channel, tmp_path, monkeypatch):
+    """The approver is the one editing; sending it back to themselves is a hoop."""
     seen = []
     fake_generate(monkeypatch, tmp_path, seen)
     monkeypatch.setitem(__import__("factory.settings").settings.load().raw["qc"], "min_seconds", 1)
     clip_id = clip(APPROVED)
     with db.connect() as conn:
-        outcome = pipeline.rehook(conn, clip_id, "DECIDED BY 0.4s")
+        outcome = pipeline.rehook(conn, clip_id, "DECIDED BY 0.4s", by="human")
+    assert outcome.status == APPROVED, outcome.detail
+
+
+def test_an_agent_recaptioning_an_approved_clip_sends_it_back(channel, tmp_path, monkeypatch):
+    seen = []
+    fake_generate(monkeypatch, tmp_path, seen)
+    monkeypatch.setitem(__import__("factory.settings").settings.load().raw["qc"], "min_seconds", 1)
+    clip_id = clip(APPROVED)
+    with db.connect() as conn:
+        outcome = pipeline.rehook(conn, clip_id, "DECIDED BY 0.4s", by="agent")
     assert outcome.status == AWAITING_APPROVAL, outcome.detail
 
 
@@ -282,3 +293,29 @@ def test_restore_is_on_the_web_too(client, tmp_path):
     clip_id = clip(QC_REJECTED, reject_reason="rejected in review", video_path=str(video))
     assert client.post(f"/api/clip/{clip_id}/restore").status_code == 200
     assert client.get(f"/api/state?channel={CH}").json()["queue"][0]["id"] == clip_id
+
+
+# --- the upload step, on one screen -------------------------------------------
+
+def test_download_names_the_file_after_the_clip(client, tmp_path):
+    video = tmp_path / "clip.mp4"; video.write_bytes(b"\x00" * 16)
+    clip_id = clip(APPROVED, video_path=str(video))
+    r = client.get(f"/api/clip/{clip_id}/video?download=1")
+    assert r.status_code == 200
+    assert f"marble_race-33-{clip_id[:6]}.mp4" in r.headers["content-disposition"]
+
+
+def test_marking_one_clip_uploaded_publishes_just_that_one(client, tmp_path):
+    video = tmp_path / "clip.mp4"; video.write_bytes(b"\x00" * 16)
+    a = clip(APPROVED, video_path=str(video), description="d")
+    b = clip(APPROVED, video_path=str(video), description="d")
+    r = client.post(f"/api/clip/{a}/publish")
+    assert r.status_code == 200, r.text
+    with db.connect() as conn:
+        assert db.get(conn, a)["status"] == PUBLISHED
+        assert db.get(conn, b)["status"] == APPROVED
+
+
+def test_only_an_approved_clip_can_be_marked_uploaded(client):
+    clip_id = clip(AWAITING_APPROVAL)
+    assert client.post(f"/api/clip/{clip_id}/publish").status_code == 400

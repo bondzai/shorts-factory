@@ -227,15 +227,21 @@ async function renderView() {
 }
 
 /* ---------- review ---------- */
+// One screen for the whole manual flow: review, approve, fix the caption,
+// download, upload by hand, mark it. Approved clips stay here until marked.
+function reviewItems() {
+  return [...(state?.queue || []), ...(state?.approved || [])];
+}
+
 function renderReview() {
-  const queue = state.queue, stage = $("#stage");
-  if (!queue.length) {
-    stage.innerHTML = `<p class="empty">Queue is empty on ${esc(state.channel.name)}.
+  const stage = $("#stage"), items = reviewItems();
+  if (!items.length) {
+    stage.innerHTML = `<p class="empty">Nothing to review on ${esc(state.channel.name)}.
       ${state.planned ? state.planned + " clip(s) planned — press Build." : "Plan some clips, then Build."}</p>`;
     return;
   }
-  index = Math.min(index, queue.length - 1);
-  const c = queue[index], qc = c.qc || {};
+  index = Math.min(index, items.length - 1);
+  const c = items[index], qc = c.qc || {}, ready = c.status === "approved";
   stage.innerHTML = `
     <div class="clip">
       <video id="player" src="/api/clip/${c.id}/video" autoplay loop playsinline ${sound ? "" : "muted"} controls></video>
@@ -265,16 +271,30 @@ function renderReview() {
           <dt>cost</dt><dd>$${Number(c.cost_usd || 0).toFixed(4)}</dd>
         </dl>
         <div class="bar">
+          ${ready ? `
+          <button class="ok" id="download">Download clip</button>
+          <button class="ok" id="uploaded">I uploaded it</button>
+          <span class="hint">approved — fix the caption above if you want, download, upload by hand, then mark it</span>` : `
           <button class="ok" id="approve">Approve <kbd>A</kbd></button>
-          <button class="no" id="reject">Reject <kbd>R</kbd></button>
-          <span class="hint">${index + 1} of ${queue.length} · <kbd>J</kbd> <kbd>K</kbd> to move</span>
+          <button class="no" id="reject">Reject <kbd>R</kbd></button>`}
+          <span class="hint">${index + 1} of ${items.length} · <kbd>J</kbd> <kbd>K</kbd> to move</span>
         </div>
       </div>
     </div>
-    <div class="strip">${queue.map((q, i) =>
-      `<button class="small" data-go="${i}" aria-current="${i === index}">${i + 1}. ${esc((q.title || q.id).slice(0, 32))}</button>`).join("")}</div>`;
-  $("#approve").onclick = () => decide(c.id, "approve");
-  $("#reject").onclick = () => decide(c.id, "reject");
+    <div class="strip">${items.map((q, i) =>
+      `<button class="small" data-go="${i}" aria-current="${i === index}">${q.status === "approved" ? "✓ " : ""}${i + 1}. ${esc((q.title || q.id).slice(0, 32))}</button>`).join("")}</div>`;
+  if ($("#approve")) $("#approve").onclick = () => decide(c.id, "approve");
+  if ($("#reject")) $("#reject").onclick = () => decide(c.id, "reject");
+  if ($("#download")) $("#download").onclick = () => {
+    window.location.href = `/api/clip/${c.id}/video?download=1`;
+  };
+  if ($("#uploaded")) $("#uploaded").onclick = async () => {
+    if (!confirm("Mark this clip as uploaded? It moves to published and leaves this screen.")) return;
+    try { await send(`/api/clip/${c.id}/publish`, {}); }
+    catch (err) { alert(err.message); return; }
+    channels = [];
+    await refresh({ force: true });
+  };
   $("#savetext").onclick = async () => {
     const title = $("#title").value.trim(), comment_prompt = $("#prompt").value.trim();
     const body = { comment_prompt };
@@ -291,9 +311,22 @@ function renderReview() {
   $("#rehook").onclick = async () => {
     const text = $("#hook").value.trim();
     if (!text) { alert("Type a caption first."); return; }
+    const button = $("#rehook");
     try { await send(`/api/clip/${c.id}/hook`, { text }); }
     catch (err) { alert(err.message); return; }
-    alert("Re-rendering with the new caption — watch Runs. The clip stays in the queue.");
+    // Wait here, not on the Runs screen. A race re-renders in about a minute.
+    button.disabled = true;
+    for (let tick = 0; tick < 240; tick++) {
+      button.textContent = `Re-rendering${".".repeat(tick % 4)}`;
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      let latest;
+      try { latest = await api(withChannel("/api/state")); } catch { continue; }
+      if (!latest.job.running) { state = latest; break; }
+    }
+    index = Math.max(0, reviewItems().findIndex((q) => q.id === c.id));
+    renderReview();
+    const player = $("#player");
+    if (player) player.src = `/api/clip/${c.id}/video?v=${Date.now()}`;
   };
   $("#copy").onclick = async () => {
     const text = [
@@ -535,15 +568,14 @@ $("#sound").onclick = () => {
 };
 document.addEventListener("keydown", (event) => {
   // Typing a title must not approve the clip on the letter "a".
-  if (event.target.matches("input, textarea, select")) return;
   if (event.target?.matches?.("input, textarea, select")) return;
   if (view !== "review") return;
-  const queue = state?.queue || [];
-  if (!queue.length) return;
-  const current = queue[index];
-  if (event.key === "a" || event.key === "A") decide(current.id, "approve");
-  else if (event.key === "r" || event.key === "R") decide(current.id, "reject");
-  else if (event.key === "j" || event.key === "J") { index = Math.min(index + 1, queue.length - 1); renderReview(); }
+  const items = reviewItems();
+  if (!items.length) return;
+  const current = items[index], pending = current.status !== "approved";
+  if (pending && (event.key === "a" || event.key === "A")) decide(current.id, "approve");
+  else if (pending && (event.key === "r" || event.key === "R")) decide(current.id, "reject");
+  else if (event.key === "j" || event.key === "J") { index = Math.min(index + 1, items.length - 1); renderReview(); }
   else if (event.key === "k" || event.key === "K") { index = Math.max(index - 1, 0); renderReview(); }
   else if (event.key === " ") {
     event.preventDefault();

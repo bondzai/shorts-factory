@@ -415,9 +415,14 @@ def rehook(conn: sqlite3.Connection, clip_id: str, text: str | None, *, by: str 
         db.update(conn, clip_id, status=QC_REJECTED, reject_reason=reason)
         logs.event("clip.qc", level="warn", channel=ch.id, clip=clip_id, passed=False, hard_failures=failures, by=by)
         return StageOutcome(clip_id, QC_REJECTED, reason)
-    after = AWAITING_APPROVAL if before in (AWAITING_APPROVAL, APPROVED) else (
-        RENDERED if before in (PLANNED, RENDERED, FAILED, QC_REJECTED) else before
-    )
+    # The person re-captioning an approved clip is the person who approved it,
+    # so it stays approved. An agent's change is a change someone should see.
+    if before == APPROVED:
+        after = APPROVED if by == "human" else AWAITING_APPROVAL
+    elif before in (PLANNED, RENDERED, FAILED, QC_REJECTED):
+        after = RENDERED
+    else:
+        after = before
     db.update(conn, clip_id, status=after)
     shown = clip.facts.get("hook_text")
     logs.event("clip.rehooked", channel=ch.id, clip=clip_id, hook_text=shown, was=before, now=after, by=by,
@@ -576,11 +581,48 @@ def reject(conn: sqlite3.Connection, clip_id: str, reason: str) -> None:
 
 # --- stage 6: publish --------------------------------------------------------
 
+def publish_one(conn: sqlite3.Connection, clip_id: str) -> StageOutcome:
+    """Publish one approved clip through its channel's driver.
+
+    On the manual driver this is the "I uploaded it" button: the file and its
+    text are copied to the publish queue and the clip is marked published, so
+    metrics can be attached to it later.
+    """
+    row = db.get(conn, clip_id)
+    if row is None or row["status"] != APPROVED:
+        raise ValueError(f"{clip_id} is not approved")
+    ch = channels.get(conn, row["channel_id"])
+    driver = publish.get(ch.driver, ch)
+    try:
+        result = driver.publish(
+            clip_id=row["id"],
+            video_path=Path(row["video_path"]),
+            title=row["title"],
+            description=row["description"],
+            hashtags=json.loads(row["hashtags_json"] or "[]"),
+        )
+        db.update(
+            conn, row["id"], status=PUBLISHED, platform=result.platform,
+            remote_id=result.remote_id, published_at=db.now(),
+        )
+        logs.event(
+            "clip.published", channel=ch.id, clip=row["id"],
+            platform=result.platform, remote_id=result.remote_id,
+            title=row["title"], driver=ch.driver,
+        )
+        return StageOutcome(row["id"], PUBLISHED, result.note)
+    except Exception as exc:
+        logs.event(
+            "clip.publish_failed", level="error", channel=ch.id,
+            clip=row["id"], error=str(exc),
+        )
+        return StageOutcome(row["id"], APPROVED, f"publish failed: {exc}")
+
+
 def publish_approved(
     conn: sqlite3.Connection, channel: Channel | str | None, *, dry_run: bool = False
 ) -> list[StageOutcome]:
     ch = resolve(conn, channel)
-    driver = publish.get(ch.driver, ch)
     results = []
     for row in db.by_status(conn, ch.id, APPROVED):
         if dry_run:
@@ -588,34 +630,7 @@ def publish_approved(
                 StageOutcome(row["id"], APPROVED, f"would publish via {ch.driver}")
             )
             continue
-        try:
-            result = driver.publish(
-                clip_id=row["id"],
-                video_path=Path(row["video_path"]),
-                title=row["title"],
-                description=row["description"],
-                hashtags=json.loads(row["hashtags_json"] or "[]"),
-            )
-            db.update(
-                conn,
-                row["id"],
-                status=PUBLISHED,
-                platform=result.platform,
-                remote_id=result.remote_id,
-                published_at=db.now(),
-            )
-            logs.event(
-                "clip.published", channel=ch.id, clip=row["id"],
-                platform=result.platform, remote_id=result.remote_id,
-                title=row["title"], driver=ch.driver,
-            )
-            results.append(StageOutcome(row["id"], PUBLISHED, result.note))
-        except Exception as exc:
-            logs.event(
-                "clip.publish_failed", level="error", channel=ch.id,
-                clip=row["id"], error=str(exc),
-            )
-            results.append(StageOutcome(row["id"], APPROVED, f"publish failed: {exc}"))
+        results.append(publish_one(conn, row["id"]))
     return results
 
 

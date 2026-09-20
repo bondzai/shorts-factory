@@ -354,7 +354,7 @@ def accept_rules(body: AcceptBody) -> dict[str, Any]:
 
 
 @app.get("/api/clip/{clip_id}/video")
-def video(clip_id: str) -> FileResponse:
+def video(clip_id: str, download: bool = False) -> FileResponse:
     with db.connect() as conn:
         row = db.get(conn, clip_id)
     if row is None or not row["video_path"]:
@@ -362,7 +362,26 @@ def video(clip_id: str) -> FileResponse:
     path = Path(row["video_path"])
     if not path.exists():
         raise HTTPException(410, f"file is gone: {path}")
+    if download:
+        # A name you can find in the upload dialog, not clip.mp4 twelve times.
+        return FileResponse(
+            path, media_type="video/mp4",
+            filename=f"{row['variant']}-{row['seed']}-{clip_id[:6]}.mp4",
+        )
     return FileResponse(path, media_type="video/mp4")
+
+
+@app.post("/api/clip/{clip_id}/publish")
+def publish_clip(clip_id: str) -> dict[str, str]:
+    """The "I uploaded it" button on a manual channel."""
+    with db.connect() as conn:
+        try:
+            outcome = pipeline.publish_one(conn, clip_id)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from None
+    if outcome.status != PUBLISHED:
+        raise HTTPException(500, outcome.detail)
+    return {"status": outcome.status, "detail": outcome.detail}
 
 
 class PlanBody(BaseModel):
