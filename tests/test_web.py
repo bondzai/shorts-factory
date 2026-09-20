@@ -1,6 +1,7 @@
 """API tests. Nothing here calls an agent, so nothing here costs money."""
 
 import threading
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -9,6 +10,7 @@ from factory import channels, db, web
 from factory.models import APPROVED, AWAITING_APPROVAL, QC_REJECTED
 
 CH = "gravity-lab"
+B = Path(__file__).resolve().parent.parent
 OTHER = "hodl-tales"
 
 
@@ -251,7 +253,8 @@ def test_with_a_password_everything_waits_at_the_door(sandbox, monkeypatch):
     with TestClient(web.app) as c:
         assert c.get("/", follow_redirects=False).status_code == 303
         assert c.get("/api/channels").status_code == 401
-        assert c.get("/static/app.js").status_code == 200  # the login page needs nothing
+        asset = next((B / "factory" / "static" / "dist" / "assets").glob("*.js")).name
+        assert c.get(f"/assets/{asset}").status_code == 200  # the page's own files are not behind the door
         assert c.post("/login", data={"password": "nope"}).status_code == 401
         r = c.post("/login", data={"password": "sesame"}, follow_redirects=False)
         assert r.status_code == 303 and "factory_session" in r.headers.get("set-cookie", "")

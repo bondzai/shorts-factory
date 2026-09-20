@@ -143,7 +143,8 @@ button{background:#efa027;color:#412402;border:0;font-weight:600}p{color:#8f8fa3
 @app.middleware("http")
 async def _gate(request: Request, call_next):
     password = _password()
-    if not password or request.url.path in ("/login",) or request.url.path.startswith("/static/"):
+    # The login page needs the built assets to render; everything else waits.
+    if not password or request.url.path == "/login" or request.url.path.startswith(("/static/", "/assets/")):
         return await call_next(request)
     if hmac.compare_digest(request.cookies.get(COOKIE, ""), _token(password)):
         return await call_next(request)
