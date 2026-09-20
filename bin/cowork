@@ -9,6 +9,9 @@
 #   bin/cowork --channel x  # another channel
 #   bin/cowork --print      # just print the prompt (paste it anywhere)
 #   AGENT=codex bin/cowork  # a different agent
+#   bin/cowork --unattended # Claude Code with the factory's MCP tools pre-approved
+#                           # and nothing else: no shell, no file edits. For
+#                           # working a queue while nobody is at the keyboard.
 set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -16,11 +19,13 @@ factory="$here/.venv/bin/factory"
 agent="${AGENT:-claude}"
 channel=""
 print_only=""
+unattended=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --channel) channel="$2"; shift 2 ;;
     --print) print_only=1; shift ;;
+    --unattended) unattended=1; shift ;;
     *) echo "usage: cowork [--channel ID] [--print]   (AGENT=claude|codex)" >&2; exit 2 ;;
   esac
 done
@@ -41,4 +46,9 @@ if [ -n "$print_only" ]; then printf '%s\n' "$prompt"; exit 0; fi
 command -v "$agent" >/dev/null 2>&1 || { echo "$agent is not on PATH. Try: AGENT=<other> $0, or --print and paste it." >&2; exit 1; }
 
 cd "$here"
+if [ -n "$unattended" ]; then
+  # Only the factory's own MCP tools are pre-approved. Anything else the
+  # agent reaches for still asks, which with nobody present means it waits.
+  exec "$agent" --allowedTools "mcp__shorts-factory" "$prompt"
+fi
 exec "$agent" "$prompt"

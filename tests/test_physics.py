@@ -176,7 +176,7 @@ def test_spinners_live_only_in_the_bumper_field():
     24 never finished; among pegs it reads as a glitch. Measured, then pinned."""
     for stage in physics.STAGES:
         *_, style, _ = simulate(4242, frames=3, stage=stage)
-        assert bool(style.spinners) == (stage in physics.SPINNER_STAGES), stage
+        assert bool(style.spinners) == (stage in physics.SPINNER_STAGES or stage in physics.WHEEL_STAGES), stage
 
 
 def test_opening_mid_action_shifts_every_clock_together():

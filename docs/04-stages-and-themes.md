@@ -13,6 +13,11 @@ the similarity gate and a different question to the viewer.
 | **funnels** | three or four funnels in series, throats offset — every throat a bottleneck | 24, median 13.6 s |
 | **gauntlet** | a narrowed lane of 5–6 lane-wide spinning bars: gates, not obstacles | 23, median 14.4 s |
 | **cascade** | chutes that split at a tilted peak and rejoin at a V, five or six rows | 24, median 13.1 s |
+| **pinwheel** | one big four-armed wheel mid-frame, pegs above and below | 24, median 14.1 s |
+| **sieve** | rows of short tilted bars with gaps, offsets alternating | 24, median 14.8 s |
+| **pachinko** | pegs on arcs around a central bumper | 24, median 11.5 s |
+| **rockers** | planks that rock on a pivot, tipping a marble off the low end | 23, median 16.3 s |
+| **drums** | big spinning drums that carry a marble sideways, gaps sized to clear one | 24, median 12.4 s |
 
 Pace is set with gravity per stage, not geometry — the geometry is what keeps
 the solver honest (slopes near 0.4, throats measured in radii), and gravity is
@@ -46,6 +51,11 @@ some point.
 | funnels | 2.0 | 70% | 20% | 40% |
 | gauntlet | 4.5 | 20% | 5% | 75% |
 | cascade | 1.0 | 90% | 20% | 25% |
+| pinwheel (throat) | 4.0 | 20% | 0% | 60% |
+| sieve (throat) | 3.5 | 57% | 7% | 50% |
+| pachinko | 4.0 | 60% | 50% | 40% |
+| rockers | 6.0 | 53% | 5% | 63% |
+| drums (throat) | 2.0 | 65% | 6% | 18% |
 
 Two things produced those numbers, and both replaced something that was
 there for a reason that turned out not to be true.

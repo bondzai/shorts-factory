@@ -85,18 +85,26 @@ PALETTES = [
 # point in only 6% of runs. Marbles pick a side at the first peak and mostly
 # keep it. It still ships, at a low weight, because it looks unlike anything
 # else on the channel — but it wants redesigning, not reweighting.
-STAGES = {"zigzag": 0.26, "pegboard": 0.20, "bumpers": 0.22, "funnels": 0.14, "gauntlet": 0.13, "cascade": 0.05}
+STAGES = {"zigzag": 0.16, "pegboard": 0.12, "bumpers": 0.14, "funnels": 0.09, "gauntlet": 0.09, "cascade": 0.03,
+          "pinwheel": 0.09, "sieve": 0.09, "pachinko": 0.07, "rockers": 0.06, "drums": 0.06}
 # Pace is gravity, not geometry: each stage was measured over 24 seeds and
 # its gravity set so the median finish lands mid-window (see README).
 STAGE_GRAVITY = {"zigzag": -600.0, "pegboard": -110.0, "bumpers": -95.0,
-                 "funnels": -45.0, "gauntlet": -55.0, "cascade": -200.0}
+                 "funnels": -45.0, "gauntlet": -55.0, "cascade": -200.0,
+                 "pinwheel": -40.0, "sieve": -140.0, "pachinko": -70.0, "rockers": -150.0, "drums": -60.0}
 STAGE_NOUN = {"zigzag": "ramps", "pegboard": "pegs", "bumpers": "bumpers",
-              "funnels": "funnels", "gauntlet": "spinners", "cascade": "chutes"}
+              "funnels": "funnels", "gauntlet": "spinners", "cascade": "chutes",
+              "pinwheel": "arms", "sieve": "bars", "pachinko": "pegs", "rockers": "planks", "drums": "drums"}
 # Which stages get rotating bars, and how many. Measured: on the zigzag a bar
 # knocked marbles back up the ramp until 10 seeds in 24 never finished; among
 # pegs it reads as a glitch. In an open field it is one more thing to bounce
 # off. The gauntlet is nothing but bars.
 SPINNER_STAGES = {"bumpers": (3, 4), "gauntlet": (5, 6)}
+# Stages whose builder places its own turning bars (the pinwheel's two
+# crossed arms), so _add_spinners leaves them alone and the tests know how
+# many to expect.
+WHEEL_STAGES = {"pinwheel": 2}
+ROCK_AMPLITUDE = 0.42  # radians, either way
 STAGE_BLURB = {
     "zigzag": "ramps — fast, the classic",
     "pegboard": "pegs — a slow rattle down a Galton board",
@@ -104,6 +112,11 @@ STAGE_BLURB = {
     "funnels": "stacked funnels — every throat is a bottleneck",
     "gauntlet": "a lane of spinning bars — nothing else in the way",
     "cascade": "chutes that split and rejoin — the marbles keep swapping sides",
+    "pinwheel": "one big four-armed wheel in the middle, pegs around it",
+    "sieve": "rows of short tilted bars with gaps — a sieve the marbles fall through",
+    "pachinko": "pegs on arcs around a central bumper, like a pachinko board",
+    "rockers": "planks that rock on a pivot — tip one way, then the other",
+    "drums": "big spinning drums that carry a marble sideways before it drops",
 }
 
 
@@ -122,6 +135,9 @@ class _Style:
     seed: int = 0
     spinners: list[tuple[float, float, float, float, float]] = field(default_factory=list)  # x, y, half-length, rad/s, phase
     gates: list[tuple[tuple[float, float], tuple[float, float]]] = field(default_factory=list)  # the run-in throat
+    rockers: list[tuple[float, float, float, float, float]] = field(default_factory=list)  # x, y, half, rad/s, phase
+    drums: list[tuple[float, float, float, float]] = field(default_factory=list)  # x, y, r, rad/s
+    kinematics: list = field(default_factory=list)  # (kind, body, params) driven per frame
     lane: list[tuple[tuple[float, float], tuple[float, float]]] = field(default_factory=list)  # the gauntlet's two verticals
 
 
@@ -332,7 +348,135 @@ def _stage_cascade(space, w, h, rng, style):
     return segments, w * 0.7, lambda count: [w * 0.15 + (w * 0.7) * i / max(count - 1, 1) for i in range(count)]
 
 
-_STAGES = {"zigzag": _stage_zigzag, "pegboard": _stage_pegboard, "bumpers": _stage_bumpers,
+def _stage_pinwheel(space, w, h, rng, style):
+    """One big wheel with four arms in the middle of the frame, and a ring of
+    pegs around it. The wheel is what the eye lands on; it sweeps a marble
+    aside, holds another, and the pegs below sort out the difference."""
+    cx, cy = w / 2 + rng.uniform(-w * 0.06, w * 0.06), h * rng.uniform(0.50, 0.58)
+    half = w * rng.uniform(0.26, 0.32)
+    omega = rng.choice([-1, 1]) * rng.uniform(0.9, 1.4)
+    phase = rng.uniform(0, 3.14)
+    for extra in (0.0, math.pi / 2):
+        _spinner(space, cx, cy, half, omega, phase + extra, style.thickness / 2)
+        style.spinners.append((cx, cy, half, omega, phase + extra))
+    # Pegs above and below the wheel, sparse, never inside its sweep.
+    r = rng.uniform(7.0, 10.0)
+    for y_frac in (0.84, 0.78, 0.72, 0.66, 0.40, 0.34, 0.28, 0.22, 0.16):
+        cols = 5 if int(y_frac * 100) % 4 == 0 else 6
+        for j in range(cols):
+            x = 30.0 + (w - 60.0) * (j + (0.5 if cols == 4 else 0)) / max(cols - (0 if cols == 4 else 1), 1)
+            y = h * y_frac
+            if math.hypot(x - cx, y - cy) > half + 40:
+                _peg(space, x, y, r)
+                style.circles.append((x, y, r))
+    return [], w * 0.6, lambda count: [w * 0.2 + (w * 0.6) * i / max(count - 1, 1) for i in range(count)]
+
+
+def _stage_sieve(space, w, h, rng, style):
+    """Rows of short bars with gaps between them, each bar tilted a little
+    so nothing rests on it. Offsets alternate row to row, so a marble that
+    drops through one gap lands on a bar in the next."""
+    rows = rng.randint(6, 8)
+    per_row = rng.choice([3, 4])
+    top, bottom = h * 0.82, h * 0.22
+    pitch = w / per_row
+    segments = []
+    for i in range(rows):
+        y = top - (top - bottom) * i / max(rows - 1, 1)
+        offset = pitch / 2 if i % 2 else 0.0
+        for j in range(per_row + 1):
+            cx = offset + j * pitch
+            span = pitch * rng.uniform(0.50, 0.60)
+            tilt = rng.choice([-1, 1]) * rng.uniform(0.16, 0.30) * span
+            a, b = (cx - span / 2, y + tilt / 2), (cx + span / 2, y - tilt / 2)
+            if a[0] < -10 or b[0] > w + 10:
+                continue
+            _wall(space, a, b, thickness=style.thickness / 2)
+            segments.append((a, b))
+    return segments, w * 0.6, lambda count: [w * 0.2 + (w * 0.6) * i / max(count - 1, 1) for i in range(count)]
+
+
+def _stage_pachinko(space, w, h, rng, style):
+    """Pegs on concentric arcs around a central bumper: a marble is thrown
+    outward by the bumper and then filtered back in by the arcs."""
+    cx, cy = w / 2, h * rng.uniform(0.60, 0.68)
+    big = w * rng.uniform(0.07, 0.09)
+    _peg(space, cx, cy, big, elasticity=0.85)
+    style.circles.append((cx, cy, big))
+    r = rng.uniform(6.5, 9.0)
+    for ring, radius in enumerate([w * 0.22, w * 0.36, w * 0.50, w * 0.64]):
+        n = 5 + ring * 3
+        for k in range(n):
+            ang = math.pi + math.pi * (k + 0.5) / n  # the lower half only, an arc that opens downward
+            x, y = cx + radius * math.cos(ang), cy + radius * math.sin(ang)
+            if 14 < x < w - 14 and 130 < y < h * 0.9:
+                _peg(space, x, y, r)
+                style.circles.append((x, y, r))
+    return [], w * 0.6, lambda count: [w * 0.2 + (w * 0.6) * i / max(count - 1, 1) for i in range(count)]
+
+
+def _rocker(space, x, y, half, omega, phase, thickness):
+    body = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
+    body.position = (x, y)
+    shape = pymunk.Segment(body, (-half, 0), (half, 0), thickness)
+    shape.elasticity = 0.40
+    shape.friction = 0.30
+    space.add(body, shape)
+    return body
+
+
+def _stage_rockers(space, w, h, rng, style):
+    """Planks that rock on a pivot, tipping one way and then the other, in
+    staggered rows. A marble that lands on a plank rides it down and is
+    thrown off the low end — which end that is depends on when it arrived."""
+    rows = rng.randint(4, 5)
+    top, bottom = h * 0.80, h * 0.26
+    for i in range(rows):
+        y = top - (top - bottom) * i / max(rows - 1, 1)
+        count = 2 if i % 2 == 0 else 3
+        for j in range(count):
+            x = w * (j + 0.5) / count + (w * 0.08 if i % 2 else 0) * rng.choice([-1, 1]) * 0.3
+            half = w * rng.uniform(0.11, 0.15)
+            omega = rng.uniform(1.0, 1.8)
+            phase = rng.uniform(0, 6.283)
+            body = _rocker(space, x, y, half, omega, phase, style.thickness / 2)
+            style.rockers.append((x, y, half, omega, phase))
+            style.kinematics.append(("rocker", body, (omega, phase)))
+    return [], w * 0.6, lambda count: [w * 0.2 + (w * 0.6) * i / max(count - 1, 1) for i in range(count)]
+
+
+def _stage_drums(space, w, h, rng, style):
+    """Large spinning drums, staggered. A marble that lands on one is carried
+    round by friction and let go on the far side, so the drum's direction
+    decides which way it heads next."""
+    rows = rng.randint(3, 4)
+    top, bottom = h * 0.78, h * 0.28
+    # Between any two drums in a row there has to be room for the biggest
+    # marble with air to spare, and every drum in a row turns the same way:
+    # two turning toward each other make a pinch a marble never leaves.
+    # Measured — the first version trapped 14 seeds in 24 that way.
+    for i in range(rows):
+        y = top - (top - bottom) * i / max(rows - 1, 1)
+        count = 2 if i % 2 == 0 else 3
+        # ... and the same room between the outer drums and the walls.
+        r = min(w * rng.uniform(0.10, 0.13), w / count / 2 - w * 0.065)
+        direction = rng.choice([-1, 1])
+        for j in range(count):
+            x = w * (j + 0.5) / count
+            omega = direction * rng.uniform(1.6, 2.6)
+            body = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
+            body.position = (x, y)
+            body.angular_velocity = omega
+            shape = pymunk.Circle(body, r)
+            shape.elasticity = 0.25
+            shape.friction = 0.9
+            space.add(body, shape)
+            style.drums.append((x, y, r, omega))
+    return [], w * 0.6, lambda count: [w * 0.2 + (w * 0.6) * i / max(count - 1, 1) for i in range(count)]
+
+
+_STAGES = {"zigzag": _stage_zigzag, "pinwheel": _stage_pinwheel, "sieve": _stage_sieve, "pachinko": _stage_pachinko,
+           "rockers": _stage_rockers, "drums": _stage_drums, "pegboard": _stage_pegboard, "bumpers": _stage_bumpers,
            "funnels": _stage_funnels, "gauntlet": _stage_gauntlet, "cascade": _stage_cascade}
 
 
@@ -392,7 +536,10 @@ FINISH_GATE_CHANCE = 0.72
 # throat turns that into a queue (60% -> 76%); the pegboard traded a little
 # surprise for most of its close finishes (40% -> 5%); the funnels stage is
 # already a series of throats and one more read as noise (60% -> 72%).
-GATE_STAGES = ("bumpers", "gauntlet")
+#   pinwheel   half-way leader wins 75% -> 20%, came from last 35% -> 60%
+#   sieve      70% -> 57%, came from last 35% -> 50%
+#   drums      85% -> 65%
+GATE_STAGES = ("bumpers", "gauntlet", "pinwheel", "sieve", "drums")
 GATE_HEIGHT = 0.085  # of the frame above the line: close enough that nothing re-spreads
 GATE_GAP = (0.17, 0.21)  # of the width; about 3-3.7 of the largest marble
 SPINNER_ROWS = {"bumpers": (0.26, 0.40, 0.54, 0.68), "gauntlet": (0.20, 0.30, 0.40, 0.50, 0.60, 0.70)}  # heights, frame fractions
@@ -699,6 +846,11 @@ class PhysicsSandbox:
             "funnels": f"{obstacles // 2} stacked funnels",
             "gauntlet": "a narrow gauntlet",
             "cascade": f"a cascade of {obstacles} chutes",
+            "pinwheel": f"a four-armed pinwheel among {obstacles} pegs",
+            "sieve": f"a sieve of {obstacles} tilted bars",
+            "pachinko": f"a pachinko board of {obstacles} pegs",
+            "rockers": f"{len(style.rockers)} rocking planks",
+            "drums": f"{len(style.drums)} spinning drums",
         }[style.stage]
         if style.spinners:
             base += f" with {len(style.spinners)} spinning bar{'s' if len(style.spinners) > 1 else ''}"
@@ -790,6 +942,12 @@ class PhysicsSandbox:
         stalled = 0
 
         for frame in range(max_frames):
+            for kind, body, params in style.kinematics:
+                if kind == "rocker":
+                    omega, phase = params
+                    t = frame / fps
+                    body.angle = ROCK_AMPLITUDE * math.sin(omega * t + phase)
+                    body.angular_velocity = ROCK_AMPLITUDE * omega * math.cos(omega * t + phase)
             for _ in range(SUBSTEPS):
                 space.step(dt)
 
@@ -959,6 +1117,20 @@ class PhysicsSandbox:
                     r = ball.radius * (0.35 + 0.08 * (6 - back))
                     draw.ellipse([px - r, sim_h - py - r, px + r, sim_h - py + r], fill=colour)
             t = frame_index / 30.0
+            for sx, sy, half, omega, phase in style.rockers:
+                angle = ROCK_AMPLITUDE * math.sin(omega * t + phase)
+                dx, dy = math.cos(angle) * half, math.sin(angle) * half
+                draw.line([(sx - dx, sim_h - (sy - dy)), (sx + dx, sim_h - (sy + dy))],
+                          fill=tuple(min(255, c + 60) for c in style.structure), width=style.thickness)
+                hub = style.thickness * 0.9
+                draw.ellipse([sx - hub, sim_h - sy - hub, sx + hub, sim_h - sy + hub], fill=style.structure)
+            for sx, sy, r, omega in style.drums:
+                draw.ellipse([sx - r, sim_h - sy - r, sx + r, sim_h - sy + r],
+                             fill=tuple(min(255, c + 22) for c in style.structure))
+                for k in range(3):  # spokes, so the spin can be seen
+                    angle = omega * t + k * 2.094
+                    draw.line([(sx, sim_h - sy), (sx + math.cos(angle) * r * 0.9, sim_h - (sy + math.sin(angle) * r * 0.9))],
+                              fill=tuple(min(255, c + 70) for c in style.structure), width=max(2, style.thickness // 2))
             for sx, sy, half, omega, phase in style.spinners:
                 angle = phase + omega * t
                 dx, dy = math.cos(angle) * half, math.sin(angle) * half

@@ -22,6 +22,7 @@ def test_every_stage_is_registered_everywhere():
     assert names == set(physics._STAGES) == set(physics.STAGE_GRAVITY) == set(physics.STAGE_NOUN) == set(physics.STAGE_BLURB)
     assert names >= {"zigzag", "pegboard", "bumpers", "funnels", "gauntlet", "cascade"}
     assert set(physics.SPINNER_STAGES) <= names and set(physics.SPINNER_ROWS) == set(physics.SPINNER_STAGES)
+    assert set(physics.WHEEL_STAGES) <= names and not (set(physics.WHEEL_STAGES) & set(physics.SPINNER_STAGES))
     assert abs(sum(physics.STAGES.values()) - 1.0) < 1e-6
 
 
@@ -49,7 +50,8 @@ def test_spinning_bars_only_where_they_belong():
                 continue
         assert sim is not None
         style = sim[6]
-        lo, hi = physics.SPINNER_STAGES.get(stage, (0, 0))
+        wheel = physics.WHEEL_STAGES.get(stage, 0)
+        lo, hi = physics.SPINNER_STAGES.get(stage, (wheel, wheel))
         assert lo <= len(style.spinners) <= hi, (stage, len(style.spinners))
 
 
