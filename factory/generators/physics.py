@@ -666,9 +666,16 @@ class PhysicsSandbox:
             return None
         from ..brand import _font
 
-        font = _font(int(sim_w * 0.072))
         probe = ImageDraw.Draw(Image.new("RGB", (1, 1)))
-        text_width = probe.textlength(text, font=font)
+        # Shrink until it fits: "FINAL · GREEN TOOK THE HEAT" at the race's
+        # caption size ran off both edges of the frame.
+        size = int(sim_w * 0.072)
+        while True:
+            font = _font(size)
+            text_width = probe.textlength(text, font=font)
+            if text_width <= sim_w * 0.90 or size <= 14:
+                break
+            size -= 2
         # Two constraints squeeze this: the objects all start at the top of
         # frame and spend the caption's whole life up there, and Shorts covers
         # the bottom ~15% and right ~12% with its own UI. That leaves the lower

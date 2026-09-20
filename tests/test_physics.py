@@ -189,3 +189,11 @@ def test_opening_mid_action_shifts_every_clock_together():
     assert cut["winner_frame"] == whole["winner_frame"] - FPS
     assert cut["margin_s"] == whole["margin_s"]
     assert all(im.t >= 0 for im in cut["impacts"])
+
+
+def test_a_long_caption_shrinks_to_fit_the_frame(sandbox):
+    gen = physics.PhysicsSandbox()
+    short = gen._overlay("marble_race", W, H, FPS, text="RED BY 0.4s")
+    long = gen._overlay("marble_race", W, H, FPS, text="FINAL · VIOLET TOOK THE HEAT")
+    assert long[1].size < short[1].size
+    assert long[2] >= 0  # left edge inside the frame
