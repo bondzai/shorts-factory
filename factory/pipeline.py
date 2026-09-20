@@ -9,6 +9,7 @@ publish driver, its credentials, its sameness history. Nothing crosses.
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
@@ -359,11 +360,48 @@ def create_and_render(
     return clip_id, frames, facts
 
 
+def winners(facts: dict) -> list[str]:
+    """Every marble that won a round, from the render's own facts."""
+    names = [r.get("winner") for r in facts.get("rounds") or []] + [facts.get("winner")]
+    return {n for n in names if n}
+
+
+def lineup(facts: dict) -> set[str]:
+    names: set[str] = set(facts.get("finishes") or {})
+    for r in facts.get("rounds") or []:
+        names |= set(r.get("finishes") or {})
+    return names
+
+
+def spoiler(facts: dict, **texts: str | None) -> str | None:
+    """Which text names a winner, if any — the title has one job, keeping the
+    viewer for the result, and a title that contains the result has already
+    paid them out. Checked against facts, so it is a measurement, not taste.
+
+    Naming the whole lineup ("red, blue or amber — which did you back?") gives
+    nothing away, so that passes; singling out a winner does not."""
+    won, field_ = winners(facts), lineup(facts)
+    for field, text in texts.items():
+        if not text:
+            continue
+        named = {n for n in won | field_ if re.search(rf"\b{re.escape(n)}\b", text, re.IGNORECASE)}
+        if named & won and not (field_ and field_ <= named):
+            name = sorted(named & won)[0]
+            return f"{field} names the winner ({name}); state the stake, not the result"
+    return None
+
+
 def attach_metadata(conn: sqlite3.Connection, clip_id: str, meta) -> None:
     """Store a title written by the caller. Validated exactly as the agent's is."""
     row = db.get(conn, clip_id)
     if row is None:
         raise ValueError(f"no clip {clip_id}")
+    facts = json.loads(row["facts_json"] or "{}")
+    first_sentence = re.split(r"(?<=[.!?])\s", meta.description.strip(), 1)[0]
+    problem = spoiler(facts, title=meta.title, hook_text=meta.hook_text,
+                      comment_prompt=meta.comment_prompt, description=first_sentence)
+    if problem:
+        raise ValueError(problem)
     db.update(
         conn, clip_id, status=DESCRIBED, title=meta.title,
         description=meta.description, hashtags_json=json.dumps(meta.hashtags),
@@ -462,6 +500,9 @@ def retitle(
         raise ValueError(f"title must be {TITLE_MIN}-{TITLE_MAX} characters, like every title here")
     if title == row["title"]:
         raise ValueError("that is already the title")
+    problem = spoiler(json.loads(row["facts_json"] or "{}"), title=title)
+    if problem:
+        raise ValueError(problem)
     history = json.loads(row["title_history_json"] or "[]")
     history.append({
         "title": row["title"], "until": db.now(), "by": by, "why": why,

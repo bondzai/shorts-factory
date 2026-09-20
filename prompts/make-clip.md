@@ -69,15 +69,16 @@ are lost, and the benchmark channels aim for is three of four *kept*:
 
 - The clip already opens mid-action (the gate is cut). Your caption is the
   only other thing on screen. It must state a **stake**, not ask a vague
-  question: `DECIDED BY 0.8s` beats `WHO WINS?`, and a colour beats neither —
-  `RED BY 0.8s` is best when the margin is measured.
-- The title is the same sentence for the feed: the **colour and the number**
-  in the first four words. "Red wins by 0.8s on 59 pegs" — not "Can red win?"
-- The stake can be a close finish *or* an upset. With two rounds, "RED TOOK
-  THE HEAT — GREEN TOOK THE FINAL" is a title with a stake even when neither
-  margin was small. Only a clip where the same marble runs away with both
-  rounds has nothing to state; that one is a fair reject even when the gates
-  pass.
+  question: `DECIDED BY 0.8s` beats `WHO WINS?`. Never the winner's colour:
+  `RED BY 0.8s` tells them how it ends, and they swipe.
+- The title is the same sentence for the feed: the **number** in the first
+  four words. "Decided by 0.8s on 59 pegs" — not "Can red win?" and not "Red
+  wins by 0.8s".
+- The stake can be a close finish *or* an upset. With two rounds, "Heat, then
+  final — same three marbles" is a title with a stake even when neither margin
+  was small; whether the heat winner held is the twist you keep. Only a clip
+  where the same marble runs away with both rounds has nothing to state; that
+  one is a fair reject even when the gates pass.
 - `comment_prompt` is not optional here: every clip asks the viewer to pick a
   colour before it starts — "Which marble did you back?" — because a viewer
   who has picked stays to find out. Name the colours in the prompt.

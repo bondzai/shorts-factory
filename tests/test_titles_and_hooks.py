@@ -426,3 +426,69 @@ def test_directions_round_trip_on_the_page(client):
     assert r.status_code == 200
     assert next(f for f in r.json()["fields"] if f["key"] == "title_style")["value"] == "sentence case"
     assert client.put("/api/directions", json={"channel": CH, "values": {"nope": "x"}}).status_code == 400
+
+
+# --- the spoiler gate ------------------------------------------------------------
+# A title that contains the result has already paid the viewer out. Checked
+# against the render's facts, so it is a measurement, not taste.
+
+FACTS = {"winner": "amber", "finishes": {"amber": 15.4, "violet": 15.5, "blue": 16.1},
+         "rounds": [{"winner": "blue"}, {"winner": "amber"}]}
+
+
+def meta(**over):
+    from factory.models import Metadata
+    base = dict(title="Decided by 0.04s after a heat and a final", description="Three marbles, two rounds. A photo finish.",
+                hashtags=["#shorts", "#marblerace", "#satisfying"], rationale="t")
+    return Metadata(**{**base, **over})
+
+
+def test_a_title_that_names_the_final_winner_is_refused(channel):
+    clip_id = clip(RENDERED, facts_json=json.dumps(FACTS))
+    with db.connect() as conn, pytest.raises(ValueError, match="title names the winner \\(amber\\)"):
+        pipeline.attach_metadata(conn, clip_id, meta(title="Amber by 0.04s in the final, wild finish"))
+
+
+def test_the_heat_winner_is_a_result_too(channel):
+    clip_id = clip(RENDERED, facts_json=json.dumps(FACTS))
+    with db.connect() as conn, pytest.raises(ValueError, match="hook_text names the winner \\(blue\\)"):
+        pipeline.attach_metadata(conn, clip_id, meta(hook_text="BLUE TAKES HEAT"))
+
+
+def test_the_pinned_comment_and_first_sentence_are_checked_but_not_the_rest(channel):
+    clip_id = clip(RENDERED, facts_json=json.dumps(FACTS))
+    with db.connect() as conn, pytest.raises(ValueError, match="comment_prompt"):
+        pipeline.attach_metadata(conn, clip_id, meta(comment_prompt="Did amber deserve it?"))
+    with db.connect() as conn:  # the description may say it after the first sentence
+        pipeline.attach_metadata(conn, clip_id, meta(description="Two rounds, one photo finish. Amber takes it by 0.04s."))
+        assert db.get(conn, clip_id)["title"].startswith("Decided by")
+
+
+def test_naming_the_whole_lineup_gives_nothing_away(channel):
+    clip_id = clip(RENDERED, facts_json=json.dumps(FACTS))
+    with db.connect() as conn:
+        pipeline.attach_metadata(conn, clip_id, meta(title="Violet, blue or amber: who did you back?",
+                                                     comment_prompt="Amber, blue or violet — which did you back?"))
+    with db.connect() as conn, pytest.raises(ValueError, match="comment_prompt names the winner"):
+        pipeline.attach_metadata(conn, clip_id, meta(comment_prompt="Blue or violet — which did you back?"))
+
+
+def test_a_colour_that_did_not_win_is_fine_and_so_is_a_substring(channel):
+    clip_id = clip(RENDERED, facts_json=json.dumps(FACTS))
+    with db.connect() as conn:
+        pipeline.attach_metadata(conn, clip_id, meta(title="Can violet hold on for 75 pegs this time?",
+                                                     comment_prompt="Bluebird or violet — which did you back?"))
+
+
+def test_retitle_runs_the_same_gate(channel):
+    clip_id = clip(PUBLISHED, facts_json=json.dumps(FACTS))
+    with db.connect() as conn, pytest.raises(ValueError, match="names the winner"):
+        pipeline.retitle(conn, clip_id, "Amber wins the 75-peg final by a hair", why="test")
+
+
+def test_the_hooks_skill_rides_on_every_playbook(channel):
+    from factory import playbooks
+    assert "hooks" in playbooks.skills()
+    assert "skill-hooks" not in playbooks.available()
+    for name in ("make-clip", "retitle", "work"):
+        assert "Never name the winner" in playbooks.render(name, CH)

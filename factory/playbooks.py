@@ -26,7 +26,7 @@ def prompts_dir() -> Path:
 
 
 def available() -> list[str]:
-    return sorted(p.stem for p in prompts_dir().glob("*.md") if p.stem != "README" and not p.stem.startswith("market-"))
+    return sorted(p.stem for p in prompts_dir().glob("*.md") if p.stem != "README" and not p.stem.startswith(("market-", "skill-")))
 
 
 def _recent(conn: sqlite3.Connection, channel_id: str, limit: int = 12) -> str:
@@ -180,6 +180,19 @@ def market_text(conn: sqlite3.Connection, channel_id: str) -> str:
     return "\n" + (prompts_dir() / f"market-{market}.md").read_text(encoding="utf-8").strip() + "\n"
 
 
+def skills() -> list[str]:
+    """Skills: craft rules that hold on every channel, one file each
+    (prompts/skill-<name>.md). Appended to every playbook, never formatted."""
+    return sorted(p.stem.removeprefix("skill-") for p in prompts_dir().glob("skill-*.md"))
+
+
+def skill_text() -> str:
+    return "".join(
+        "\n" + (prompts_dir() / f"skill-{name}.md").read_text(encoding="utf-8").strip() + "\n"
+        for name in skills()
+    )
+
+
 def render(name: str, channel_id: str | None = None) -> str:
     path = prompts_dir() / f"{name}.md"
     if not path.exists():
@@ -187,10 +200,11 @@ def render(name: str, channel_id: str | None = None) -> str:
     text = path.read_text(encoding="utf-8")
     with db.connect() as conn:
         values = context(conn, channel_id)
-        # Two things ride on every playbook: the channel's market brief (in
-        # git, one file per market) and the operator's directions (in the
-        # database, edited on the page). Both are appended, never formatted.
-        extra = market_text(conn, values["channel"]) + directions_text(conn, values["channel"])
+        # Three things ride on every playbook: the channel's market brief (in
+        # git, one file per market), the skills (in git, craft rules for every
+        # channel) and the operator's directions (in the database, edited on
+        # the page). All are appended, never formatted.
+        extra = market_text(conn, values["channel"]) + skill_text() + directions_text(conn, values["channel"])
     try:
         return text.format(**values) + extra
     except KeyError as exc:

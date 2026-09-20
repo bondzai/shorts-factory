@@ -8,10 +8,10 @@ is the publish window). Everything an agent writes is judged by that reader.
   Thai, no transliterated words.
 - **Frame it like sport.** US viewers read a race as a bracket: "heat", "final",
   "upset", "by a nose", "photo finish". Use those words; they are free stakes.
-- **Numbers over adjectives.** "Red by 0.4s" beats "so close". Decimal seconds
-  read fine; never "nail-biting", "insane", "epic".
-- **Titles**: sentence case, the colour and the number in the first four words,
-  under 60 characters so nothing is cut on a phone. A question only when the
+- **Numbers over adjectives.** "Decided by 0.4s" beats "so close". Decimal
+  seconds read fine; never "nail-biting", "insane", "epic".
+- **Titles**: sentence case, the number in the first four words (never the
+  winning colour), under 60 characters so nothing is cut on a phone. A question only when the
   clip answers it in the next fifteen seconds.
 - **Pinned comment** is a pick-your-team prompt with the colours named:
   "Red, blue or green — which did you back?" That is the whole engagement play.

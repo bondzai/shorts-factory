@@ -19,3 +19,9 @@ factory can fetch its own instructions rather than being handed them.
 Guidance based on a measurement carries the measurement with it, so that when
 the number moves the instruction can be argued with rather than obeyed out of
 habit.
+
+Two kinds of file ride along on every rendered playbook and are not playbooks
+themselves: `market-<id>.md`, the brief for the channel's audience (chosen per
+channel in Settings), and `skill-<name>.md`, craft rules that hold everywhere —
+`skill-hooks.md` is how titles and captions state a stake without giving the
+result away, and the server enforces its first rule.
