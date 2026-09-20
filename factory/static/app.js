@@ -193,6 +193,14 @@ function Queue({ snap, channelId, refresh, open }) {
   };
   const copy = async () => { try { await navigator.clipboard.writeText(standing); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { alert(standing); } };
   const tone = (s) => s === "done" ? "good" : s === "failed" ? "bad" : s === "claimed" ? "warn" : "";
+  const active = body.tasks.filter((t) => t.status === "claimed");
+  const strip = (t) => html`
+    <div class="steps">
+      ${t.steps.map((s, i) => html`
+        <span key=${s.name} class=${"step " + s.state} title=${s.at ? `${s.by || ""} · ${when(s.at)}` : ""}>
+          <i></i>${s.name}${s.note ? html` <em>${s.note}</em>` : null}${s.state === "current" && s.by ? html` <em>← ${s.by}</em>` : null}
+        </span>${i < t.steps.length - 1 ? html`<span class="step-line"></span>` : null}`)}
+    </div>`;
   const paramInput = (k) => {
     if (k === "variant") return html`<select key=${k} value=${params.variant || ""} onChange=${(e) => setParams({ ...params, variant: e.target.value, generator: e.target.value.split("/")[0] })}>
       <option value="">variant…</option>${variants.map((v) => html`<option key=${v} value=${v.split("/")[1]}>${v}</option>`)}</select>`;
@@ -203,6 +211,11 @@ function Queue({ snap, channelId, refresh, open }) {
   return html`
     <h1>What agents will do next</h1>
     <p class="lead">Put the work here once. Any agent connected over MCP pulls the next task with its full instructions and reports back; with a ready provider, the built-in agents can work the same queue.</p>
+    ${active.length ? html`<div class="card" style=${{ borderColor: "var(--key)" }}>
+      <h3>Now</h3>
+      ${active.map((t) => { const cur = t.steps.find((s) => s.state === "current"); const n = t.steps.filter((s) => s.state === "done").length;
+        return html`<div key=${t.id} class="row"><b>#${t.id} ${t.kind}</b><span class="hint">${t.claimed_by} is at <b>${cur ? cur.name : "…"}</b> — step ${n + 1} of ${t.steps.length}</span></div>${strip(t)}`; })}
+    </div>` : null}
     <div class="card">
       <h3>Add work</h3>
       <form class="row" onSubmit=${add} style=${{ flexWrap: "wrap" }}>
@@ -238,7 +251,8 @@ function Queue({ snap, channelId, refresh, open }) {
             <td class="hint">${t.error ? html`<span class="bad">${t.error}</span>` : (t.result?.summary || t.result?.detail || "")}
               ${t.clip_id ? html` <button class="small" onClick=${() => open(t.clip_id)}>View clip</button>` : null}</td>
             <td>${["queued", "claimed"].includes(t.status) ? html`<button class="small" onClick=${() => cancel(t.id)}>Cancel</button>` : null}</td>
-          </tr>`)}
+          </tr>
+          ${t.status !== "queued" ? html`<tr key=${t.id + "s"}><td></td><td colSpan="6" style=${{ paddingTop: 0, borderBottom: "1px solid #1f1f29" }}>${strip(t)}</td></tr>` : null}`)}
         ${!body.tasks.length ? html`<tr><td colSpan="7" class="empty">Nothing queued. Add work above.</td></tr>` : null}
       </tbody>
     </table>`;

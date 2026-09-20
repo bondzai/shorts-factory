@@ -44,6 +44,12 @@ def _credentials_missing() -> bool:
     return not llm.has_credentials()
 
 
+def resolve_channel_id(conn, channel):
+    from .channels import resolve
+
+    return resolve(conn, channel).id
+
+
 def _clip_summary(row) -> dict[str, Any]:
     import json
 
@@ -224,6 +230,10 @@ def build_server():
                     conn, channel, variant=variant, generator=generator,
                     seed=seed, hook=hook,
                 )
+                task_id = db.attach_clip_to_claimed_task(conn, resolve_channel_id(conn, channel), clip_id)
+                if task_id:
+                    logs.event("task.step", channel=resolve_channel_id(conn, channel), task=task_id,
+                               clip=clip_id, step="rendered")
             except (ValueError, KeyError) as exc:
                 raise ToolError(str(exc)) from None
         logs.event("mcp.call", actor="mcp", tool="render_clip", clip=clip_id,

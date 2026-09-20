@@ -84,6 +84,46 @@ def instructions(conn: sqlite3.Connection, row: sqlite3.Row) -> str:
     return "\n".join(head) + playbooks.render(KINDS[row["kind"]]["playbook"], row["channel_id"])
 
 
+STEPS = {
+    "make-clip": ["claimed", "rendered", "described", "qc", "finished"],
+}
+DEFAULT_STEPS = ["claimed", "finished"]
+
+
+def steps(row: sqlite3.Row) -> list[dict[str, Any]]:
+    """Where a task is, step by step, and who did each step.
+
+    Nothing new is recorded for this: the claim is on the task row, the render,
+    title and QC are events the clip already logs, the finish is the task row
+    again. Derived on read, so it cannot disagree with the log.
+    """
+    names = STEPS.get(row["kind"], DEFAULT_STEPS)
+    done: dict[str, dict[str, Any]] = {}
+    if row["claimed_at"]:
+        done["claimed"] = {"by": row["claimed_by"], "at": row["claimed_at"]}
+    if row["clip_id"]:
+        for e in reversed(logs.read(clip=row["clip_id"], limit=200)):
+            if e["event"] == "clip.rendered":
+                done.setdefault("rendered", {"by": e.get("by") or e.get("actor") or row["claimed_by"], "at": e["at"]})
+            elif e["event"] == "clip.described":
+                done.setdefault("described", {"by": e.get("by") or row["claimed_by"], "at": e["at"]})
+            elif e["event"] == "clip.qc":
+                done.setdefault("qc", {"by": e.get("by") or row["claimed_by"], "at": e["at"],
+                                       "note": "passed" if e.get("passed") else "rejected"})
+    if row["finished_at"]:
+        done["finished"] = {"by": row["claimed_by"], "at": row["finished_at"], "note": row["status"]}
+    out, current_seen = [], False
+    for name in names:
+        if name in done:
+            out.append({"name": name, "state": "done", **done[name]})
+        elif not current_seen and row["status"] == "claimed":
+            out.append({"name": name, "state": "current", "by": row["claimed_by"]})
+            current_seen = True
+        else:
+            out.append({"name": name, "state": "pending"})
+    return out
+
+
 def as_dict(row: sqlite3.Row) -> dict[str, Any]:
     return {
         "id": row["id"], "channel_id": row["channel_id"], "kind": row["kind"],
@@ -93,6 +133,7 @@ def as_dict(row: sqlite3.Row) -> dict[str, Any]:
         "result": json.loads(row["result_json"]) if row["result_json"] else None,
         "error": row["error"], "clip_id": row["clip_id"],
         "meaning": KINDS.get(row["kind"], {}).get("meaning", ""),
+        "steps": steps(row),
     }
 
 

@@ -147,3 +147,33 @@ def test_the_page_adds_several_at_once_and_counts_them(client):
 def test_the_standing_prompt_renders(client):
     r = client.get(f"/api/playbook/work?channel={CH}")
     assert r.status_code == 200 and "next_task" in r.json()["text"]
+
+
+# --- steps are read, not written ---------------------------------------------
+
+def test_a_render_while_holding_a_task_becomes_that_task_s_clip(conn):
+    from factory import logs
+
+    tid = tasks.enqueue(conn, CH, "make-clip", {"variant": "marble_race"})[0]
+    db.claim_task(conn, "codex")
+    clip_id = db.insert_clip(conn, channel_id=CH, generator="physics", variant="marble_race",
+                             seed=1, params={}, hook="", plan_why="t")
+    assert db.attach_clip_to_claimed_task(conn, CH, clip_id) == tid
+    logs.event("clip.rendered", channel=CH, clip=clip_id, by="agent")
+    logs.event("clip.described", channel=CH, clip=clip_id, by="agent")
+    row = conn.execute("SELECT * FROM tasks WHERE id = ?", (tid,)).fetchone()
+    names = [(s["name"], s["state"]) for s in tasks.steps(row)]
+    assert names == [("claimed", "done"), ("rendered", "done"), ("described", "done"),
+                     ("qc", "current"), ("finished", "pending")]
+    assert tasks.steps(row)[3]["by"] == "codex"
+
+
+def test_a_queued_task_has_no_current_step_and_a_done_one_has_none_pending(conn):
+    tid = tasks.enqueue(conn, CH, "retitle")[0]
+    row = conn.execute("SELECT * FROM tasks WHERE id = ?", (tid,)).fetchone()
+    assert all(s["state"] == "pending" for s in tasks.steps(row))
+    db.claim_task(conn, "codex")
+    db.finish_task(conn, tid, ok=True, result={"summary": "nothing to retitle"})
+    row = conn.execute("SELECT * FROM tasks WHERE id = ?", (tid,)).fetchone()
+    assert [s["state"] for s in tasks.steps(row)] == ["done", "done"]
+    assert tasks.steps(row)[-1]["note"] == "done"

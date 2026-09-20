@@ -373,6 +373,22 @@ def claim_task(
     return conn.execute("SELECT * FROM tasks WHERE id = ?", (row["id"],)).fetchone()
 
 
+def attach_clip_to_claimed_task(conn: sqlite3.Connection, channel_id: str, clip_id: str) -> int | None:
+    """When an agent renders while holding a make-clip task, that render is the
+    task's clip. Attached at render time so the step tracker can show progress
+    before the agent reports; the agent's own finish_task confirms it."""
+    row = conn.execute(
+        """SELECT id FROM tasks WHERE channel_id = ? AND status = 'claimed'
+           AND kind = 'make-clip' AND clip_id IS NULL ORDER BY claimed_at LIMIT 1""",
+        (channel_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    conn.execute("UPDATE tasks SET clip_id = ? WHERE id = ?", (clip_id, row["id"]))
+    conn.commit()
+    return int(row["id"])
+
+
 def finish_task(
     conn: sqlite3.Connection, task_id: int, *, ok: bool, result: Any = None,
     error: str | None = None, clip_id: str | None = None,
@@ -383,7 +399,8 @@ def finish_task(
     if row["status"] != TASK_CLAIMED:
         raise ValueError(f"task {task_id} is {row['status']}, not claimed")
     conn.execute(
-        """UPDATE tasks SET status = ?, finished_at = ?, result_json = ?, error = ?, clip_id = ?
+        """UPDATE tasks SET status = ?, finished_at = ?, result_json = ?, error = ?,
+                            clip_id = COALESCE(?, clip_id)
            WHERE id = ?""",
         (TASK_DONE if ok else TASK_FAILED, now(), json.dumps(result), error, clip_id, task_id),
     )
