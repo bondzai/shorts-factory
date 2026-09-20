@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# Hand this channel's queue to an agent, in this terminal.
+#
+# The prompt is rendered fresh every time from the database — this channel's
+# rules, its recent clips, the hooks skill, your Directions — so an agent
+# started today is never working from last week's brief.
+#
+#   bin/cowork              # Claude Code on the default channel
+#   bin/cowork --channel x  # another channel
+#   bin/cowork --print      # just print the prompt (paste it anywhere)
+#   AGENT=codex bin/cowork  # a different agent
+set -euo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+factory="$here/.venv/bin/factory"
+agent="${AGENT:-claude}"
+channel=""
+print_only=""
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --channel) channel="$2"; shift 2 ;;
+    --print) print_only=1; shift ;;
+    *) echo "usage: cowork [--channel ID] [--print]   (AGENT=claude|codex)" >&2; exit 2 ;;
+  esac
+done
+
+[ -x "$factory" ] || { echo "no factory at $factory — is the venv built?" >&2; exit 1; }
+
+if [ -n "$channel" ]; then
+  prompt="$("$factory" --channel "$channel" playbook work)"
+else
+  prompt="$("$factory" playbook work)"
+fi
+
+if [ -n "$print_only" ]; then printf '%s\n' "$prompt"; exit 0; fi
+
+command -v "$agent" >/dev/null 2>&1 || { echo "$agent is not on PATH. Try: AGENT=<other> $0, or --print and paste it." >&2; exit 1; }
+
+cd "$here"
+exec "$agent" "$prompt"

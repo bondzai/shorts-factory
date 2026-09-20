@@ -10,7 +10,18 @@ similarity score. No brain can change a measurement.
 
 **External, over MCP.** Codex, Claude Code and Gemini CLI can all connect to
 the factory as an MCP server. Register it once — Settings → Brains shows the
-exact command for each — then paste the standing prompt from **Clips → Hand off to an agent**.
+exact command for each — then hand it the standing prompt.
+
+Two ways to hand it over, the same prompt either way:
+
+    bin/cowork          # renders the prompt and starts Claude Code on it
+    AGENT=codex bin/cowork
+    bin/cowork --print  # just the text, to paste anywhere
+
+or **Clips → Hand off to an agent → Copy**, then paste into an agent you
+already have open. The prompt is rendered fresh from the database each time —
+this channel's rules, its recent clips, the hooks skill, your Directions — so
+an agent started today never works from last week's brief.
 The prompt is six lines and never changes, because each task carries its own
 full instructions. No API key goes into this project.
 
