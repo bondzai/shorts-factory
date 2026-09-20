@@ -223,7 +223,23 @@ def _course_bumpers(space, w, h, rng, style):
 _COURSES = {"zigzag": _course_zigzag, "pegboard": _course_pegboard, "bumpers": _course_bumpers}
 
 
-def _build_race(space: pymunk.Space, w: int, h: int, rng: random.Random, course: str | None = None):
+def parse_hex(value: str) -> tuple[int, int, int]:
+    """'#1a2b3c' -> (26, 43, 60). Loud about anything else."""
+    text = str(value).strip().lstrip("#")
+    if len(text) != 6 or any(c not in "0123456789abcdefABCDEF" for c in text):
+        raise ValueError(f"backdrop must be a hex colour like #1a2b3c, not {value!r}")
+    return tuple(int(text[i : i + 2], 16) for i in (0, 2, 4))
+
+
+def _structure_for(background: tuple[int, int, int]) -> tuple[int, int, int]:
+    """Ramps and pegs a step lighter than a dark backdrop, darker than a light one."""
+    light = sum(background) / 3 > 128
+    delta = -46 if light else 42
+    return tuple(max(0, min(255, c + delta)) for c in background)
+
+
+def _build_race(space: pymunk.Space, w: int, h: int, rng: random.Random, course: str | None = None,
+                background: str | None = None):
     """A course from the registry, dressed by the active theme.
 
     Everything a viewer can see in a single frame is varied: which course, the
@@ -233,6 +249,11 @@ def _build_race(space: pymunk.Space, w: int, h: int, rng: random.Random, course:
     theme = themes.active()
     style = _Style()
     style.background, style.structure = rng.choice(theme.palettes)
+    if background:
+        # A person chose it, so it wins over the theme's palette — the theme's
+        # marbles, caption colour and decoration still apply.
+        style.background = parse_hex(background)
+        style.structure = _structure_for(style.background)
     style.thickness = rng.randint(8, 15)
     style.theme, style.decoration, style.caption = theme.id, theme.decoration, theme.caption
     style.course = course or _pick(rng, COURSES)
@@ -356,6 +377,7 @@ class PhysicsSandbox:
                     fps=fps,
                     max_frames=max_frames,
                     course=params.get("course"),
+                    background=params.get("background"),
                 )
                 break
             except _Stalled as exc:
@@ -440,6 +462,7 @@ class PhysicsSandbox:
                 "obstacles": len(style.circles) or len(segments),
                 "theme": style.theme,
                 "palette": style.background,
+                "backdrop": "#%02x%02x%02x" % style.background,
                 "sim_attempts": attempts_used,
                 "finishes": finish_s,
                 "runner_up": runner_up,
@@ -450,14 +473,14 @@ class PhysicsSandbox:
 
     def _simulate(
         self, *, seed: int, variant: str, sim_w: int, sim_h: int, fps: int, max_frames: int,
-        course: str | None = None,
+        course: str | None = None, background: str | None = None,
     ):
         """Run the physics only. Raises _Stalled when a race goes nowhere."""
         rng = random.Random(seed)
         space = pymunk.Space()
         if variant == "marble_race":
             space.gravity = (0.0, RACE_GRAVITY)
-            balls, segments, style = _build_race(space, sim_w, sim_h, rng, course)
+            balls, segments, style = _build_race(space, sim_w, sim_h, rng, course, background)
             style.seed = seed
             finish_y: float | None = 110.0
         else:

@@ -135,6 +135,32 @@ def context(conn: sqlite3.Connection, channel_id: str | None = None) -> dict[str
     }
 
 
+# What the operator wants every agent to know, without touching a playbook.
+# Five short fields, per channel, edited on the Queue screen; appended to
+# every rendered playbook — so a task's instructions carry them too.
+DIRECTION_FIELDS = [
+    ("audience", "Who watches this channel", "e.g. people scrolling Shorts at night; no prior knowledge; mostly outside Thailand"),
+    ("title_style", "How titles should sound", "e.g. sentence case, state the stake in the first four words, never a question we don't answer"),
+    ("caption_style", "Opening caption preferences", "e.g. keep the measured margin when there is one; otherwise WHICH ONE WINS?"),
+    ("avoid", "Never do this", "e.g. no emoji, no ALL CAPS titles, no promises the clip does not keep"),
+    ("notes", "Anything else, for now", "e.g. this week we are testing pegboard courses — prefer them"),
+]
+
+
+def directions(conn: sqlite3.Connection, channel_id: str) -> dict[str, str]:
+    stored = db.overrides(conn).get(("directions", channel_id)) or {}
+    return {key: str(stored.get(key, "")).strip() for key, _, _ in DIRECTION_FIELDS}
+
+
+def directions_text(conn: sqlite3.Connection, channel_id: str) -> str:
+    filled = [(label, value) for (key, label, _), value in zip(DIRECTION_FIELDS, directions(conn, channel_id).values()) if value]
+    if not filled:
+        return ""
+    return "\n".join(["", "## Directions from the operator", "",
+                       "Set on the Queue screen; they override anything above that disagrees.", "",
+                       *[f"**{label}.** {value}" for label, value in filled], ""])
+
+
 def render(name: str, channel_id: str | None = None) -> str:
     path = prompts_dir() / f"{name}.md"
     if not path.exists():
@@ -142,8 +168,9 @@ def render(name: str, channel_id: str | None = None) -> str:
     text = path.read_text(encoding="utf-8")
     with db.connect() as conn:
         values = context(conn, channel_id)
+        extra = directions_text(conn, values["channel"])
     try:
-        return text.format(**values)
+        return text.format(**values) + extra
     except KeyError as exc:
         raise ValueError(
             f"{path.name} asks for {exc} which the factory does not know; "

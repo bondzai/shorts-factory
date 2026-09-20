@@ -379,7 +379,8 @@ def attach_metadata(conn: sqlite3.Connection, clip_id: str, meta) -> None:
         rehook(conn, clip_id, wanted, by="agent")
 
 
-def rehook(conn: sqlite3.Connection, clip_id: str, text: str | None, *, by: str = "human") -> StageOutcome:
+def rehook(conn: sqlite3.Connection, clip_id: str, text: str | None, *, by: str = "human",
+           background: str | None = None) -> StageOutcome:
     """Burn a different opening caption into a clip that has not shipped.
 
     Same seed, same race: the simulation is deterministic, so the only pixels
@@ -403,6 +404,14 @@ def rehook(conn: sqlite3.Connection, clip_id: str, text: str | None, *, by: str 
         if not text:
             raise ValueError("an empty caption is not a caption; pass None to let the render choose")
         params["hook_text"] = text
+    if background is not None:
+        from .generators import physics
+
+        if background.strip():
+            physics.parse_hex(background)
+            params["background"] = background.strip()
+        else:
+            params.pop("background", None)  # back to the theme's palette
     db.update(conn, clip_id, params_json=json.dumps(params))
     before = row["status"]
     try:

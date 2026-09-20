@@ -370,3 +370,59 @@ def test_a_clip_can_be_read_in_full_without_downloading(client, tmp_path):
     assert body["file"]["exists"] is True and body["file"]["mb"] == 0.0
     assert body["views"] == 715
     assert client.get("/api/clip/nope").status_code == 404
+
+
+# --- a chosen backdrop, and directions that ride on every playbook -----------
+
+def test_a_chosen_backdrop_wins_over_the_theme_and_is_recorded():
+    from factory.generators import physics
+
+    *_, style, _ = physics.PhysicsSandbox()._simulate(
+        seed=4242, variant="marble_race", sim_w=540, sim_h=960, fps=30, max_frames=3,
+        course="zigzag", background="#102030")
+    assert style.background == (16, 32, 48)
+    assert style.structure != style.background
+    with pytest.raises(ValueError, match="hex"):
+        physics.parse_hex("blue")
+
+
+def test_a_task_with_a_bad_backdrop_is_refused_at_enqueue(channel):
+    from factory import tasks
+
+    with db.connect() as conn:
+        with pytest.raises(ValueError, match="hex"):
+            tasks.enqueue(conn, CH, "make-clip", {"variant": "marble_race", "background": "navy"})
+        ids = tasks.enqueue(conn, CH, "make-clip", {"variant": "marble_race", "background": "#0a0a14"})
+        assert json.loads(db.tasks(conn, CH)[0]["params_json"])["background"] == "#0a0a14"
+
+
+def test_rehook_can_change_the_backdrop_and_go_back_to_the_theme(channel, tmp_path, monkeypatch):
+    seen = []
+    fake_generate(monkeypatch, tmp_path, seen)
+    monkeypatch.setitem(__import__("factory.settings").settings.load().raw["qc"], "min_seconds", 1)
+    clip_id = clip(AWAITING_APPROVAL, hook_text="WHICH ONE WINS?")
+    with db.connect() as conn:
+        pipeline.rehook(conn, clip_id, "WHICH ONE WINS?", background="#123456")
+        assert seen[-1]["background"] == "#123456"
+        pipeline.rehook(conn, clip_id, "WHICH ONE WINS?", background="")
+        assert "background" not in seen[-1]
+
+
+def test_directions_are_appended_to_every_playbook_and_to_task_instructions(channel):
+    from factory import playbooks, tasks
+
+    with db.connect() as conn:
+        db.set_override(conn, "directions", CH, {"avoid": "no emoji, ever", "audience": ""})
+        text = playbooks.render("make-clip", CH)
+        assert "Directions from the operator" in text and "no emoji, ever" in text
+        assert "Who watches" not in text  # empty fields stay out
+        tid = tasks.enqueue(conn, CH, "retitle")[0]
+        row = db.claim_task(conn, "codex")
+        assert "no emoji, ever" in tasks.instructions(conn, row)
+
+
+def test_directions_round_trip_on_the_page(client):
+    r = client.put("/api/directions", json={"channel": CH, "values": {"title_style": "sentence case"}})
+    assert r.status_code == 200
+    assert next(f for f in r.json()["fields"] if f["key"] == "title_style")["value"] == "sentence case"
+    assert client.put("/api/directions", json={"channel": CH, "values": {"nope": "x"}}).status_code == 400

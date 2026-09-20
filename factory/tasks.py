@@ -22,7 +22,7 @@ KINDS: dict[str, dict[str, Any]] = {
     "make-clip": {
         "meaning": "render one clip, look at it, title it, QC it",
         "playbook": "make-clip",
-        "params": {"generator": "physics", "variant": "marble_race", "course": None, "seed": None},
+        "params": {"generator": "physics", "variant": "marble_race", "course": None, "background": None, "seed": None},
         "builtin": True,
     },
     "plan-week": {
@@ -64,10 +64,11 @@ def enqueue(
             raise ValueError(f"{channel_id} does not allow {generator}/{variant}; allowed: {ch.variants or 'any ready module'}")
         if count > 1 and "seed" in params:
             raise ValueError("a fixed seed makes one clip; drop the seed to make several")
-        if params.get("course"):
-            from .generators import physics
-            if params["course"] not in physics.COURSES:
-                raise ValueError(f"no course {params['course']!r}; have {sorted(physics.COURSES)}")
+        from .generators import physics
+        if params.get("course") and params["course"] not in physics.COURSES:
+            raise ValueError(f"no course {params['course']!r}; have {sorted(physics.COURSES)}")
+        if params.get("background"):
+            physics.parse_hex(params["background"])  # raises with the reason
     ids = [db.enqueue_task(conn, channel_id, kind, params, by=by, priority=priority) for _ in range(count)]
     logs.event("task.queued", channel=channel_id, kind=kind, count=count, params=params, by=by)
     return ids
@@ -156,7 +157,7 @@ def run_builtin(conn: sqlite3.Connection, row: sqlite3.Row) -> dict[str, Any]:
         clip_id = db.insert_clip(
             conn, channel_id=row["channel_id"], generator=params.get("generator", "physics"),
             variant=params.get("variant", "marble_race"), seed=int(seed),
-            params={"course": params["course"]} if params.get("course") else {},
+            params={k: params[k] for k in ("course", "background") if params.get(k)},
             hook="", plan_why=f"task #{row['id']}",
         )
         outcome = pipeline.build(conn, clip_id)

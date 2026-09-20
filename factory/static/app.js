@@ -205,12 +205,17 @@ function Queue({ snap, channelId, refresh, open }) {
         </span>${i < t.steps.length - 1 ? html`<span class="step-line"></span>` : null}`)}
     </div>`;
   const paramInput = (k) => {
+    if (k === "background") return html`<label key=${k} class="row" style=${{ margin: 0, gap: 6 }} title="backdrop colour; unticked lets the theme choose">
+      <input type="checkbox" checked=${!!params.background} onChange=${(e) => setParams({ ...params, background: e.target.checked ? "#1a1a2a" : "" })} />
+      <span class="hint">backdrop</span>
+      ${params.background ? html`<input type="color" value=${params.background} onChange=${(e) => setParams({ ...params, background: e.target.value })} />` : null}
+    </label>`;
     if (k === "variant") return html`<select key=${k} value=${params.variant || ""} onChange=${(e) => setParams({ ...params, variant: e.target.value, generator: e.target.value.split("/")[0] })}>
       <option value="">variant…</option>${variants.map((v) => html`<option key=${v} value=${v.split("/")[1]}>${v}</option>`)}</select>`;
     if (k === "course") return html`<select key=${k} value=${params.course || ""} onChange=${(e) => setParams({ ...params, course: e.target.value })} title="the shape of the descent; empty lets the seed choose">
       <option value="">any course</option><option value="zigzag">zigzag</option><option value="pegboard">pegboard</option><option value="bumpers">bumpers</option></select>`;
     if (k === "generator") return null;
-    return html`<input key=${k} placeholder=${k} value=${params[k] ?? ""} onChange=${(e) => setParams({ ...params, [k]: e.target.value })} style=${{ width: 140 }} />`;
+    return html`<input key=${k} placeholder=${k} value=${params[k] ?? ""} onChange=${(e) => setParams({ ...params, [k]: e.target.value })} style=${{ width: 110, flex: "none" }} />`;
   };
 
   return html`
@@ -228,11 +233,12 @@ function Queue({ snap, channelId, refresh, open }) {
           ${Object.entries(body.kinds).map(([k, v]) => html`<option key=${k} value=${k}>${k} — ${v.meaning}</option>`)}
         </select>
         ${Object.keys(spec.params).map(paramInput)}
-        ${kind === "make-clip" ? html`<input type="number" min="1" max="50" value=${count} onChange=${(e) => setCount(e.target.value)} style=${{ width: 70 }} title="how many" />` : null}
+        ${kind === "make-clip" ? html`<label class="row" style=${{ margin: 0, gap: 6 }}><span class="hint">×</span><input type="number" min="1" max="50" value=${count} onChange=${(e) => setCount(e.target.value)} style=${{ width: 64, flex: "none" }} title="how many" /></label>` : null}
         <button type="submit" class="ok">Add to queue</button>
         <span class="hint">${spec.builtin ? "built-in agents can do this" : "needs an external agent's judgement"}</span>
       </form>
     </div>
+    <${Directions} channelId=${channelId} />
     <div class="card">
       <h3>Hand the queue to an agent</h3>
       <div class="hint" style=${{ marginBottom: 8 }}>Paste this into Codex, Claude Code or any MCP-connected agent. It is the same for every task and every model — the task carries its own playbook.</div>
@@ -261,6 +267,37 @@ function Queue({ snap, channelId, refresh, open }) {
         ${!body.tasks.length ? html`<tr><td colSpan="7" class="empty">Nothing queued. Add work above.</td></tr>` : null}
       </tbody>
     </table>`;
+}
+
+/* ---------- Directions: what every agent is told, without touching a playbook ---------- */
+
+function Directions({ channelId }) {
+  const [d, setD] = useState(null);
+  const [values, setValues] = useState({});
+  const [open, setOpen] = useState(false);
+  const [saved, setSaved] = useState(false);
+  useEffect(() => { api(`/api/directions?channel=${encodeURIComponent(channelId)}`).then((b) => { setD(b); setValues(Object.fromEntries(b.fields.map((f) => [f.key, f.value]))); }).catch(() => {}); }, [channelId]);
+  if (!d) return null;
+  const filled = d.fields.filter((f) => f.value).length;
+  const save = async () => {
+    try { const out = await send("/api/directions", { channel: channelId, values }, "PUT"); setD(out); setSaved(true); setTimeout(() => setSaved(false), 1500); }
+    catch (err) { alert(err.message); }
+  };
+  return html`
+    <div class="card">
+      <div class="row" style=${{ margin: 0, cursor: "pointer" }} onClick=${() => setOpen(!open)}>
+        <h3 style=${{ margin: 0 }}>What every agent is told</h3>
+        <span class="hint">${filled ? `${filled} of ${d.fields.length} set` : "nothing yet — the playbooks alone"} · ${open ? "hide" : "edit"}</span>
+      </div>
+      ${open ? html`
+        <div class="hint" style=${{ margin: "8px 0 12px" }}>Five short notes in your own words. They are appended to every playbook and every task's instructions, and they win over anything in the playbook that disagrees — so you never edit a playbook to change how titles sound.</div>
+        ${d.fields.map((f) => html`
+          <div key=${f.key} class="row" style=${{ alignItems: "flex-start" }}>
+            <div style=${{ width: 220, flex: "none" }}><div style=${{ fontSize: 13 }}>${f.label}</div></div>
+            <textarea rows="2" placeholder=${f.placeholder} value=${values[f.key] || ""} onChange=${(e) => setValues({ ...values, [f.key]: e.target.value })} style=${{ minHeight: 0, font: "inherit", fontSize: 13 }}></textarea>
+          </div>`)}
+        <div class="row"><button class="ok" onClick=${save}>${saved ? "Saved" : "Save directions"}</button><span class="hint">applies to the next task an agent pulls</span></div>` : null}
+    </div>`;
 }
 
 /* ---------- Playbooks: the instructions Codex gets, filled from this database ---------- */
@@ -359,6 +396,8 @@ function ClipCard({ clip: c, sound, refresh, decide, position, channelId }) {
   const ready = c.status === "approved";
   const [title, setTitle] = useState(c.title || "");
   const [hook, setHook] = useState(c.hook_text || "");
+  const [backdrop, setBackdrop] = useState((c.facts && c.facts.backdrop) || "");
+  const [customBackdrop, setCustomBackdrop] = useState(false);
   const [promptText, setPromptText] = useState(c.comment_prompt || "");
   const [rendering, setRendering] = useState(false);
   const [version, setVersion] = useState(0);
@@ -376,8 +415,10 @@ function ClipCard({ clip: c, sound, refresh, decide, position, channelId }) {
   };
   const rehook = async () => {
     const text = hook.trim();
-    if (!text) { alert("Type a caption first."); return; }
-    try { await send(`/api/clip/${c.id}/hook`, { text }); } catch (err) { alert(err.message); return; }
+    const body = { text };
+    if (customBackdrop) body.background = backdrop || "";
+    if (!text && !customBackdrop) { alert("Change the caption or tick a backdrop first."); return; }
+    try { await send(`/api/clip/${c.id}/hook`, body); } catch (err) { alert(err.message); return; }
     setRendering(true);
     // Wait here, not on another screen. A race re-renders in about a minute.
     for (let tick = 0; tick < 240; tick++) {
@@ -409,7 +450,12 @@ function ClipCard({ clip: c, sound, refresh, decide, position, channelId }) {
         <input class="title" value=${title} maxLength="90" spellCheck="false" placeholder="title (20-90 characters)" onChange=${(e) => setTitle(e.target.value)} />
         <div class="row">
           <input value=${hook} maxLength="28" spellCheck="false" placeholder="opening caption, burned into the first seconds" onChange=${(e) => setHook(e.target.value)} disabled=${rendering} />
-          <button class="small" onClick=${rehook} disabled=${rendering}>${rendering ? "Re-rendering…" : "Re-render caption"}</button>
+          <label class="row" style=${{ margin: 0, gap: 6, flex: "none" }} title="tick to choose the backdrop colour; untick to go back to the theme">
+            <input type="checkbox" checked=${customBackdrop} onChange=${(e) => setCustomBackdrop(e.target.checked)} disabled=${rendering || c.status === "published"} />
+            <span class="hint">backdrop</span>
+            ${customBackdrop ? html`<input type="color" value=${backdrop || "#1a1a2a"} onChange=${(e) => setBackdrop(e.target.value)} />` : null}
+          </label>
+          <button class="small" onClick=${rehook} disabled=${rendering}>${rendering ? "Re-rendering…" : "Re-render"}</button>
         </div>
         <input value=${promptText} maxLength="140" spellCheck="false" placeholder="question to pin as the first comment" onChange=${(e) => setPromptText(e.target.value)} style=${{ width: "100%" }} />
         <div class="row">

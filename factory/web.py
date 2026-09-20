@@ -139,6 +139,7 @@ def _clip_json(row) -> dict[str, Any]:
         "comment_prompt": row["comment_prompt"],
         "title_history": json.loads(row["title_history_json"] or "[]"),
         "published_at": row["published_at"],
+        "facts": {k: v for k, v in json.loads(row["facts_json"] or "{}").items() if k in ("course", "theme", "backdrop", "margin_s", "winner")},
     }
 
 
@@ -392,6 +393,38 @@ def reset_setting(section: str, key: str) -> dict[str, Any]:
     settings.invalidate()
     logs.event("settings.reset", section=section, key=key, by="human")
     return _settings_view()
+
+
+# --- directions: what every agent is told, editable without touching a playbook
+
+@app.get("/api/directions")
+def get_directions(channel: str | None = None) -> dict[str, Any]:
+    with db.connect() as conn:
+        ch = _resolve(conn, channel)
+        values = playbooks.directions(conn, ch.id)
+    return {
+        "channel": ch.id,
+        "fields": [{"key": k, "label": label, "placeholder": hint, "value": values[k]} for k, label, hint in playbooks.DIRECTION_FIELDS],
+    }
+
+
+class DirectionsBody(BaseModel):
+    channel: str | None = None
+    values: dict[str, str]
+
+
+@app.put("/api/directions")
+def put_directions(body: DirectionsBody) -> dict[str, Any]:
+    allowed = {k for k, _, _ in playbooks.DIRECTION_FIELDS}
+    unknown = set(body.values) - allowed
+    if unknown:
+        raise HTTPException(400, f"no such direction: {sorted(unknown)}")
+    with db.connect() as conn:
+        ch = _resolve(conn, body.channel)
+        clean = {k: v.strip()[:600] for k, v in body.values.items()}
+        db.set_override(conn, "directions", ch.id, clean)
+    logs.event("settings.changed", section="directions", key=ch.id, by="human")
+    return get_directions(ch.id)
 
 
 # --- themes: seasons, as data the page can edit ---------------------------------
@@ -897,7 +930,8 @@ def edit_text(clip_id: str, body: TextBody) -> dict[str, Any]:
 
 
 class HookBody(BaseModel):
-    text: str
+    text: str = ""
+    background: str | None = None  # "" means back to the theme's palette
 
 
 @app.post("/api/clip/{clip_id}/hook")
@@ -909,10 +943,13 @@ def rehook(clip_id: str, body: HookBody) -> dict[str, Any]:
             raise HTTPException(404, f"no clip {clip_id}")
         ch = _resolve(conn, row["channel_id"])
 
+    text = body.text.strip() or (row["hook_text"] or None)
+
     def work(emit) -> float:
         with db.connect() as conn:
-            emit(f"{clip_id}  re-rendering with caption {body.text.strip()!r}")
-            outcome = pipeline.rehook(conn, clip_id, body.text)
+            emit(f"{clip_id}  re-rendering with caption {text!r}"
+                 + (f" and backdrop {body.background or 'from the theme'}" if body.background is not None else ""))
+            outcome = pipeline.rehook(conn, clip_id, text, background=body.background)
             emit(f"{clip_id}  {outcome.status}: {outcome.detail}")
         return 0.0
 
