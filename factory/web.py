@@ -256,6 +256,37 @@ def get_playbook(name: str, channel: str | None = None) -> dict[str, Any]:
         raise HTTPException(404, str(exc)) from None
 
 
+class IdsBody(BaseModel):
+    ids: list[str]
+
+
+@app.post("/api/clips/bin")
+def bin_clips(body: IdsBody) -> dict[str, Any]:
+    with db.connect() as conn:
+        try:
+            return {"binned": pipeline.bin_clips(conn, body.ids)}
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from None
+
+
+@app.post("/api/clips/unbin")
+def unbin_clips(body: IdsBody) -> dict[str, Any]:
+    with db.connect() as conn:
+        try:
+            return {"restored": pipeline.unbin_clips(conn, body.ids)}
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from None
+
+
+@app.post("/api/clips/destroy")
+def destroy_clips(body: IdsBody) -> dict[str, Any]:
+    with db.connect() as conn:
+        try:
+            return {"destroyed": pipeline.destroy_clips(conn, body.ids)}
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from None
+
+
 @app.get("/api/clips")
 def clips(
     channel: str | None = None,
@@ -263,13 +294,18 @@ def clips(
     generator: str | None = None,
     variant: str | None = None,
     q: str | None = None,
+    bin: bool = False,
 ) -> dict[str, Any]:
     with db.connect() as conn:
         ch = _resolve(conn, channel)
         rows = db.search_clips(
-            conn, ch.id, status=status, generator=generator, variant=variant, query=q
+            conn, ch.id, status=status, generator=generator, variant=variant, query=q,
+            binned=bin,
         )
         counts = db.status_counts(conn, ch.id)
+        binned = conn.execute(
+            "SELECT COUNT(*) n FROM clips WHERE channel_id = ? AND deleted_at IS NOT NULL", (ch.id,)
+        ).fetchone()["n"]
     return {
         "clips": [
             {
@@ -279,10 +315,12 @@ def clips(
                 "views": row["views"],
                 "avg_view_pct": row["avg_view_pct"],
                 "swipe_away_pct": row["swipe_away_pct"],
+                "deleted_at": row["deleted_at"],
             }
             for row in rows
         ],
         "counts": counts,
+        "binned": binned,
         # The filter chips are built from this, so a new generator module
         # appears in the UI without the page knowing its name.
         "modules": generators.available(ch.variants),

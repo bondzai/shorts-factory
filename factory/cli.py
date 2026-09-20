@@ -267,6 +267,23 @@ def cmd_rehook(args) -> int:
     return 0 if outcome.status != "failed" else 1
 
 
+def cmd_bin(args) -> int:
+    with db.connect() as conn:
+        if args.destroy:
+            if not args.yes:
+                print("destroying deletes the render directory and the row; add --yes", file=sys.stderr)
+                return 2
+            for clip_id in pipeline.destroy_clips(conn, args.clip_ids):
+                print(f"{clip_id} destroyed")
+        elif args.undo:
+            for clip_id in pipeline.unbin_clips(conn, args.clip_ids):
+                print(f"{clip_id} back from the bin")
+        else:
+            for clip_id in pipeline.bin_clips(conn, args.clip_ids):
+                print(f"{clip_id} binned")
+    return 0
+
+
 def cmd_restore(args) -> int:
     with db.connect() as conn:
         for clip_id in args.clip_ids:
@@ -630,6 +647,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("clip_id")
     p.add_argument("reason")
     p.set_defaults(func=cmd_reject)
+
+    p = sub.add_parser("bin", help="move clips to the bin, bring them back, or destroy them")
+    p.add_argument("clip_ids", nargs="+")
+    p.add_argument("--undo", action="store_true", help="bring binned clips back")
+    p.add_argument("--destroy", action="store_true", help="delete binned clips and their files for good")
+    p.add_argument("--yes", action="store_true")
+    p.set_defaults(func=cmd_bin)
 
     p = sub.add_parser("restore", help="put a rejected clip back in the review queue")
     p.add_argument("clip_ids", nargs="+")

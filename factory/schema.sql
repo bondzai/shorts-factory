@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS clips (
     likes           INTEGER,
     metrics_at      TEXT,
     purged_at       TEXT,
+    deleted_at      TEXT,
     cost_usd        REAL NOT NULL DEFAULT 0
 );
 

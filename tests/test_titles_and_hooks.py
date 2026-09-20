@@ -319,3 +319,43 @@ def test_marking_one_clip_uploaded_publishes_just_that_one(client, tmp_path):
 def test_only_an_approved_clip_can_be_marked_uploaded(client):
     clip_id = clip(AWAITING_APPROVAL)
     assert client.post(f"/api/clip/{clip_id}/publish").status_code == 400
+
+
+# --- the bin ------------------------------------------------------------------
+
+def test_a_binned_clip_leaves_every_list_but_keeps_its_file(client, tmp_path):
+    video = tmp_path / "clip.mp4"; video.write_bytes(b"\x00" * 16)
+    clip_id = clip(QC_REJECTED, video_path=str(video))
+    assert client.post("/api/clips/bin", json={"ids": [clip_id]}).status_code == 200
+    assert client.get(f"/api/clips?channel={CH}").json()["clips"] == []
+    assert client.get(f"/api/clips?channel={CH}&bin=1").json()["clips"][0]["id"] == clip_id
+    assert client.get(f"/api/state?channel={CH}").json()["counts"] == {}
+    assert video.exists()
+
+
+def test_unbin_puts_it_back_exactly_where_it_was(client):
+    clip_id = clip(AWAITING_APPROVAL)
+    client.post("/api/clips/bin", json={"ids": [clip_id]})
+    assert client.get(f"/api/state?channel={CH}").json()["queue"] == []
+    client.post("/api/clips/unbin", json={"ids": [clip_id]})
+    assert client.get(f"/api/state?channel={CH}").json()["queue"][0]["id"] == clip_id
+
+
+def test_destroy_only_works_from_the_bin_and_then_removes_the_files(client, tmp_path):
+    work = tmp_path / "work"; work.mkdir(); video = work / "clip.mp4"; video.write_bytes(b"x")
+    clip_id = clip(QC_REJECTED, video_path=str(video))
+    assert client.post("/api/clips/destroy", json={"ids": [clip_id]}).status_code == 400
+    client.post("/api/clips/bin", json={"ids": [clip_id]})
+    assert client.post("/api/clips/destroy", json={"ids": [clip_id]}).status_code == 200
+    assert not work.exists()
+    with db.connect() as conn:
+        assert db.get(conn, clip_id) is None
+
+
+def test_a_binned_published_clip_still_guards_sameness(channel):
+    """YouTube has it whether the page shows it or not."""
+    clip_id = clip(PUBLISHED, phash="f" * 64, published_at="2026-09-19T00:00:00Z")
+    binned = clip(QC_REJECTED, phash="e" * 64)
+    with db.connect() as conn:
+        pipeline.bin_clips(conn, [clip_id, binned])
+        assert db.known_phashes(conn, CH) == ["f" * 64]

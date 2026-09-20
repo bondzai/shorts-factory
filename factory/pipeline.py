@@ -512,7 +512,7 @@ def stuck(conn: sqlite3.Connection, channel_id: str, *, include_failed: bool = F
     statuses = list(STUCK) + ([FAILED] if include_failed else [])
     marks = ", ".join("?" for _ in statuses)
     return conn.execute(
-        f"""SELECT * FROM clips WHERE channel_id = ? AND status IN ({marks})
+        f"""SELECT * FROM clips WHERE channel_id = ? AND deleted_at IS NULL AND status IN ({marks})
             ORDER BY created_at""",
         (channel_id, *statuses),
     ).fetchall()
@@ -548,6 +548,67 @@ def approve(conn: sqlite3.Connection, clip_id: str) -> None:
         raise ValueError(f"{clip_id} is not awaiting approval")
     db.update(conn, clip_id, status=APPROVED)
     logs.event("clip.approved", channel=row["channel_id"], clip=clip_id, title=row["title"])
+
+
+def bin_clips(conn: sqlite3.Connection, clip_ids: list[str]) -> list[str]:
+    """Hide clips without losing anything: files stay, rows stay, restorable.
+
+    A binned clip leaves every list and count and stops being planned around.
+    The one thing it keeps doing is guarding sameness if it was published —
+    YouTube has it whether this page shows it or not.
+    """
+    done = []
+    for clip_id in clip_ids:
+        row = db.get(conn, clip_id)
+        if row is None:
+            raise ValueError(f"no clip {clip_id}")
+        if row["deleted_at"]:
+            continue
+        db.update(conn, clip_id, deleted_at=db.now())
+        logs.event("clip.binned", channel=row["channel_id"], clip=clip_id, was=row["status"])
+        done.append(clip_id)
+    return done
+
+
+def unbin_clips(conn: sqlite3.Connection, clip_ids: list[str]) -> list[str]:
+    done = []
+    for clip_id in clip_ids:
+        row = db.get(conn, clip_id)
+        if row is None:
+            raise ValueError(f"no clip {clip_id}")
+        if not row["deleted_at"]:
+            continue
+        db.update(conn, clip_id, deleted_at=None)
+        logs.event("clip.unbinned", channel=row["channel_id"], clip=clip_id, status=row["status"])
+        done.append(clip_id)
+    return done
+
+
+def destroy_clips(conn: sqlite3.Connection, clip_ids: list[str]) -> list[str]:
+    """Delete binned clips for good: the render directory and the row.
+
+    Only from the bin, so nothing goes from a list to gone in one click. The
+    publish-queue copy of a published clip is left alone — that is your
+    upload record, not the factory's working file — and the event log keeps
+    what happened.
+    """
+    import shutil
+
+    done = []
+    for clip_id in clip_ids:
+        row = db.get(conn, clip_id)
+        if row is None:
+            raise ValueError(f"no clip {clip_id}")
+        if not row["deleted_at"]:
+            raise ValueError(f"{clip_id} is not in the bin; bin it first")
+        if row["video_path"]:
+            shutil.rmtree(Path(row["video_path"]).parent, ignore_errors=True)
+        conn.execute("DELETE FROM clips WHERE id = ?", (clip_id,))
+        conn.commit()
+        logs.event("clip.destroyed", channel=row["channel_id"], clip=clip_id, was=row["status"],
+                   title=row["title"])
+        done.append(clip_id)
+    return done
 
 
 def restore(conn: sqlite3.Connection, clip_id: str) -> None:

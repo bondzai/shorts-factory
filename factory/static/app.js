@@ -41,6 +41,7 @@ const VIEWS = [
   { id: "clips", name: "Clips", meaning: "everything ever made" },
   { id: "results", name: "Results", meaning: "how published clips did" },
   { id: "activity", name: "Activity", meaning: "what ran, and what happened" },
+  { id: "bin", name: "Bin", meaning: "what you threw away" },
   { id: "settings", name: "Settings", meaning: "this channel and its rules" },
 ];
 
@@ -114,6 +115,7 @@ function App() {
         : view === "clips" ? html`<${Clips} ...${props} />`
         : view === "results" ? html`<${Results} ...${props} />`
         : view === "activity" ? html`<${Activity} ...${props} />`
+        : view === "bin" ? html`<${Clips} ...${props} bin=${true} />`
         : html`<${Settings} ...${props} channels=${channels} />`}
       </main>
     </div>`;
@@ -333,14 +335,17 @@ function ClipCard({ clip: c, sound, refresh, decide, position, channelId }) {
 
 /* ---------- Clips: the archive ---------- */
 
-function Clips({ channelId, refresh }) {
+function Clips({ channelId, refresh, bin = false }) {
   const [filters, setFilters] = useState({});
   const [body, setBody] = useState(null);
+  const [picked, setPicked] = useState(() => new Set());
   const load = useCallback(async () => {
     const params = new URLSearchParams({ channel: channelId });
     for (const [k, v] of Object.entries(filters)) if (v) params.set(k, v);
+    if (bin) params.set("bin", "1");
     setBody(await api(`/api/clips?${params}`));
-  }, [channelId, filters]);
+    setPicked(new Set());
+  }, [channelId, filters, bin]);
   useEffect(() => { load().catch((err) => alert(err.message)); }, [load]);
 
   const toggle = (key, value) => setFilters((f) => ({ ...f, [key]: f[key] === value ? "" : value }));
@@ -348,23 +353,51 @@ function Clips({ channelId, refresh }) {
     try { await send(`/api/clip/${id}/restore`, {}); } catch (err) { alert(err.message); return; }
     await load(); refresh();
   };
+  const pick = (id) => setPicked((p) => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const pickAll = (ids) => setPicked((p) => p.size === ids.length ? new Set() : new Set(ids));
+  const act = async (path, confirmText) => {
+    if (confirmText && !confirm(confirmText)) return;
+    try { await send(path, { ids: [...picked] }); } catch (err) { alert(err.message); return; }
+    await load(); refresh();
+  };
   if (!body) return html`<p class="empty">loading…</p>`;
+  const ids = body.clips.map((c) => c.id), n = picked.size;
   const chip = (label, key, value) => html`<button key=${key + value} class="small chip" aria-pressed=${filters[key] === value} onClick=${() => toggle(key, value)}>${label}</button>`;
+  if (bin) return html`
+    <h1>Bin</h1>
+    <p class="lead">Binned clips are hidden everywhere and count for nothing, but their files are still here. Restore puts one back where it was; Delete forever removes the render and the record.</p>
+    <div class="bar">
+      <button class="small" disabled=${!n} onClick=${() => act("/api/clips/unbin")}>Restore ${n || ""}</button>
+      <button class="small no" disabled=${!n} onClick=${() => act("/api/clips/destroy", `Delete ${n} clip(s) and their files for good? This cannot be undone.`)}>Delete forever ${n || ""}</button>
+      <span class="grow"></span>
+      <button class="small no" disabled=${!ids.length} onClick=${() => { setPicked(new Set(ids)); setTimeout(() => act("/api/clips/destroy", `Empty the bin — delete all ${ids.length} clip(s) and their files for good?`), 0); }}>Empty bin</button>
+    </div>
+    <${ClipTable} clips=${body.clips} picked=${picked} pick=${pick} pickAll=${() => pickAll(ids)} restore=${restore} bin=${true} />`;
   return html`
     <h1>Every clip on this channel</h1>
-    <p class="lead">Rejected clips keep their file for a few days, published ones for a month; the Download button says whether it is still there.</p>
+    <p class="lead">Rejected clips keep their file for a few days, published ones for a month; the Download button says whether it is still there. Tick clips to move them to the Bin${body.binned ? ` (${body.binned} there now)` : ""}.</p>
     <div class="bar">
+      <button class="small" disabled=${!n} onClick=${() => act("/api/clips/bin")}>Move to bin ${n || ""}</button>
+      <span style=${{ width: 12 }}></span>
       ${body.statuses.map((s) => chip(statusWord(s), "status", s))}
       <span style=${{ width: 12 }}></span>
       ${Object.entries(body.modules).flatMap(([g, vs]) => vs.map((v) => chip(v, "variant", v)))}
       <span class="grow"></span>
       <input type="search" placeholder="search titles" defaultValue=${filters.q || ""} onKeyDown=${(e) => { if (e.key === "Enter") setFilters((f) => ({ ...f, q: e.target.value })); }} style=${{ width: 200 }} />
     </div>
+    <${ClipTable} clips=${body.clips} picked=${picked} pick=${pick} pickAll=${() => pickAll(ids)} restore=${restore} />`;
+}
+
+function ClipTable({ clips, picked, pick, pickAll, restore, bin = false }) {
+  return html`
     <table>
-      <thead><tr><th>Title</th><th>Module</th><th>Status</th><th>Views</th><th>Viewed</th><th>Swiped</th><th></th></tr></thead>
+      <thead><tr>
+        <th style=${{ width: 28 }}><input type="checkbox" checked=${clips.length > 0 && picked.size === clips.length} onChange=${pickAll} title="select all" /></th>
+        <th>Title</th><th>Module</th><th>Status</th><th>Views</th><th>Viewed</th><th>Swiped</th><th></th></tr></thead>
       <tbody>
-        ${body.clips.map((c) => html`
+        ${clips.map((c) => html`
           <tr key=${c.id}>
+            <td><input type="checkbox" checked=${picked.has(c.id)} onChange=${() => pick(c.id)} /></td>
             <td><div>${c.title || "(untitled)"}</div>
               <div class="hint">${c.id} · seed ${c.seed}${c.title_history?.length ? ` · retitled ${c.title_history.length}×` : ""}
                 ${c.reject_reason ? html` · <span class="bad">${c.reject_reason.slice(0, 80)}</span>` : null}</div></td>
@@ -373,11 +406,11 @@ function Clips({ channelId, refresh }) {
             <td>${num(c.views)}</td><td>${pct(c.avg_view_pct)}</td><td>${pct(c.swipe_away_pct)}</td>
             <td style=${{ whiteSpace: "nowrap" }}>
               ${c.has_video ? html`<button class="small" onClick=${() => { window.location.href = `/api/clip/${c.id}/video?download=1`; }}>Download</button>` : html`<span class="hint">no file</span>`}
-              ${c.status === "qc_rejected" && c.has_video && !(c.reject_reason || "").startsWith("too similar")
+              ${!bin && c.status === "qc_rejected" && c.has_video && !(c.reject_reason || "").startsWith("too similar")
                 ? html` <button class="small" onClick=${() => restore(c.id)}>Back to queue</button>` : null}
             </td>
           </tr>`)}
-        ${!body.clips.length ? html`<tr><td colSpan="7" class="empty">Nothing matches.</td></tr>` : null}
+        ${!clips.length ? html`<tr><td colSpan="8" class="empty">${bin ? "The bin is empty." : "Nothing matches."}</td></tr>` : null}
       </tbody>
     </table>`;
 }

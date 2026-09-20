@@ -48,6 +48,7 @@ def migrate(conn: sqlite3.Connection) -> list[str]:
     # The two levers Studio's own analysis points at, plus the record that
     # makes pulling one of them measurable.
     for column, ddl in (
+        ("deleted_at", "TEXT"),  # the bin: hidden, files kept, restorable
         ("hook_text", "TEXT"),
         ("comment_prompt", "TEXT"),
         ("title_history_json", "TEXT NOT NULL DEFAULT '[]'"),
@@ -136,7 +137,7 @@ _ALLOWED_COLUMNS = {
     "duration_s", "width", "height", "fps",
     "loudness_lufs", "phash", "sameness", "title", "description",
     "hashtags_json", "qc_json", "reject_reason", "platform", "remote_id",
-    "params_json", "hook_text", "comment_prompt", "title_history_json",
+    "params_json", "hook_text", "comment_prompt", "title_history_json", "deleted_at",
     "published_at", "views", "avg_view_pct", "swipe_away_pct", "likes",
     "metrics_at", "purged_at",
 }
@@ -167,7 +168,7 @@ def by_status(
     conn: sqlite3.Connection, channel_id: str, status: str, limit: int = 100
 ) -> list[sqlite3.Row]:
     return conn.execute(
-        """SELECT * FROM clips WHERE channel_id = ? AND status = ?
+        """SELECT * FROM clips WHERE channel_id = ? AND status = ? AND deleted_at IS NULL
            ORDER BY created_at LIMIT ?""",
         (channel_id, status, limit),
     ).fetchall()
@@ -175,7 +176,7 @@ def by_status(
 
 def recent(conn: sqlite3.Connection, channel_id: str, limit: int = 10) -> list[sqlite3.Row]:
     return conn.execute(
-        "SELECT * FROM clips WHERE channel_id = ? ORDER BY created_at DESC LIMIT ?",
+        "SELECT * FROM clips WHERE channel_id = ? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT ?",
         (channel_id, limit),
     ).fetchall()
 
@@ -194,9 +195,12 @@ def known_phashes(
     shrinking the channel's future.
     """
     rows = conn.execute(
+        # A binned clip is off the table unless it already shipped: YouTube
+        # does not know about the bin.
         "SELECT id, phash FROM clips"
         " WHERE channel_id = ? AND phash IS NOT NULL"
-        "   AND status NOT IN ('qc_rejected', 'failed')",
+        "   AND status NOT IN ('qc_rejected', 'failed')"
+        "   AND (deleted_at IS NULL OR status = 'published')",
         (channel_id,),
     ).fetchall()
     return [r["phash"] for r in rows if r["id"] != exclude]
@@ -204,7 +208,7 @@ def known_phashes(
 
 def status_counts(conn: sqlite3.Connection, channel_id: str) -> dict[str, int]:
     rows = conn.execute(
-        "SELECT status, COUNT(*) n FROM clips WHERE channel_id = ? GROUP BY status",
+        "SELECT status, COUNT(*) n FROM clips WHERE channel_id = ? AND deleted_at IS NULL GROUP BY status",
         (channel_id,),
     ).fetchall()
     return {r["status"]: r["n"] for r in rows}
@@ -223,7 +227,7 @@ def spend(conn: sqlite3.Connection, channel_id: str | None = None) -> float:
 def published_with_metrics(conn: sqlite3.Connection, channel_id: str) -> list[sqlite3.Row]:
     return conn.execute(
         """SELECT * FROM clips
-           WHERE channel_id = ? AND status = 'published' AND views IS NOT NULL
+           WHERE channel_id = ? AND deleted_at IS NULL AND status = 'published' AND views IS NOT NULL
            ORDER BY published_at""",
         (channel_id,),
     ).fetchall()
@@ -266,8 +270,9 @@ def search_clips(
     variant: str | None = None,
     query: str | None = None,
     limit: int = 200,
+    binned: bool = False,
 ) -> list[sqlite3.Row]:
-    sql = "SELECT * FROM clips WHERE channel_id = ?"
+    sql = "SELECT * FROM clips WHERE channel_id = ? AND deleted_at IS " + ("NOT NULL" if binned else "NULL")
     args: list[Any] = [channel_id]
     if status:
         sql += " AND status = ?"

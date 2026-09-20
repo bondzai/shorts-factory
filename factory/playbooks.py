@@ -34,7 +34,7 @@ def _recent(conn: sqlite3.Connection, channel_id: str, limit: int = 12) -> str:
         """
         SELECT generator, variant, seed, title, status, views, avg_view_pct,
                reject_reason
-        FROM clips WHERE channel_id = ?
+        FROM clips WHERE channel_id = ? AND deleted_at IS NULL
         ORDER BY id DESC LIMIT ?
         """,
         (channel_id, limit),
@@ -65,7 +65,7 @@ def _retention(conn: sqlite3.Connection, channel_id: str) -> str:
     rows = conn.execute(
         """
         SELECT title, views, avg_view_pct FROM clips
-        WHERE channel_id = ? AND views IS NOT NULL
+        WHERE channel_id = ? AND views IS NOT NULL AND deleted_at IS NULL
         ORDER BY views DESC
         """,
         (channel_id,),
@@ -90,7 +90,7 @@ def _published(conn: sqlite3.Connection, channel_id: str) -> str:
         """
         SELECT id, title, views, avg_view_pct, swipe_away_pct, hook_text,
                comment_prompt, title_history_json, published_at
-        FROM clips WHERE channel_id = ? AND status = 'published'
+        FROM clips WHERE channel_id = ? AND status = 'published' AND deleted_at IS NULL
         ORDER BY COALESCE(swipe_away_pct, -1) DESC, views DESC
         """,
         (channel_id,),
