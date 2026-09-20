@@ -273,6 +273,40 @@ def cmd_bin(args) -> int:
     return 0
 
 
+def cmd_tasks(args) -> int:
+    from . import tasks
+
+    with db.connect() as conn:
+        ch = channels.resolve(conn, args.channel)
+        if args.action == "list":
+            for r in db.tasks(conn, ch.id, args.status):
+                t = tasks.as_dict(r)
+                who = f" by {t['claimed_by']}" if t["claimed_by"] else ""
+                tail = t["error"] or (t["result"] or {}).get("summary") or (t["result"] or {}).get("detail") or ""
+                print(f"#{t['id']:<4} {t['kind']:10s} {t['status']:9s}{who:16s} {json.dumps(t['params'])}  {tail}")
+            return 0
+        if args.action == "cancel":
+            db.cancel_task(conn, int(args.value))
+            print(f"task #{args.value} cancelled")
+            return 0
+        params = {k: v for k, v in (("generator", args.generator), ("variant", args.variant), ("seed", args.seed)) if v is not None}
+        ids = tasks.enqueue(conn, ch.id, args.value, params, count=args.count, priority=args.priority)
+        print(f"queued {len(ids)} × {args.value} on {ch.id}: #{ids[0]}" + (f"–#{ids[-1]}" if len(ids) > 1 else ""))
+    return 0
+
+
+def cmd_work(args) -> int:
+    from . import tasks
+
+    with db.connect() as conn:
+        done = tasks.work(conn, channel_id=args.channel, once=args.once)
+    for t in done:
+        print(f"task #{t['id']} {t['kind']}: {t['status']}  {t.get('error') or (t.get('result') or {}).get('detail', '')}")
+    if not done:
+        print("nothing the built-in agents can do is queued")
+    return 0 if all(t["status"] == "done" for t in done) else 1
+
+
 def cmd_config(args) -> int:
     cfg = settings.load()
     if args.action == "list":
@@ -688,6 +722,18 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--destroy", action="store_true", help="delete binned clips and their files for good")
     p.add_argument("--yes", action="store_true")
     p.set_defaults(func=cmd_bin)
+
+    p = sub.add_parser("tasks", help="the queue agents pull from: add, list, cancel")
+    p.add_argument("action", choices=["add", "list", "cancel"])
+    p.add_argument("value", nargs="?", help="kind to add (make-clip, plan-week, review, retitle) or id to cancel")
+    p.add_argument("--variant"); p.add_argument("--generator"); p.add_argument("--seed", type=int)
+    p.add_argument("--count", type=int, default=1); p.add_argument("--priority", type=int, default=0)
+    p.add_argument("--status")
+    p.set_defaults(func=cmd_tasks)
+
+    p = sub.add_parser("work", help="run the queue with the built-in agents (needs a ready provider)")
+    p.add_argument("--once", action="store_true")
+    p.set_defaults(func=cmd_work)
 
     p = sub.add_parser("config", help="list or change the settings the page can change")
     p.add_argument("action", choices=["list", "set", "reset"])

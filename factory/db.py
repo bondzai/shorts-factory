@@ -41,6 +41,23 @@ def migrate(conn: sqlite3.Connection) -> list[str]:
             )
             done.append(f"{table}.channel_id added")
 
+    conn.execute("""CREATE TABLE IF NOT EXISTS tasks (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    channel_id  TEXT NOT NULL DEFAULT 'main' REFERENCES channels (id),
+    kind        TEXT NOT NULL,
+    params_json TEXT NOT NULL DEFAULT '{}',
+    status      TEXT NOT NULL DEFAULT 'queued',
+    priority    INTEGER NOT NULL DEFAULT 0,
+    created_at  TEXT NOT NULL,
+    created_by  TEXT,
+    claimed_at  TEXT,
+    claimed_by  TEXT,
+    finished_at TEXT,
+    result_json TEXT,
+    error       TEXT,
+    clip_id     TEXT
+);""")
+
     conn.execute(
         """CREATE TABLE IF NOT EXISTS settings (
                section TEXT NOT NULL, key TEXT NOT NULL, value_json TEXT NOT NULL,
@@ -295,6 +312,114 @@ def search_clips(
     sql += " ORDER BY created_at DESC LIMIT ?"
     args.append(limit)
     return conn.execute(sql, args).fetchall()
+
+
+# --- the task queue: what agents will do next ---------------------------------
+# A task is a unit of work any brain can pick up: an external agent over MCP
+# with `next_task`, or `factory work` with the built-in agents. Same table,
+# same instructions, so switching brains changes nothing about the work.
+
+TASK_QUEUED, TASK_CLAIMED, TASK_DONE, TASK_FAILED, TASK_CANCELLED = (
+    "queued", "claimed", "done", "failed", "cancelled")
+
+
+def enqueue_task(
+    conn: sqlite3.Connection, channel_id: str, kind: str, params: dict[str, Any],
+    *, by: str = "human", priority: int = 0,
+) -> int:
+    cur = conn.execute(
+        """INSERT INTO tasks (channel_id, kind, params_json, status, priority, created_at, created_by)
+           VALUES (?, ?, ?, 'queued', ?, ?, ?)""",
+        (channel_id, kind, json.dumps(params), priority, now(), by),
+    )
+    conn.commit()
+    return int(cur.lastrowid)
+
+
+def release_stale_tasks(conn: sqlite3.Connection, minutes: int = 45) -> int:
+    """An agent that claimed a task and vanished must not hold it forever."""
+    cur = conn.execute(
+        """UPDATE tasks SET status = 'queued', claimed_at = NULL, claimed_by = NULL
+           WHERE status = 'claimed' AND claimed_at < datetime('now', ?)""",
+        (f"-{minutes} minutes",),
+    )
+    conn.commit()
+    return cur.rowcount
+
+
+def claim_task(
+    conn: sqlite3.Connection, worker: str, *, channel_id: str | None = None,
+    kinds: list[str] | None = None,
+) -> sqlite3.Row | None:
+    release_stale_tasks(conn)
+    sql = "SELECT * FROM tasks WHERE status = 'queued'"
+    args: list[Any] = []
+    if channel_id:
+        sql += " AND channel_id = ?"; args.append(channel_id)
+    if kinds:
+        sql += f" AND kind IN ({','.join('?' * len(kinds))})"; args.extend(kinds)
+    sql += " ORDER BY priority DESC, id LIMIT 1"
+    row = conn.execute(sql, args).fetchone()
+    if row is None:
+        return None
+    # The UPDATE re-checks status so two workers cannot take the same task.
+    cur = conn.execute(
+        "UPDATE tasks SET status = 'claimed', claimed_at = ?, claimed_by = ? WHERE id = ? AND status = 'queued'",
+        (now(), worker, row["id"]),
+    )
+    conn.commit()
+    if cur.rowcount != 1:
+        return claim_task(conn, worker, channel_id=channel_id, kinds=kinds)
+    return conn.execute("SELECT * FROM tasks WHERE id = ?", (row["id"],)).fetchone()
+
+
+def finish_task(
+    conn: sqlite3.Connection, task_id: int, *, ok: bool, result: Any = None,
+    error: str | None = None, clip_id: str | None = None,
+) -> sqlite3.Row:
+    row = conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
+    if row is None:
+        raise ValueError(f"no task {task_id}")
+    if row["status"] != TASK_CLAIMED:
+        raise ValueError(f"task {task_id} is {row['status']}, not claimed")
+    conn.execute(
+        """UPDATE tasks SET status = ?, finished_at = ?, result_json = ?, error = ?, clip_id = ?
+           WHERE id = ?""",
+        (TASK_DONE if ok else TASK_FAILED, now(), json.dumps(result), error, clip_id, task_id),
+    )
+    conn.commit()
+    return conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
+
+
+def cancel_task(conn: sqlite3.Connection, task_id: int) -> None:
+    row = conn.execute("SELECT status FROM tasks WHERE id = ?", (task_id,)).fetchone()
+    if row is None:
+        raise ValueError(f"no task {task_id}")
+    if row["status"] not in (TASK_QUEUED, TASK_CLAIMED):
+        raise ValueError(f"task {task_id} is already {row['status']}")
+    conn.execute("UPDATE tasks SET status = 'cancelled', finished_at = ? WHERE id = ?", (now(), task_id))
+    conn.commit()
+
+
+def tasks(
+    conn: sqlite3.Connection, channel_id: str | None = None, status: str | None = None, limit: int = 100,
+) -> list[sqlite3.Row]:
+    sql = "SELECT * FROM tasks WHERE 1 = 1"
+    args: list[Any] = []
+    if channel_id:
+        sql += " AND channel_id = ?"; args.append(channel_id)
+    if status:
+        sql += " AND status = ?"; args.append(status)
+    sql += " ORDER BY CASE status WHEN 'claimed' THEN 0 WHEN 'queued' THEN 1 ELSE 2 END, priority DESC, id DESC LIMIT ?"
+    args.append(limit)
+    return conn.execute(sql, args).fetchall()
+
+
+def task_counts(conn: sqlite3.Connection, channel_id: str) -> dict[str, int]:
+    rows = conn.execute(
+        "SELECT status, COUNT(*) n FROM tasks WHERE channel_id = ? GROUP BY status", (channel_id,)
+    ).fetchall()
+    return {r["status"]: r["n"] for r in rows}
 
 
 def overrides(conn: sqlite3.Connection) -> dict[tuple[str, str], Any]:

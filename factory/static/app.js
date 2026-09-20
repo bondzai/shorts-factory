@@ -38,6 +38,7 @@ const statusWord = (s) => (s || "").replace(/_/g, " ");
 
 const VIEWS = [
   { id: "today", name: "Today", meaning: "decide, then upload" },
+  { id: "queue", name: "Queue", meaning: "what agents will do next" },
   { id: "clips", name: "Clips", meaning: "everything ever made" },
   { id: "results", name: "Results", meaning: "how published clips did" },
   { id: "activity", name: "Activity", meaning: "what ran, and what happened" },
@@ -102,7 +103,7 @@ function App() {
       <div class="brand">shorts factory</div>
       ${VIEWS.map((v) => html`
         <a key=${v.id} aria-current=${view === v.id} onClick=${() => setView(v.id)}>
-          <div class="name">${v.name}${v.id === "today" && queueCount ? html`<span class="count">${queueCount}</span>` : null}</div>
+          <div class="name">${v.name}${v.id === "today" && queueCount ? html`<span class="count">${queueCount}</span>` : null}${v.id === "queue" && ((snap?.tasks?.queued || 0) + (snap?.tasks?.claimed || 0)) ? html`<span class="count">${(snap.tasks.queued || 0) + (snap.tasks.claimed || 0)}</span>` : null}</div>
           <div class="meaning">${v.meaning}</div>
         </a>`)}
     </nav>
@@ -114,6 +115,7 @@ function App() {
         ${playbooksOpen ? html`<${Playbooks} channelId=${channelId} />` : null}
         ${!snap ? html`<p class="empty">${error ? `cannot reach the server: ${error}` : "loading…"}</p>`
         : view === "today" ? html`<${Today} ...${props} />`
+        : view === "queue" ? html`<${Queue} ...${props} />`
         : view === "clips" ? html`<${Clips} ...${props} />`
         : view === "results" ? html`<${Results} ...${props} />`
         : view === "activity" ? html`<${Activity} ...${props} />`
@@ -157,6 +159,89 @@ function Header({ channels, channelId, setChannelId, snap, refresh, error, playb
           ${job.running ? `${job.name} is running on ${job.channel_id}… ` : `last job: `}${job.log[job.log.length - 1] || ""}
         </div>` : null}
     </header>`;
+}
+
+/* ---------- Queue: put the work in the system; any brain pulls it ---------- */
+
+function Queue({ snap, channelId, refresh, open }) {
+  const [body, setBody] = useState(null);
+  const [kind, setKind] = useState("make-clip");
+  const [params, setParams] = useState({});
+  const [count, setCount] = useState(1);
+  const [standing, setStanding] = useState("");
+  const [copied, setCopied] = useState(false);
+  const load = useCallback(() => api(`/api/tasks?channel=${encodeURIComponent(channelId)}`).then(setBody), [channelId]);
+  useEffect(() => { load().catch((err) => alert(err.message)); }, [load, snap?.tasks?.queued, snap?.tasks?.claimed, snap?.tasks?.done]);
+  useEffect(() => { api(`/api/playbook/work?channel=${encodeURIComponent(channelId)}`).then((b) => setStanding(b.text)).catch(() => {}); }, [channelId]);
+  if (!body) return html`<p class="empty">loading…</p>`;
+
+  const spec = body.kinds[kind] || { params: {} };
+  const variants = snap.channel.variants || [];
+  const add = async (e) => {
+    e.preventDefault();
+    try { await send("/api/tasks", { channel: channelId, kind, params, count: Number(count) }); }
+    catch (err) { alert(err.message); return; }
+    setParams({}); setCount(1); await load(); refresh();
+  };
+  const cancel = async (id) => {
+    try { await api(`/api/tasks/${id}`, { method: "DELETE" }); } catch (err) { alert(err.message); return; }
+    await load(); refresh();
+  };
+  const runBuiltin = async () => {
+    try { await send("/api/tasks/work", { channel: channelId }); } catch (err) { alert(err.message); return; }
+    refresh();
+  };
+  const copy = async () => { try { await navigator.clipboard.writeText(standing); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { alert(standing); } };
+  const tone = (s) => s === "done" ? "good" : s === "failed" ? "bad" : s === "claimed" ? "warn" : "";
+  const paramInput = (k) => {
+    if (k === "variant") return html`<select key=${k} value=${params.variant || ""} onChange=${(e) => setParams({ ...params, variant: e.target.value, generator: e.target.value.split("/")[0] })}>
+      <option value="">variant…</option>${variants.map((v) => html`<option key=${v} value=${v.split("/")[1]}>${v}</option>`)}</select>`;
+    if (k === "generator") return null;
+    return html`<input key=${k} placeholder=${k} value=${params[k] ?? ""} onChange=${(e) => setParams({ ...params, [k]: e.target.value })} style=${{ width: 140 }} />`;
+  };
+
+  return html`
+    <h1>What agents will do next</h1>
+    <p class="lead">Put the work here once. Any agent connected over MCP pulls the next task with its full instructions and reports back; with a ready provider, the built-in agents can work the same queue.</p>
+    <div class="card">
+      <h3>Add work</h3>
+      <form class="row" onSubmit=${add} style=${{ flexWrap: "wrap" }}>
+        <select value=${kind} onChange=${(e) => { setKind(e.target.value); setParams({}); }}>
+          ${Object.entries(body.kinds).map(([k, v]) => html`<option key=${k} value=${k}>${k} — ${v.meaning}</option>`)}
+        </select>
+        ${Object.keys(spec.params).map(paramInput)}
+        ${kind === "make-clip" ? html`<input type="number" min="1" max="50" value=${count} onChange=${(e) => setCount(e.target.value)} style=${{ width: 70 }} title="how many" />` : null}
+        <button type="submit" class="ok">Add to queue</button>
+        <span class="hint">${spec.builtin ? "built-in agents can do this" : "needs an external agent's judgement"}</span>
+      </form>
+    </div>
+    <div class="card">
+      <h3>Hand the queue to an agent</h3>
+      <div class="hint" style=${{ marginBottom: 8 }}>Paste this into Codex, Claude Code or any MCP-connected agent. It is the same for every task and every model — the task carries its own playbook.</div>
+      <div class="row">
+        <pre class="captured" style=${{ margin: 0, flex: 1, maxHeight: 140, overflow: "auto" }}>${standing || "loading…"}</pre>
+        <button class="small ok" onClick=${copy} disabled=${!standing}>${copied ? "Copied" : "Copy"}</button>
+      </div>
+      ${snap.agents?.available ? html`<div class="row" style=${{ marginTop: 8 }}><button onClick=${runBuiltin} disabled=${snap.job?.running}>Run with built-in agents</button><span class="hint">does every make-clip task in the queue, in a job</span></div>`
+        : html`<div class="hint" style=${{ marginTop: 8 }}>No built-in provider is ready (Settings → Brains), so an external agent works this queue.</div>`}
+    </div>
+    <table>
+      <thead><tr><th>#</th><th>task</th><th>parameters</th><th>status</th><th>who</th><th>result</th><th></th></tr></thead>
+      <tbody>
+        ${body.tasks.map((t) => html`
+          <tr key=${t.id}>
+            <td class="hint">${t.id}</td>
+            <td><b>${t.kind}</b><div class="hint">${t.meaning}</div></td>
+            <td class="hint">${Object.entries(t.params).map(([k, v]) => `${k}=${v}`).join(" ") || "—"}</td>
+            <td><span class=${"badge " + tone(t.status)}>${t.status}</span><div class="hint">${when(t.finished_at || t.claimed_at || t.created_at)}</div></td>
+            <td class="hint">${t.claimed_by || ""}</td>
+            <td class="hint">${t.error ? html`<span class="bad">${t.error}</span>` : (t.result?.summary || t.result?.detail || "")}
+              ${t.clip_id ? html` <button class="small" onClick=${() => open(t.clip_id)}>View clip</button>` : null}</td>
+            <td>${["queued", "claimed"].includes(t.status) ? html`<button class="small" onClick=${() => cancel(t.id)}>Cancel</button>` : null}</td>
+          </tr>`)}
+        ${!body.tasks.length ? html`<tr><td colSpan="7" class="empty">Nothing queued. Add work above.</td></tr>` : null}
+      </tbody>
+    </table>`;
 }
 
 /* ---------- Playbooks: the instructions Codex gets, filled from this database ---------- */

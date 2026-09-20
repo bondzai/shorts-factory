@@ -74,6 +74,23 @@ CREATE TABLE IF NOT EXISTS settings (
     PRIMARY KEY (section, key)
 );
 
+CREATE TABLE IF NOT EXISTS tasks (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    channel_id  TEXT NOT NULL DEFAULT 'main' REFERENCES channels (id),
+    kind        TEXT NOT NULL,
+    params_json TEXT NOT NULL DEFAULT '{}',
+    status      TEXT NOT NULL DEFAULT 'queued',
+    priority    INTEGER NOT NULL DEFAULT 0,
+    created_at  TEXT NOT NULL,
+    created_by  TEXT,
+    claimed_at  TEXT,
+    claimed_by  TEXT,
+    finished_at TEXT,
+    result_json TEXT,
+    error       TEXT,
+    clip_id     TEXT
+);
+
 CREATE TABLE IF NOT EXISTS runs (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     channel_id  TEXT NOT NULL DEFAULT 'main' REFERENCES channels (id),

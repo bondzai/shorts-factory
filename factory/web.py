@@ -26,7 +26,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import analytics, channels, db, generators, llm, logs, pipeline, playbooks, settings
+from . import analytics, channels, db, generators, llm, logs, pipeline, playbooks, settings, tasks
 from .agents import analyst
 from .models import APPROVED, AWAITING_APPROVAL, PLANNED, PUBLISHED
 
@@ -238,6 +238,7 @@ def state(channel: str | None = None) -> dict[str, Any]:
             # key) or an external one over MCP (needs nothing). The page
             # shows the buttons for whichever can actually do something.
             "agents": {"available": llm.has_credentials()},
+            "tasks": db.task_counts(conn, ch.id),
         }
 
 
@@ -258,6 +259,70 @@ def get_playbook(name: str, channel: str | None = None) -> dict[str, Any]:
 
 class IdsBody(BaseModel):
     ids: list[str]
+
+
+# --- the task queue -----------------------------------------------------------
+
+@app.get("/api/tasks")
+def list_tasks(channel: str | None = None, status: str | None = None) -> dict[str, Any]:
+    with db.connect() as conn:
+        ch = _resolve(conn, channel)
+        rows = db.tasks(conn, ch.id, status)
+    return {
+        "tasks": [tasks.as_dict(r) for r in rows],
+        "kinds": {k: {"meaning": v["meaning"], "params": v["params"], "builtin": v["builtin"]} for k, v in tasks.KINDS.items()},
+    }
+
+
+class TaskBody(BaseModel):
+    channel: str | None = None
+    kind: str
+    params: dict[str, Any] = {}
+    count: int = 1
+    priority: int = 0
+
+
+@app.post("/api/tasks")
+def add_tasks(body: TaskBody) -> dict[str, Any]:
+    with db.connect() as conn:
+        ch = _resolve(conn, body.channel)
+        try:
+            ids = tasks.enqueue(conn, ch.id, body.kind, body.params, count=body.count, priority=body.priority)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from None
+    return {"ids": ids}
+
+
+@app.delete("/api/tasks/{task_id}")
+def cancel_task(task_id: int) -> dict[str, str]:
+    with db.connect() as conn:
+        try:
+            db.cancel_task(conn, task_id)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from None
+    return {"status": "cancelled"}
+
+
+@app.post("/api/tasks/work")
+def work_tasks(body: ChannelOnly) -> dict[str, Any]:
+    """Run the queue with the built-in agents, as a job."""
+    with db.connect() as conn:
+        ch = _resolve(conn, body.channel)
+
+    def run(emit) -> float:
+        with db.connect() as conn:
+            emit(f"{ch.name}: working the queue with the built-in agents")
+            try:
+                done = tasks.work(conn, channel_id=ch.id)
+            except ValueError as exc:
+                emit(str(exc)); return 0.0
+            for t in done:
+                emit(f"task #{t['id']} {t['kind']}: {t['status']} {t.get('error') or (t.get('result') or {}).get('detail', '')}")
+            emit(f"{len(done)} task(s) done")
+            return sum((t.get("result") or {}).get("cost_usd", 0.0) for t in done)
+
+    JOB.start("work", ch.id, run)
+    return JOB.state()
 
 
 # --- settings: what config.toml says, what the page changed, and the schema ---

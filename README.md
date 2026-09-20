@@ -279,6 +279,30 @@ Python venv and the page should not be the thing that needs npm. It needs the
 network for the first load of React itself. Moving to a Vite build later is a
 move, not a rewrite.
 
+## The queue: put the work in the system, let any brain pull it
+
+```bash
+factory tasks add make-clip --variant marble_race --count 3
+factory tasks add retitle
+factory tasks list
+```
+
+A task is a unit of work with a kind and parameters, sitting in the `tasks`
+table until something takes it. Two things can:
+
+* **An external agent** calls `next_task` over MCP and gets the playbook for
+  that kind with the task's parameters on top, does it, and calls
+  `finish_task`. The standing prompt in `prompts/work.md` is the whole brief —
+  the same six lines for every task and every model, because the task carries
+  its own instructions.
+* **`factory work`** does the same with the built-in agents, for the kinds
+  that need no person's judgement (today: `make-clip`). It refuses politely
+  when no provider is ready.
+
+Claims expire after 45 minutes, so an agent that vanished mid-task does not
+hold it forever. A task that cannot be done is finished with `ok=false` and
+the reason, never abandoned. The Queue screen adds, watches and cancels.
+
 ## Brains: any model, one database
 
 Two ways to run an agent, and the factory does not care which:

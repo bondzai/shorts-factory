@@ -486,6 +486,58 @@ def build_server():
         except ValueError as exc:
             raise ToolError(str(exc)) from None
 
+    @server.tool(
+        description=(
+            "Claim the next task in the queue and get its full instructions — the "
+            "playbook for that kind of task with this task's parameters on top. "
+            "Say who you are in `agent` so the queue shows it. Returns task=null "
+            "when nothing is waiting. Do the task, then call finish_task. Never "
+            "claim a second task before finishing the first."
+        )
+    )
+    def next_task(agent: str = "agent", channel: str | None = None) -> dict[str, Any]:
+        from . import tasks
+
+        with db.connect() as conn:
+            row = db.claim_task(conn, agent, channel_id=channel)
+            if row is None:
+                return {"task": None, "message": "the queue is empty — nothing to do"}
+            text = tasks.instructions(conn, row)
+            logs.event("task.claimed", channel=row["channel_id"], task=row["id"], kind=row["kind"], by=agent)
+            logs.event("mcp.call", actor="mcp", tool="next_task", task=row["id"])
+            return {"task": tasks.as_dict(row), "instructions": text}
+
+    @server.tool(
+        description=(
+            "Report a claimed task done (ok=true, with a one-line summary and the "
+            "clip_id if one was made) or not doable (ok=false, with the error). A "
+            "task left claimed is released back to the queue after 45 minutes."
+        )
+    )
+    def finish_task(
+        task_id: int, ok: bool = True, summary: str = "", clip_id: str | None = None,
+        error: str | None = None,
+    ) -> dict[str, Any]:
+        from . import tasks
+
+        with db.connect() as conn:
+            try:
+                row = db.finish_task(conn, task_id, ok=ok, result={"summary": summary} if summary else None,
+                                     error=error, clip_id=clip_id)
+            except ValueError as exc:
+                raise ToolError(str(exc)) from None
+            logs.event("task.finished", channel=row["channel_id"], task=task_id, kind=row["kind"],
+                       status=row["status"], by=row["claimed_by"], error=error)
+            logs.event("mcp.call", actor="mcp", tool="finish_task", task=task_id)
+            return tasks.as_dict(row)
+
+    @server.tool(description="The task queue: what is waiting, claimed, done or failed.")
+    def list_tasks(status: str | None = None, channel: str | None = None) -> list[dict[str, Any]]:
+        from . import tasks
+
+        with db.connect() as conn:
+            return [tasks.as_dict(r) for r in db.tasks(conn, channel, status)]
+
     @server.tool(description="Recent pipeline events, newest first.")
     def recent_logs(
         limit: int = 50,
