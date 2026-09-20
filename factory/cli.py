@@ -289,7 +289,8 @@ def cmd_tasks(args) -> int:
             db.cancel_task(conn, int(args.value))
             print(f"task #{args.value} cancelled")
             return 0
-        params = {k: v for k, v in (("generator", args.generator), ("variant", args.variant), ("seed", args.seed)) if v is not None}
+        params = {k: v for k, v in (("generator", args.generator), ("variant", args.variant), ("seed", args.seed),
+                                    ("course", args.course), ("background", args.background)) if v is not None}
         ids = tasks.enqueue(conn, ch.id, args.value, params, count=args.count, priority=args.priority)
         print(f"queued {len(ids)} × {args.value} on {ch.id}: #{ids[0]}" + (f"–#{ids[-1]}" if len(ids) > 1 else ""))
     return 0
@@ -724,6 +725,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("action", choices=["add", "list", "cancel"])
     p.add_argument("value", nargs="?", help="kind to add (make-clip, plan-week, review, retitle) or id to cancel")
     p.add_argument("--variant"); p.add_argument("--generator"); p.add_argument("--seed", type=int)
+    p.add_argument("--course", help="zigzag, pegboard or bumpers"); p.add_argument("--background", help="hex colour")
     p.add_argument("--count", type=int, default=1); p.add_argument("--priority", type=int, default=0)
     p.add_argument("--status")
     p.set_defaults(func=cmd_tasks)
