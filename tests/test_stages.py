@@ -113,3 +113,71 @@ def test_old_facts_with_course_read_as_stage_on_the_page():
     from factory.web import _facts_for_page
     assert _facts_for_page({"course": "zigzag", "theme": "default", "seed": 1}) == {"stage": "zigzag", "theme": "default"}
     assert _facts_for_page({"stage": "funnels"}) == {"stage": "funnels"}
+
+
+# --- the run-in throat, and what it is allowed to touch ------------------------
+
+def test_the_throat_is_only_on_the_stages_it_measured_better_on():
+    assert set(physics.GATE_STAGES) <= set(physics.STAGES)
+    # The zigzag already changes the lead five to seven times on its own; a
+    # throat turned that into a queue and the half-way leader started winning
+    # 76% of them. Leaving it alone is the measurement, not a preference.
+    assert "zigzag" not in physics.GATE_STAGES
+
+
+def test_a_gated_stage_sometimes_gets_one_and_an_ungated_stage_never_does():
+    def gated(stage, seeds):
+        out = 0
+        for seed in seeds:
+            for attempt in range(4):
+                try:
+                    sim = physics.PhysicsSandbox()._simulate(
+                        seed=seed + attempt * 7919, variant="marble_race", sim_w=W, sim_h=H,
+                        fps=FPS, max_frames=40, stage=stage)
+                except physics._Stalled:
+                    continue
+                out += bool(sim[6].gates)
+                break
+        return out
+
+    seeds = [9000 + i * 53 for i in range(20)]
+    assert gated("bumpers", seeds) > 0
+    assert gated("zigzag", seeds) == 0
+    assert gated("pegboard", seeds) == 0
+
+
+def test_the_throat_sits_in_the_run_in_and_clears_the_biggest_marble():
+    for seed in [9000 + i * 53 for i in range(30)]:
+        try:
+            sim = physics.PhysicsSandbox()._simulate(seed=seed, variant="marble_race", sim_w=W,
+                                                     sim_h=H, fps=FPS, max_frames=40, stage="bumpers")
+        except physics._Stalled:
+            continue
+        balls, style = sim[2], sim[6]
+        if not style.gates:
+            continue
+        ends = [b for a, b in style.gates]
+        ys = [y for _, y in ends]
+        # Above the line (110) and well below where the marbles start.
+        assert all(110 < y < H * 0.5 for y in ys), ys
+        gap = abs(ends[0][0] - ends[1][0])
+        assert gap > 2 * max(b.radius for b in balls) * 1.4, (seed, gap)
+
+
+def test_the_marbles_are_near_enough_the_same_size():
+    """The spread used to be +/-12% and the smallest marble won 60% of
+    zigzags against a 33% chance: the race was decided when the sizes were
+    drawn. Identical marbles were measured to change the lead more often,
+    not less, so nothing was lost by halving it."""
+    lo, hi = physics.MARBLE_SPREAD
+    assert hi - lo <= 0.13, (lo, hi)
+    assert lo < 1.0 < hi
+
+
+def test_a_throat_is_named_in_the_clip_text_when_there_is_one():
+    gen = physics.PhysicsSandbox()
+    style = physics._Style()
+    style.stage, style.circles = "bumpers", [(0, 0, 1)] * 30
+    assert "throat" not in gen._stage_text({"style": style, "segments": []})
+    style.gates.append(((0.0, 200.0), (100.0, 200.0)))
+    assert "throat" in gen._stage_text({"style": style, "segments": []})

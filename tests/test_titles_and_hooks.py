@@ -41,10 +41,14 @@ def clip(status=AWAITING_APPROVAL, **fields):
 
 # --- the caption comes from the race ------------------------------------------
 
-def test_every_crossing_is_recorded_not_only_the_first():
-    states, _, balls, _, winner, winner_frame, _, finishes = physics.PhysicsSandbox()._simulate(
-        seed=33, variant="marble_race", sim_w=W, sim_h=H, fps=FPS, max_frames=900,
-    )
+def test_every_crossing_is_recorded_not_only_the_first(sandbox):
+    """Through _round, not _simulate: a bare simulation is one attempt, and
+    whether a given seed finishes on its first try moves whenever the
+    geometry does."""
+    from factory import settings
+
+    r = physics.PhysicsSandbox()._round(33, "marble_race", {}, settings.load().render, W, H, FPS)
+    winner, winner_frame, finishes = r["winner"], r["winner_frame"], r["finishes"]
     assert winner in finishes
     assert finishes[winner] == winner_frame
     assert all(f >= winner_frame for f in finishes.values())

@@ -29,6 +29,53 @@ the floor, whatever the gravity; the bars now span the lane so a marble must
 wait for a gap to turn round). An earlier wedges stage — chevrons staggered
 like pegs — had three traps and seven finishes in 24, and is not offered.
 
+## How hard the race is to call
+
+A race that is decided in the first five seconds has nothing to say for the
+next fifteen. Four things are measured over 20 seeds a stage, and they are
+what "more twists" means here in numbers: how often the lead changes hands,
+how often the marble leading at the half-way point goes on to win, how often
+the finish is inside a second, and how often the winner had been last at
+some point.
+
+| stage | lead changes | half-way leader wins | finish inside 1 s | came from last |
+|---|---|---|---|---|
+| zigzag | 7.5 | 65% | 50% | 100% |
+| pegboard | 4.0 | 80% | 50% | 45% |
+| bumpers | 5.0 | 20% | 20% | 70% |
+| funnels | 2.0 | 70% | 20% | 40% |
+| gauntlet | 4.5 | 20% | 5% | 75% |
+| cascade | 1.0 | 90% | 20% | 25% |
+
+Two things produced those numbers, and both replaced something that was
+there for a reason that turned out not to be true.
+
+**The run-in throat.** A narrow gap just above the line, on 72% of seeds, on
+the bumpers and the gauntlet only. The field queues for it, jostles, and
+comes out in a different order from the one it went in: on those two stages
+the half-way leader stopped winning half the time and started winning a
+fifth of the time, and the winner had been last at some point in 70-75% of
+runs. A turning bar was tried in the same place first and made things worse
+— a bar deflects whoever meets it at random, and deflection spreads a field
+out rather than gathering it. The throat is off on the other four stages
+because it measured worse on each: the zigzag already changes the lead five
+to seven times on its own, the pegboard traded most of its close finishes
+for a little surprise, and the funnels stage is already a row of throats.
+
+**The marbles are nearly the same size now.** The spread was ±12%, with a
+comment saying identical marbles keep their starting order and never
+overtake. Measured at four spreads, that is not what happens: identical
+marbles change the lead *more* often, not less. What the spread was actually
+doing was deciding the race before it started — the smallest marble won 60%
+of zigzags against a 33% chance, because a smaller marble is quicker through
+everything. It is ±6% now, which halves that bias.
+
+Two caveats worth keeping in view. Twenty seeds a stage is enough to see a
+50% → 20% move and not enough to argue about five points. And the cascade is
+the weakest stage by a distance — one lead change, the half-way leader wins
+almost every time — because marbles pick a side at the first peak and keep
+it. It ships at a low weight and wants redesigning rather than reweighting.
+
 ## ASMR: coins, not a race
 
 `asmr/coin_pour` and `asmr/coin_stack` are the HODL Tales format, and they

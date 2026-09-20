@@ -79,7 +79,13 @@ PALETTES = [
 # lip, or sat in a wall corner — three traps, and fixing one opened another.
 # Measured 7 finishes in 24 at best. The three below each finish 19 of 24
 # inside the QC window with no seed stuck.
-STAGES = {"zigzag": 0.22, "pegboard": 0.18, "bumpers": 0.20, "funnels": 0.14, "gauntlet": 0.14, "cascade": 0.12}
+# Weights lean toward the stages that measured dramatic. The cascade is the
+# outlier and it is honest to say so: 1 lead change, the half-way leader
+# wins almost every time, and the eventual winner has been last at some
+# point in only 6% of runs. Marbles pick a side at the first peak and mostly
+# keep it. It still ships, at a low weight, because it looks unlike anything
+# else on the channel — but it wants redesigning, not reweighting.
+STAGES = {"zigzag": 0.26, "pegboard": 0.20, "bumpers": 0.22, "funnels": 0.14, "gauntlet": 0.13, "cascade": 0.05}
 # Pace is gravity, not geometry: each stage was measured over 24 seeds and
 # its gravity set so the median finish lands mid-window (see README).
 STAGE_GRAVITY = {"zigzag": -600.0, "pegboard": -110.0, "bumpers": -95.0,
@@ -115,6 +121,7 @@ class _Style:
     caption: tuple[int, int, int] = (255, 255, 255)
     seed: int = 0
     spinners: list[tuple[float, float, float, float, float]] = field(default_factory=list)  # x, y, half-length, rad/s, phase
+    gates: list[tuple[tuple[float, float], tuple[float, float]]] = field(default_factory=list)  # the run-in throat
     lane: list[tuple[tuple[float, float], tuple[float, float]]] = field(default_factory=list)  # the gauntlet's two verticals
 
 
@@ -355,6 +362,39 @@ def _spinner(space: pymunk.Space, x: float, y: float, half: float, omega: float,
     space.add(body, shape)
 
 
+# A throat in the run-in to the line. Measured over 20 seeds a stage:
+# without it only 10-20% of races on most stages finished inside a second of
+# each other, because whoever got clear early stayed clear.
+#
+# A turning bar was tried here first and made things worse (the half-way
+# leader went on to win 75% of the time on the zigzag, up from 60%): a bar
+# deflects whoever meets it, at random, and deflection spreads a field out.
+# What brings a field together is a queue. They arrive, they wait, they
+# jostle for the gap, and the order they come out in is not the order they
+# went in — which is both halves of what this is for.
+# How much the marbles differ in size. This was +/-12%, with a comment
+# saying identical marbles keep their starting order and never overtake.
+# Measured over 20 seeds on three stages at four spreads, that is not what
+# happens: identical marbles change the lead MORE often (zigzag 5.5 -> 6.0,
+# bumpers 4.0 -> 5.0), and the spread was instead deciding the race before
+# it started — the smallest marble won 60% of zigzags against a 33% chance,
+# because a smaller marble is quicker through everything. Halved, which
+# halves that bias and leaves the overtaking alone.
+MARBLE_SPREAD = (0.94, 1.06)
+FINISH_GATE_CHANCE = 0.72
+# Only where it measured better, over 20 seeds a stage:
+#
+#   bumpers    half-way leader wins 50% -> 20%, came from last 60% -> 70%
+#   gauntlet   half-way leader wins 47% -> 20%, came from last 42% -> 75%
+#
+# and not on the rest, for reasons the numbers gave rather than taste:
+# the zigzag already changes the lead five to seven times on its own and a
+# throat turns that into a queue (60% -> 76%); the pegboard traded a little
+# surprise for most of its close finishes (40% -> 5%); the funnels stage is
+# already a series of throats and one more read as noise (60% -> 72%).
+GATE_STAGES = ("bumpers", "gauntlet")
+GATE_HEIGHT = 0.085  # of the frame above the line: close enough that nothing re-spreads
+GATE_GAP = (0.17, 0.21)  # of the width; about 3-3.7 of the largest marble
 SPINNER_ROWS = {"bumpers": (0.26, 0.40, 0.54, 0.68), "gauntlet": (0.20, 0.30, 0.40, 0.50, 0.60, 0.70)}  # heights, frame fractions
 
 
@@ -395,6 +435,28 @@ def _add_spinners(space, w, h, rng, style):
         side = -side
 
 
+def _add_finish_gate(space, w, h, rng, style) -> None:
+    """One slow bar across the run-in, on most seeds.
+
+    Left to itself a marble that gets clear early stays clear, and the clip
+    has nothing left to say after five seconds. The gate is the one place
+    where the race regroups: the leader waits for it to turn, the others
+    arrive, and they go through as a pack. What comes out the other side is
+    a finish nobody could call — which is the thing worth watching.
+    """
+    if style.stage not in GATE_STAGES or rng.random() > FINISH_GATE_CHANCE:
+        return
+    throat = h * GATE_HEIGHT + 110.0
+    mouth = throat + h * 0.11
+    centre = w * rng.uniform(0.42, 0.58)
+    gap = w * rng.uniform(*GATE_GAP)
+    for side in (-1, 1):
+        a = (w / 2 + side * w * 0.62, mouth)  # past the wall, so nothing goes round
+        b = (centre + side * gap / 2, throat)
+        _wall(space, a, b, thickness=style.thickness / 2)
+        style.gates.append((a, b))
+
+
 def _build_race(space: pymunk.Space, w: int, h: int, rng: random.Random, stage: str | None = None,
                 background: str | None = None, lineup: list | None = None):
     """A stage from the registry, dressed by the active theme.
@@ -424,6 +486,7 @@ def _build_race(space: pymunk.Space, w: int, h: int, rng: random.Random, stage: 
 
     segments, runway, lanes_for = _STAGES[style.stage](space, w, h, rng, style)
     _add_spinners(space, w, h, rng, style)
+    _add_finish_gate(space, w, h, rng, style)
 
     # Identical marbles keep their starting order for the whole run, which kills
     # the only question the clip asks. Varying the radius makes them overtake,
@@ -442,7 +505,7 @@ def _build_race(space: pymunk.Space, w: int, h: int, rng: random.Random, stage: 
 
     balls = []
     for (name, color), x in zip(colours[:count], lanes):
-        radius = base_radius * rng.uniform(0.88, 1.12)
+        radius = base_radius * rng.uniform(*MARBLE_SPREAD)
         ball = _ball(space, (x, h - 30.0), radius, tuple(color), name)
         ball.body.velocity = (rng.uniform(-20, 20), -130.0)  # already moving on frame one
         balls.append(ball)
@@ -604,7 +667,8 @@ class PhysicsSandbox:
                 "rounds": [
                     {"stage": r["style"].stage, "winner": r["winner"], "margin_s": r["margin_s"],
                      "runner_up": r["runner_up"], "finishes": r["finish_s"], "seconds": round(r["duration_s"], 2),
-                     "obstacles": len(r["style"].circles) or len(r["segments"]), "spinners": len(r["style"].spinners)}
+                     "obstacles": len(r["style"].circles) or len(r["segments"]), "spinners": len(r["style"].spinners),
+                     "gate": bool(r["style"].gates)}
                     for r in rounds
                 ],
                 "winner": last["winner"],
@@ -637,6 +701,8 @@ class PhysicsSandbox:
         }[style.stage]
         if style.spinners:
             base += f" with {len(style.spinners)} spinning bar{'s' if len(style.spinners) > 1 else ''}"
+        if style.gates:
+            base += " and a throat in the run-in to the line"
         return base
 
     def _round(self, seed, variant, params, cfg, sim_w, sim_h, fps, lineup=None) -> dict:
@@ -874,6 +940,9 @@ class PhysicsSandbox:
                           fill=tuple(min(255, c + 60) for c in style.structure), width=style.thickness)
                 hub = style.thickness * 0.9
                 draw.ellipse([sx - hub, sim_h - sy - hub, sx + hub, sim_h - sy + hub], fill=style.structure)
+            for a, b in style.gates:
+                draw.line([(a[0], sim_h - a[1]), (b[0], sim_h - b[1])],
+                          fill=tuple(min(255, c + 34) for c in style.structure), width=style.thickness)
             for a, b in segments:
                 draw.line(
                     [(a[0], sim_h - a[1]), (b[0], sim_h - b[1])],
