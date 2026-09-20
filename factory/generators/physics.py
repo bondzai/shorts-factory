@@ -36,11 +36,8 @@ STALL_SPEED = 12.0  # below this, in sim px/s, nothing is moving any more
 MAX_ATTEMPTS = 4  # a stalled race is retried on a derived seed, not abandoned
 POST_WIN_S = 1.3  # how long the race keeps running after the winner crosses
 CLOSE_RACE_S = 1.0  # a runner-up inside this gets the margin on screen
-FINAL_CAPTION = "FINAL · SAME {count}, NEW COURSE"  # what the second round opens on
+FINAL_CAPTION = "FINAL · RUN IT BACK"  # what the second round opens on: a rematch, no arithmetic
 
-
-def _count_word(n: int) -> str:
-    return {2: "TWO", 3: "THREE", 4: "FOUR", 5: "FIVE", 6: "SIX"}.get(n, str(n))
 
 
 class _Stalled(RuntimeError):
@@ -443,8 +440,7 @@ class PhysicsSandbox:
         hook_text = (params.get("hook_text") or "").strip() or self._default_hook(variant, rounds[0])
         overlays = [self._overlay(variant, sim_w, sim_h, fps, text=hook_text)]
         if len(rounds) > 1:
-            caption = FINAL_CAPTION.format(count=_count_word(len(rounds[0]["balls"])))
-            overlays.append(self._overlay(variant, sim_w, sim_h, fps, text=caption))
+            overlays.append(self._overlay(variant, sim_w, sim_h, fps, text=FINAL_CAPTION))
 
         impacts: list[audio.Impact] = []
         offset = 0.0
@@ -671,25 +667,24 @@ class PhysicsSandbox:
         return states, impacts, balls, segments, winner, winner_frame, style, finishes
 
     def _default_hook(self, variant: str, round_: dict | None) -> str:
-        """The opening caption: the scene, in the present tense, from the
-        course itself — never the result.
+        """The opening caption: two or three words that make the viewer pick a
+        marble. Not the result, and not the course's spec sheet either —
+        "PICK ONE · 4 SPINNERS" made a viewer read arithmetic in the one
+        second they give us. The pick is the whole job: a viewer who has
+        chosen a side stays to see it lose or win.
 
-        "DECIDED BY 0.4s" was a fact the simulation produced, but it is a fact
-        about how the race *ended*, and a viewer told the ending in the first
-        second has been paid out. "PICK ONE · 4 SPINNERS" states what they are
-        about to watch and asks them to commit; the margin stays in `facts`
-        for the description. Falls back to the config line off the race.
+        The bank lives in config (overlay.marble_race, captions separated by
+        "|"), so the operator edits it on the Settings page; one is chosen
+        per seed so consecutive clips do not open on the same words.
         """
-        if variant == "marble_race" and round_:
-            style = round_["style"]
-            if style.spinners:
-                return f"PICK ONE · {len(style.spinners)} SPINNERS"
-            if style.circles:
-                return f"PICK ONE · {len(style.circles)} PEGS"
-            if round_.get("segments"):
-                return f"PICK ONE · {len(round_['segments'])} RAMPS"
         cfg = settings.load().raw.get("overlay", {})
-        return (cfg.get(variant) or "").strip()
+        bank = [c.strip() for c in str(cfg.get(variant) or "").split("|") if c.strip()]
+        if not bank:
+            return ""
+        if variant == "marble_race" and round_ and len(bank) > 1:
+            seed = getattr(round_["style"], "seed", 0) or 0
+            return bank[random.Random(seed).randrange(len(bank))]
+        return bank[0]
 
     def _overlay(self, variant: str, sim_w: int, sim_h: int, fps: int, text: str | None = None):
         """Opening caption, or None. Returns (text, font, x, y, last_frame)."""

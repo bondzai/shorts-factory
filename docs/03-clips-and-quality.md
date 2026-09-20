@@ -25,12 +25,32 @@ and not three.
 
 ## Captions and titles
 
-The caption in the first second is measured, not written: it names the
-course the render built — `PICK ONE · 4 SPINNERS`, `PICK ONE · 75 PEGS` —
-and asks the viewer to commit. It never tells the result: the margin is a
-fact about how the race ended, and a viewer told the ending in the first
-second swipes. The server refuses titles and captions that name a winner or
-say "decided", "won", "by 0.7s"; see `prompts/skill-hooks.md`. **Re-render caption** on Today burns a
+A viewer gives the first frame one second, and the hook has one job in it:
+**make them pick a marble.** A viewer who has picked a side has a stake, and a
+viewer with a stake stays to the finish. That single idea sets every rule
+here; the full brief agents get is `prompts/skill-hooks.md`.
+
+**The opening caption** is two or three words in the second person — `PICK
+ONE`, `CALL IT NOW`, `BET ON ONE`. The render picks one per seed from the bank
+under Settings → Factory → opening captions (separated by `|`), so consecutive
+clips do not open on the same words. It is never the result and never the
+course's numbers: `DECIDED BY 0.4s` pays the bet out before it is placed, and
+`PICK ONE · 4 SPINNERS` asks for arithmetic in the second we have. The second
+round of a two-round clip opens on `FINAL · RUN IT BACK`.
+
+**The title** is the same hook written for the feed: lead with the pick, name
+the lineup, present tense — `Pick your marble: red, blue or green`. Naming
+every colour gives nothing away; naming one is a spoiler. Numbers only when
+they are the drama ("75 pegs" as scale), never as inventory.
+
+**The pinned comment** asks the pick again after the fact — `Red, blue or
+green — which did you back?` — and stays true whatever happened.
+
+**The server enforces the two hard rules** on `submit_metadata` and
+`retitle`: no winner's name (heat or final) and no result language
+("decided", "won", "took", "by 0.7s", "photo finish", "upset") in the title,
+caption, pinned comment or first sentence of the description. Refused
+metadata comes back with the reason, and the agent writes it again. **Re-render caption** on Today burns a
 different caption into the same race (same seed, only the pixels change).
 
 A title can change at any time, including after publishing. **Retitle** keeps

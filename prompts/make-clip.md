@@ -56,10 +56,11 @@ Two more fields on `submit_metadata`, both optional, both for the same
 problem:
 
 - `hook_text` is the caption burned into the opening seconds. The render
-  already chose one from what it measured — for a close race, the margin, as
-  `facts.margin_s` — and `render_clip` shows it. Override it only with
-  something the facts support; the clip is re-rendered with the same seed, so
-  the race does not change, only the words over it.
+  already chose one from the caption bank — two or three words that ask for
+  a pick — and `render_clip` shows it. Override it only when the Directions
+  ask for a wording, never with a winner's name or a margin; the clip is
+  re-rendered with the same seed, so the race does not change, only the
+  words over it.
 - `comment_prompt` is a question to pin as the first comment. Ask only what
   the clip answers: which colour the viewer backed, not what they think of the
   channel.
@@ -68,13 +69,13 @@ What the first two seconds have to do — this is where three of four viewers
 are lost, and the benchmark channels aim for is three of four *kept*:
 
 - The clip already opens mid-action (the gate is cut). Your caption is the
-  only other thing on screen. It sets the **scene and asks for a pick**:
-  `PICK ONE · 4 SPINNERS` beats `WHO WINS?`, and both beat anything about
-  the ending — `RED BY 0.8s` and `DECIDED BY 0.8s` both tell them how it
-  ends, and they swipe.
-- The title is the same sentence for the feed: the **scene** in the first
-  four words, present tense. "Three marbles, four spinning bars" — not "Red
-  wins by 0.8s" and not "Decided by 0.8s".
+  only other thing on screen, and its one job is to **make them pick a
+  marble**: `PICK ONE`, `CALL IT NOW`. Not the course's numbers, and never
+  anything about the ending — `RED BY 0.8s` and `DECIDED BY 0.8s` both tell
+  them how it ends, and they swipe.
+- The title is the same hook written for the feed: lead with the pick and
+  name the lineup. "Pick your marble: red, blue or green" — not "Red wins by
+  0.8s", not "Decided by 0.8s", not "3 spinners, 24 bumpers".
 - What makes a clip worth keeping is still a close finish or an upset — you
   judge that in `submit_qc` from the facts. You just never put it in the
   title. Only a clip where the same marble runs away with both rounds has

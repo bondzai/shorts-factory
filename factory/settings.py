@@ -31,7 +31,7 @@ SCHEMA: list[dict[str, Any]] = [
      "label": "Minimum QC hook score", "help": "The agent's 1-5 hook score; below this is a reject."},
     {"section": "overlay", "key": "seconds", "type": "number", "min": 0, "max": 10, "step": 0.1,
      "label": "Caption on screen (s)"},
-    {"section": "overlay", "key": "marble_race", "type": "text",
+    {"section": "overlay", "key": "marble_race", "type": "text", "help": "opening captions, separated by |; one per seed",
      "label": "Default race caption", "help": "Used when the race is not close enough to caption with its margin."},
     {"section": "overlay", "key": "funnel_drop", "type": "text", "label": "Default funnel caption"},
     {"section": "retention", "key": "rejected_days", "type": "number", "min": -1, "max": 365, "step": 1,

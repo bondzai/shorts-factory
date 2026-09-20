@@ -57,25 +57,36 @@ def _round(spinners=0, circles=0, segments=0):
     return {"style": style, "segments": [None] * segments, "margin_s": 0.04}
 
 
-def test_the_opening_caption_names_the_course_and_asks_for_a_pick():
+def _bank(sandbox):
+    from factory import settings
+    return [c.strip() for c in settings.load().raw["overlay"]["marble_race"].split("|")]
+
+
+def test_the_opening_caption_asks_for_a_pick_and_never_states_the_course(sandbox):
     gen = physics.PhysicsSandbox()
-    assert gen._default_hook("marble_race", _round(spinners=4, circles=31)) == "PICK ONE · 4 SPINNERS"
-    assert gen._default_hook("marble_race", _round(circles=75)) == "PICK ONE · 75 PEGS"
-    assert gen._default_hook("marble_race", _round(segments=8)) == "PICK ONE · 8 RAMPS"
+    bank = _bank(sandbox)
+    assert "PICK ONE" in bank and len(bank) >= 5
+    for r in (_round(spinners=4, circles=31), _round(circles=75), _round(segments=8)):
+        text = gen._default_hook("marble_race", r)
+        assert text in bank
+        assert not any(ch.isdigit() for ch in text)
+        assert "DECIDED" not in text and "0.04" not in text
 
 
-def test_the_opening_caption_never_tells_the_result():
-    """The margin is 0.04s in every fixture above and appears in none of them."""
+def test_the_caption_rotates_by_seed_and_is_fixed_by_it(sandbox):
     gen = physics.PhysicsSandbox()
-    for r in (_round(spinners=3), _round(circles=59), _round(segments=6)):
-        assert "0.04" not in gen._default_hook("marble_race", r)
-        assert "DECIDED" not in gen._default_hook("marble_race", r)
+    def hook(seed):
+        r = _round(spinners=3); r["style"].seed = seed
+        return gen._default_hook("marble_race", r)
+    assert hook(7301) == hook(7301)
+    assert len({hook(s) for s in range(40)}) > 1
 
 
-def test_an_empty_course_falls_back_to_the_config_line(sandbox):
-    gen = physics.PhysicsSandbox()
-    assert gen._default_hook("marble_race", None) == "WHICH ONE WINS?"
-    assert gen._default_hook("marble_race", _round()) == "WHICH ONE WINS?"
+def test_an_empty_bank_means_no_caption(sandbox, monkeypatch):
+    from factory import settings
+    raw = settings.load().raw
+    monkeypatch.setitem(raw, "overlay", {**raw["overlay"], "marble_race": ""})
+    assert physics.PhysicsSandbox()._default_hook("marble_race", _round(spinners=2)) == ""
 
 
 def test_the_funnel_is_left_alone(sandbox):
@@ -93,14 +104,14 @@ def test_retitle_snapshots_the_numbers_the_old_title_earned(channel):
     clip_id = clip(PUBLISHED, published_at="2026-09-19T00:00:00Z", views=715,
                    avg_view_pct=76.2, swipe_away_pct=74.5)
     with db.connect() as conn:
-        out = pipeline.retitle(conn, clip_id, "Three marbles, four spinning bars, pick one",
+        out = pipeline.retitle(conn, clip_id, "Pick your marble: red, blue or green",
                                by="human", why="stake in the first four words")
         row = db.get(conn, clip_id)
     history = json.loads(row["title_history_json"])
     assert out["changes"] == 1 and out["needs_manual_update"] is True
     assert history[0]["title"] == "Which of these four marbles reaches the bottom first?"
     assert history[0]["views"] == 715 and history[0]["swipe_away_pct"] == 74.5
-    assert row["title"] == "Three marbles, four spinning bars, pick one"
+    assert row["title"] == "Pick your marble: red, blue or green"
 
 
 def test_retitle_refuses_what_every_title_here_refuses(channel):
@@ -144,12 +155,12 @@ def test_rehook_keeps_a_queued_clip_in_the_queue(channel, tmp_path, monkeypatch)
     monkeypatch.setitem(__import__("factory.settings").settings.load().raw["qc"], "min_seconds", 1)
     clip_id = clip(AWAITING_APPROVAL)
     with db.connect() as conn:
-        outcome = pipeline.rehook(conn, clip_id, "PICK ONE · 59 PEGS")
+        outcome = pipeline.rehook(conn, clip_id, "CALL IT NOW")
         row = db.get(conn, clip_id)
-    assert seen and seen[-1]["hook_text"] == "PICK ONE · 59 PEGS"
+    assert seen and seen[-1]["hook_text"] == "CALL IT NOW"
     assert outcome.status == AWAITING_APPROVAL, outcome.detail
-    assert row["hook_text"] == "PICK ONE · 59 PEGS"
-    assert json.loads(row["params_json"])["hook_text"] == "PICK ONE · 59 PEGS"
+    assert row["hook_text"] == "CALL IT NOW"
+    assert json.loads(row["params_json"])["hook_text"] == "CALL IT NOW"
 
 
 def test_a_person_recaptioning_an_approved_clip_keeps_it_approved(channel, tmp_path, monkeypatch):
@@ -159,7 +170,7 @@ def test_a_person_recaptioning_an_approved_clip_keeps_it_approved(channel, tmp_p
     monkeypatch.setitem(__import__("factory.settings").settings.load().raw["qc"], "min_seconds", 1)
     clip_id = clip(APPROVED)
     with db.connect() as conn:
-        outcome = pipeline.rehook(conn, clip_id, "PICK ONE · 59 PEGS", by="human")
+        outcome = pipeline.rehook(conn, clip_id, "CALL IT NOW", by="human")
     assert outcome.status == APPROVED, outcome.detail
 
 
@@ -169,7 +180,7 @@ def test_an_agent_recaptioning_an_approved_clip_sends_it_back(channel, tmp_path,
     monkeypatch.setitem(__import__("factory.settings").settings.load().raw["qc"], "min_seconds", 1)
     clip_id = clip(APPROVED)
     with db.connect() as conn:
-        outcome = pipeline.rehook(conn, clip_id, "PICK ONE · 59 PEGS", by="agent")
+        outcome = pipeline.rehook(conn, clip_id, "CALL IT NOW", by="agent")
     assert outcome.status == AWAITING_APPROVAL, outcome.detail
 
 
@@ -177,7 +188,7 @@ def test_rehook_refuses_a_published_clip(channel):
     clip_id = clip(PUBLISHED, published_at="2026-09-19T00:00:00Z")
     with db.connect() as conn:
         with pytest.raises(ValueError, match="published"):
-            pipeline.rehook(conn, clip_id, "PICK ONE · 59 PEGS")
+            pipeline.rehook(conn, clip_id, "CALL IT NOW")
 
 
 def test_metadata_with_a_new_caption_re_renders_and_keeps_the_prompt(channel, tmp_path, monkeypatch):
@@ -186,19 +197,19 @@ def test_metadata_with_a_new_caption_re_renders_and_keeps_the_prompt(channel, tm
     seen = []
     fake_generate(monkeypatch, tmp_path, seen)
     monkeypatch.setitem(__import__("factory.settings").settings.load().raw["qc"], "min_seconds", 1)
-    clip_id = clip(RENDERED, hook_text="WHICH ONE WINS?")
+    clip_id = clip(RENDERED, hook_text="PICK ONE")
     meta = Metadata(
-        title="Three marbles, four spinning bars, pick one",
+        title="Pick your marble: red, blue or green",
         description="Four marbles, eight ramps, green by 0.4 seconds.",
         hashtags=["#shorts", "#physics", "#marblerace"], rationale="t",
-        hook_text="PICK ONE · 59 PEGS", comment_prompt="Which colour did you back?",
+        hook_text="CALL IT NOW", comment_prompt="Which colour did you back?",
     )
     with db.connect() as conn:
         pipeline.attach_metadata(conn, clip_id, meta)
         row = db.get(conn, clip_id)
-    assert seen and seen[-1]["hook_text"] == "PICK ONE · 59 PEGS"
+    assert seen and seen[-1]["hook_text"] == "CALL IT NOW"
     assert row["comment_prompt"] == "Which colour did you back?"
-    assert row["title"] == "Three marbles, four spinning bars, pick one"
+    assert row["title"] == "Pick your marble: red, blue or green"
 
 
 def test_metadata_without_a_caption_does_not_re_render(channel, tmp_path, monkeypatch):
@@ -206,8 +217,8 @@ def test_metadata_without_a_caption_does_not_re_render(channel, tmp_path, monkey
 
     seen = []
     fake_generate(monkeypatch, tmp_path, seen)
-    clip_id = clip(RENDERED, hook_text="WHICH ONE WINS?")
-    meta = Metadata(title="Three marbles, four spinning bars, pick one",
+    clip_id = clip(RENDERED, hook_text="PICK ONE")
+    meta = Metadata(title="Pick your marble: red, blue or green",
                     description="Four marbles, eight ramps, green by 0.4 seconds.",
                     hashtags=["#shorts", "#physics", "#marblerace"], rationale="t")
     with db.connect() as conn:
@@ -254,7 +265,7 @@ def test_the_mcp_tool_is_the_same_retitle(channel):
     clip_id = clip(PUBLISHED, published_at="2026-09-19T00:00:00Z", views=715)
     server = mcp.build_server()
     result = asyncio.run(server.call_tool("retitle", {
-        "clip_id": clip_id, "title": "Three marbles, four spinning bars, pick one",
+        "clip_id": clip_id, "title": "Pick your marble: red, blue or green",
         "why": "stake first",
     }))
     payload = result[1] if isinstance(result, tuple) else result
@@ -266,10 +277,10 @@ def test_the_retitle_playbook_lists_published_clips_worst_first(channel):
     from factory import playbooks
 
     clip(PUBLISHED, published_at="2026-09-19T00:00:00Z", views=715, avg_view_pct=76.2,
-         swipe_away_pct=74.5, hook_text="WHICH ONE WINS?")
+         swipe_away_pct=74.5, hook_text="PICK ONE")
     text = playbooks.render("retitle", CH)
     assert "74% swiped away" in text
-    assert "caption “WHICH ONE WINS?”" in text
+    assert "caption “PICK ONE”" in text
 
 
 def test_a_stamped_then_rejected_clip_is_not_published_anywhere(channel):
@@ -418,11 +429,11 @@ def test_rehook_can_change_the_backdrop_and_go_back_to_the_theme(channel, tmp_pa
     seen = []
     fake_generate(monkeypatch, tmp_path, seen)
     monkeypatch.setitem(__import__("factory.settings").settings.load().raw["qc"], "min_seconds", 1)
-    clip_id = clip(AWAITING_APPROVAL, hook_text="WHICH ONE WINS?")
+    clip_id = clip(AWAITING_APPROVAL, hook_text="PICK ONE")
     with db.connect() as conn:
-        pipeline.rehook(conn, clip_id, "WHICH ONE WINS?", background="#123456")
+        pipeline.rehook(conn, clip_id, "PICK ONE", background="#123456")
         assert seen[-1]["background"] == "#123456"
-        pipeline.rehook(conn, clip_id, "WHICH ONE WINS?", background="")
+        pipeline.rehook(conn, clip_id, "PICK ONE", background="")
         assert "background" not in seen[-1]
 
 
@@ -456,7 +467,7 @@ FACTS = {"winner": "amber", "finishes": {"amber": 15.4, "violet": 15.5, "blue": 
 
 def meta(**over):
     from factory.models import Metadata
-    base = dict(title="Three marbles, four spinning bars, one line", description="Three marbles, two rounds. A photo finish.",
+    base = dict(title="Pick your marble: amber, violet or blue", description="Three marbles, two rounds. A photo finish.",
                 hashtags=["#shorts", "#marblerace", "#satisfying"], rationale="t")
     return Metadata(**{**base, **over})
 
@@ -479,7 +490,7 @@ def test_the_pinned_comment_and_first_sentence_are_checked_but_not_the_rest(chan
         pipeline.attach_metadata(conn, clip_id, meta(comment_prompt="Did amber deserve it?"))
     with db.connect() as conn:  # the description may say it after the first sentence
         pipeline.attach_metadata(conn, clip_id, meta(description="Two rounds, one photo finish. Amber takes it by 0.04s."))
-        assert db.get(conn, clip_id)["title"].startswith("Three marbles")
+        assert db.get(conn, clip_id)["title"].startswith("Pick your marble")
 
 
 def test_naming_the_whole_lineup_gives_nothing_away(channel):
@@ -515,8 +526,8 @@ def test_result_language_is_refused_even_without_a_name(channel):
     with db.connect() as conn, pytest.raises(ValueError, match="hook_text tells the result"):
         pipeline.attach_metadata(conn, clip_id, meta(hook_text="DECIDED BY 0.04s"))
     with db.connect() as conn:  # the scene, present tense, a pick: fine
-        pipeline.attach_metadata(conn, clip_id, meta(title="Three marbles, four spinning bars, pick one",
-                                                     hook_text="PICK ONE · 4 SPINNERS",
+        pipeline.attach_metadata(conn, clip_id, meta(title="Pick your marble: amber, violet or blue",
+                                                     hook_text="BET ON ONE",
                                                      description="Three marbles run 31 bumpers. Amber wins by 0.04s."))
 
 
