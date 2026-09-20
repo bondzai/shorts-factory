@@ -49,6 +49,8 @@ cd "$here"
 if [ -n "$unattended" ]; then
   # Only the factory's own MCP tools are pre-approved. Anything else the
   # agent reaches for still asks, which with nobody present means it waits.
-  exec "$agent" --allowedTools "mcp__shorts-factory" "$prompt"
+  # The prompt goes first: --allowedTools takes every argument after it as
+  # another tool name, and swallowed the whole prompt the first time.
+  exec "$agent" "$prompt" --allowedTools "mcp__shorts-factory"
 fi
 exec "$agent" "$prompt"
