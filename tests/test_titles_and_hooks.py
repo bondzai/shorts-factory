@@ -330,12 +330,19 @@ def test_restore_is_on_the_web_too(client, tmp_path):
 
 # --- the upload step, on one screen -------------------------------------------
 
-def test_download_names_the_file_after_the_clip(client, tmp_path):
+def test_download_names_the_file_after_the_title(client, tmp_path):
+    """The file you find in the upload dialog is the one you meant: the
+    title, not clip.mp4 twelve times and not a seed you have to look up."""
     video = tmp_path / "clip.mp4"; video.write_bytes(b"\x00" * 16)
     clip_id = clip(APPROVED, video_path=str(video))
     r = client.get(f"/api/clip/{clip_id}/video?download=1")
     assert r.status_code == 200
-    assert f"marble_race-33-{clip_id[:6]}.mp4" in r.headers["content-disposition"]
+    assert "Which-of-these-four-marbles-reaches-the-bottom-first.mp4" in r.headers["content-disposition"]
+    untitled = clip(APPROVED, video_path=str(video))
+    with db.connect() as conn:
+        db.update(conn, untitled, title=None)
+    r = client.get(f"/api/clip/{untitled}/video?download=1")
+    assert f"marble_race-33-{untitled[:6]}.mp4" in r.headers["content-disposition"]
 
 
 def test_marking_one_clip_uploaded_publishes_just_that_one(client, tmp_path):
