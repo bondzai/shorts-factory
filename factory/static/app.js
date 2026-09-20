@@ -53,6 +53,7 @@ function App() {
   const [snap, setSnap] = useState(null);
   const [error, setError] = useState(null);
   const [sound, setSound] = useState(false);
+  const [playbooksOpen, setPlaybooks] = useState(false);
 
   const loadChannels = useCallback(async () => {
     const body = await api("/api/channels");
@@ -104,8 +105,10 @@ function App() {
         </a>`)}
     </nav>
     <div class="wrap">
-      <${Header} channels=${channels} channelId=${channelId} setChannelId=${setChannelId} snap=${snap} refresh=${reload} error=${error} />
+      <${Header} channels=${channels} channelId=${channelId} setChannelId=${setChannelId} snap=${snap} refresh=${reload} error=${error}
+        playbooksOpen=${playbooksOpen} setPlaybooks=${setPlaybooks} />
       <main>
+        ${playbooksOpen ? html`<${Playbooks} channelId=${channelId} />` : null}
         ${!snap ? html`<p class="empty">${error ? `cannot reach the server: ${error}` : "loading…"}</p>`
         : view === "today" ? html`<${Today} ...${props} />`
         : view === "clips" ? html`<${Clips} ...${props} />`
@@ -118,7 +121,7 @@ function App() {
 
 /* ---------- header: the channel, the counts, the three things you can start ---------- */
 
-function Header({ channels, channelId, setChannelId, snap, refresh, error }) {
+function Header({ channels, channelId, setChannelId, snap, refresh, error, playbooksOpen, setPlaybooks }) {
   const busy = snap?.job?.running;
   const job = snap?.job;
   const run = async (path, body) => {
@@ -128,6 +131,7 @@ function Header({ channels, channelId, setChannelId, snap, refresh, error }) {
   };
   const counts = snap?.counts || {};
   const order = ["planned", "awaiting_approval", "approved", "published", "qc_rejected", "failed"];
+  const agents = snap?.agents?.available;
   return html`
     <header>
       <select value=${channelId || ""} onChange=${(e) => setChannelId(e.target.value)}>
@@ -135,11 +139,13 @@ function Header({ channels, channelId, setChannelId, snap, refresh, error }) {
       </select>
       ${order.filter((k) => counts[k]).map((k) => html`<span key=${k} class="pill">${statusWord(k)} <b>${counts[k]}</b></span>`)}
       <span class="grow"></span>
-      <button disabled=${busy} onClick=${() => run("/api/plan", { count: 1 })} title="Ask the Idea agent for one clip">Plan 1</button>
-      <button disabled=${busy} onClick=${() => run("/api/plan", { count: 3 })} title="Ask the Idea agent for three clips">Plan 3</button>
-      <button disabled=${busy} onClick=${() => run("/api/build")} title="Render, title and QC everything planned">Build planned</button>
+      ${agents ? html`
+        <button disabled=${busy} onClick=${() => run("/api/plan", { count: 1 })} title="Ask the built-in Idea agent for one clip">Plan 1</button>
+        <button disabled=${busy} onClick=${() => run("/api/plan", { count: 3 })} title="Ask the built-in Idea agent for three clips">Plan 3</button>
+        <button disabled=${busy} onClick=${() => run("/api/build")} title="Render, title and QC everything planned">Build planned</button>
+        <button disabled=${busy} onClick=${() => run("/api/digest")} title="Ask the built-in Analyst what the numbers say">Digest</button>`
+      : html`<button onClick=${() => setPlaybooks((v) => !v)} aria-pressed=${playbooksOpen} class="chip" title="No API key is set, so clips are made by Codex over MCP. This hands you the instructions to paste.">Make clips with Codex</button>`}
       <button disabled=${busy} onClick=${() => run("/api/publish")} title="Publish every approved clip through the channel's driver">Publish approved</button>
-      <button disabled=${busy} onClick=${() => run("/api/digest")} title="Ask the Analyst what the numbers say">Digest</button>
       <span class="pill" title="this channel / all channels">$${fmt(snap?.spend_usd, 4)} <span class="hint">/ $${fmt(snap?.spend_total_usd, 4)}</span></span>
       ${error ? html`<span class="job bad">${error}</span>` : null}
       ${job && (job.running || job.log.length) ? html`
@@ -147,6 +153,36 @@ function Header({ channels, channelId, setChannelId, snap, refresh, error }) {
           ${job.running ? `${job.name} is running on ${job.channel_id}… ` : `last job: `}${job.log[job.log.length - 1] || ""}
         </div>` : null}
     </header>`;
+}
+
+/* ---------- Playbooks: the instructions Codex gets, filled from this database ---------- */
+
+function Playbooks({ channelId }) {
+  const [names, setNames] = useState([]);
+  const [name, setName] = useState("make-clip");
+  const [text, setText] = useState("");
+  const [copied, setCopied] = useState(false);
+  useEffect(() => { api("/api/playbooks").then((b) => setNames(b.playbooks)).catch(() => {}); }, []);
+  useEffect(() => {
+    setText("");
+    api(`/api/playbook/${name}?channel=${encodeURIComponent(channelId)}`).then((b) => setText(b.text)).catch((err) => setText(err.message));
+  }, [name, channelId]);
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { alert("Select the text and copy it."); }
+  };
+  const meaning = { "make-clip": "render one clip, look at it, title it, QC it", "plan-week": "propose a week of clips from the numbers, no rendering", "review": "judge what is in the queue", "retitle": "propose new titles for published clips that underperform" };
+  return html`
+    <div class="card">
+      <h3>Make clips with Codex</h3>
+      <div class="hint" style=${{ marginBottom: 10 }}>No API key is set, so the agent is Codex over MCP. Pick a playbook — it is filled in from this channel right now (rules, recent clips, numbers) — copy it, and paste it into Codex opened in the project folder. Approve each tool call there; results land here.</div>
+      <div class="bar">
+        ${names.map((n) => html`<button key=${n} class="small chip" aria-pressed=${n === name} onClick=${() => setName(n)} title=${meaning[n] || ""}>${n}</button>`)}
+        <span class="grow"></span>
+        <button class="small ok" onClick=${copy} disabled=${!text}>${copied ? "Copied" : "Copy playbook"}</button>
+      </div>
+      <div class="hint" style=${{ marginBottom: 8 }}>${meaning[name] || ""}</div>
+      <pre class="captured" style=${{ maxHeight: 320, overflow: "auto" }}>${text || "loading…"}</pre>
+    </div>`;
 }
 
 /* ---------- Today: the queue, then what you approved ---------- */
@@ -190,7 +226,10 @@ function Today({ snap, refresh, sound, setSound, channelId }) {
   if (!items.length) {
     return html`
       <h1>Nothing waiting on ${snap.channel.name}</h1>
-      <p class="lead">${snap.planned ? `${snap.planned} clip(s) are planned — press Build planned.` : "Press Plan to ask for ideas, then Build planned."}</p>`;
+      <p class="lead">${snap.planned ? `${snap.planned} clip(s) are planned — press Build planned.`
+        : snap.agents?.available ? "Press Plan to ask for ideas, then Build planned."
+        : "To make new clips, press “Make clips with Codex” above and paste the playbook into Codex."}</p>
+      <div class="note">Looking for a clip you already handled? Every clip ever made is under <b>Clips</b>, each with a Download button while its file is kept (a month for published ones).</div>`;
   }
   return html`
     <div class="bar">
@@ -418,7 +457,7 @@ function PublishedRow({ c, onChanged }) {
       ${mode === "metrics" ? html`<td colSpan="3"><div class="row">${field("views", "views")}${field("avg_view_pct", "% viewed")}${field("swipe_away_pct", "% swiped")}${field("likes", "likes")}<button class="small ok" onClick=${saveMetrics}>Save</button><button class="small" onClick=${() => setMode(null)}>Cancel</button></div></td>`
       : html`<td>${num(c.views)}</td><td>${pct(c.avg_view_pct)}</td><td>${pct(c.swipe_away_pct)}</td>`}
       <td style=${{ whiteSpace: "nowrap" }}>
-        ${mode ? null : html`<button class="small" onClick=${() => setMode("metrics")}>Enter metrics</button> <button class="small" onClick=${() => setMode("retitle")}>Retitle</button>`}
+        ${mode ? null : html`<button class="small" onClick=${() => setMode("metrics")}>Enter metrics</button> <button class="small" onClick=${() => setMode("retitle")}>Retitle</button>${c.has_video ? html` <button class="small" onClick=${() => { window.location.href = `/api/clip/${c.id}/video?download=1`; }}>Download</button>` : null}`}
       </td>
     </tr>`;
 }

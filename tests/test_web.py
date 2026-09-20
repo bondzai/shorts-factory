@@ -221,3 +221,18 @@ def test_runs_endpoint_lists_history(client):
         db.finish_run(conn, run, status="ok", detail="2 reached the queue")
     runs = client.get(f"/api/runs?channel={CH}").json()["runs"]
     assert runs[0]["detail"] == "2 reached the queue"
+
+
+
+def test_the_page_can_hand_out_a_filled_playbook(client):
+    body = client.get("/api/playbooks").json()
+    assert "make-clip" in body["playbooks"]
+    r = client.get(f"/api/playbook/make-clip?channel={CH}")
+    assert r.status_code == 200
+    assert "Gravity Lab" in r.json()["text"]
+    assert client.get(f"/api/playbook/nope?channel={CH}").status_code == 404
+
+
+def test_state_says_which_brain_is_available(client):
+    body = client.get(f"/api/state?channel={CH}").json()
+    assert body["agents"]["available"] in (True, False)

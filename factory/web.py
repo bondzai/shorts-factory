@@ -26,7 +26,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import analytics, channels, db, generators, logs, pipeline, settings
+from . import analytics, channels, db, generators, llm, logs, pipeline, playbooks, settings
 from .agents import analyst
 from .models import APPROVED, AWAITING_APPROVAL, PLANNED, PUBLISHED
 
@@ -234,7 +234,26 @@ def state(channel: str | None = None) -> dict[str, Any]:
             "spend_usd": db.spend(conn, ch.id),
             "spend_total_usd": db.spend(conn),
             "job": JOB.state(),
+            # Two brains can drive this factory: the built-in agents (need a
+            # key) or an external one over MCP (needs nothing). The page
+            # shows the buttons for whichever can actually do something.
+            "agents": {"available": llm.has_credentials()},
         }
+
+
+@app.get("/api/playbooks")
+def list_playbooks() -> dict[str, Any]:
+    return {"playbooks": playbooks.available()}
+
+
+@app.get("/api/playbook/{name}")
+def get_playbook(name: str, channel: str | None = None) -> dict[str, Any]:
+    with db.connect() as conn:
+        ch = _resolve(conn, channel)
+    try:
+        return {"name": name, "channel": ch.id, "text": playbooks.render(name, ch.id)}
+    except ValueError as exc:
+        raise HTTPException(404, str(exc)) from None
 
 
 @app.get("/api/clips")

@@ -36,6 +36,20 @@ def client() -> anthropic.Anthropic:
     return anthropic.Anthropic()
 
 
+def has_credentials() -> bool:
+    """Whether the built-in agents can run at all.
+
+    Constructing the client never fails; only a resolved key or token means a
+    call will. The page uses this to show the built-in agents' buttons only
+    when pressing them could do something, and the Codex path otherwise.
+    """
+    try:
+        c = client()
+        return bool(c.api_key or c.auth_token)
+    except Exception:
+        return False
+
+
 def model_for(agent: str | None) -> str:
     """Which model an agent runs on. Falls back to the shared default."""
     cfg = settings.load().llm

@@ -41,11 +41,7 @@ def _credentials_missing() -> bool:
     fails, and the SDK hides the message of an unexpected exception — without
     this the agent is told only "Error executing tool plan_clips".
     """
-    try:
-        client = llm.client()
-        return not (client.api_key or client.auth_token)
-    except Exception:
-        return True
+    return not llm.has_credentials()
 
 
 def _clip_summary(row) -> dict[str, Any]:
