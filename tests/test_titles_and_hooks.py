@@ -554,3 +554,43 @@ def test_the_description_can_be_edited_within_the_same_bounds_and_gate(channel):
     assert client.patch(f"/api/clip/{clip_id}/text", json={"description": "too short"}).status_code == 400
     r = client.patch(f"/api/clip/{clip_id}/text", json={"description": "Amber wins the final by a hair. Then more."})
     assert r.status_code == 400 and "names the winner" in r.json()["detail"]
+
+
+# --- the first two seconds, and the ask at the end -----------------------------
+
+def test_the_opening_caption_is_drawn_big_enough_to_read_at_arm_s_length(sandbox):
+    """Studio's number is that three of four viewers leave before the race
+    resolves, so the one thing on screen in that second is sized to be read,
+    not to be tasteful."""
+    from factory import settings
+
+    gen = physics.PhysicsSandbox()
+    text, font, x, y, last = gen._overlay("marble_race", W, H, FPS, text="PICK ONE")
+    assert font.size >= W * 0.10, font.size
+    assert x >= 0 and last > 0
+    assert float(settings.load().raw["overlay"]["size"]) >= 0.10
+
+
+def test_the_closing_ask_exists_and_turns_off_when_emptied(sandbox, monkeypatch):
+    from factory import settings
+
+    gen = physics.PhysicsSandbox()
+    ask = gen._closing_ask(W, H, FPS)
+    assert ask is not None
+    text, font, x, y, span = ask
+    assert "COMMENT" in text.upper() and span > 0
+    # Out of the way of Shorts' own UI along the bottom.
+    assert y < H * 0.5
+
+    raw = settings.load().raw
+    monkeypatch.setitem(raw, "overlay", {**raw["overlay"], "cta": ""})
+    assert gen._closing_ask(W, H, FPS) is None
+
+
+def test_the_closing_ask_cannot_appear_before_the_result(sandbox):
+    """It is drawn from winner_frame onward. Any earlier and it would be
+    telling the viewer the race is about to end."""
+    import inspect
+
+    source = inspect.getsource(physics.PhysicsSandbox._frames)
+    assert "frame_index >= winner_frame" in source

@@ -622,6 +622,7 @@ class PhysicsSandbox:
             for r, overlay in zip(rounds, overlays):
                 yield from self._frames(r["states"], r["balls"], r["segments"], sim_w, sim_h,
                                         overlay=overlay, style=r["style"],
+                                        ask=self._closing_ask(sim_w, sim_h, fps),
                                         winner_frame=r["winner_frame"], winner=r["winner"])
 
         silent = render.encode_frames(
@@ -869,6 +870,31 @@ class PhysicsSandbox:
             return bank[random.Random(seed).randrange(len(bank))]
         return bank[0]
 
+    def _closing_ask(self, sim_w: int, sim_h: int, fps: int):
+        """What the clip asks for once the result is in.
+
+        The opening caption asks the viewer to pick; this asks them to say
+        what they picked, and it runs in the second the race keeps going
+        after the winner crosses, where there is nothing left to give away
+        and nothing left to compete with.
+        """
+        cfg = settings.load().raw.get("overlay", {})
+        text = str(cfg.get("cta") or "").strip()
+        seconds = float(cfg.get("cta_seconds", 0) or 0)
+        if not text or seconds <= 0:
+            return None
+        from ..brand import _font
+
+        probe = ImageDraw.Draw(Image.new("RGB", (1, 1)))
+        size = int(sim_w * float(cfg.get("size", 0.072)) * 0.8)
+        while True:
+            font = _font(size)
+            width = probe.textlength(text, font=font)
+            if width <= sim_w * 0.90 or size <= 12:
+                break
+            size -= 2
+        return text, font, (sim_w - width) / 2, sim_h * 0.30, int(seconds * fps)
+
     def _overlay(self, variant: str, sim_w: int, sim_h: int, fps: int, text: str | None = None):
         """Opening caption, or None. Returns (text, font, x, y, last_frame)."""
         cfg = settings.load().raw.get("overlay", {})
@@ -881,7 +907,7 @@ class PhysicsSandbox:
         probe = ImageDraw.Draw(Image.new("RGB", (1, 1)))
         # Shrink until it fits: "FINAL · GREEN TOOK THE HEAT" at the race's
         # caption size ran off both edges of the frame.
-        size = int(sim_w * 0.072)
+        size = int(sim_w * float(cfg.get("size", 0.072)))
         while True:
             font = _font(size)
             text_width = probe.textlength(text, font=font)
@@ -902,7 +928,7 @@ class PhysicsSandbox:
 
     def _frames(
         self, states, balls, segments, sim_w, sim_h, overlay=None, style=None,
-        winner_frame=None, winner=None,
+        winner_frame=None, winner=None, ask=None,
     ) -> Iterator[bytes]:
         style = style or _Style()
         finish_line = style.stage in STAGES  # races have one; the funnel does not
@@ -982,6 +1008,15 @@ class PhysicsSandbox:
                     fade = min(1.0, (last - frame_index) / max(1, last / 3))
                     mix = 0.25 + 0.75 * fade
                     draw.text((tx, ty), text, font=font,
+                              fill=tuple(int(c * mix) for c in style.caption))
+            if ask is not None and winner_frame is not None and frame_index >= winner_frame:
+                text, font, ax, ay, span = ask
+                age = frame_index - winner_frame
+                if age < span:
+                    # Fades in rather than appearing, so it does not read as a
+                    # different clip spliced on.
+                    mix = min(1.0, 0.3 + age / max(1, span / 3))
+                    draw.text((ax, ay), text, font=font,
                               fill=tuple(int(c * mix) for c in style.caption))
             yield image.tobytes()
 

@@ -21,6 +21,22 @@ after its first sentence, where only someone who already watched will read it.
 
 Metadata that breaks either rule is refused with the reason; write it again.
 
+## The first two seconds, which is where three of four viewers are lost
+
+Studio's number for this channel: a high share of viewers watch most of a
+clip, and a low share get past the opening. So the opening is not the part
+of the job that is left over — it is the job.
+
+What the render already does for you, so you do not have to ask for it: the
+clip opens mid-action with the starting gate cut, the caption is on screen
+from the first frame at a size meant to be read at arm's length, and the
+clip ends about a second after the result. You control the words.
+
+What that leaves you: make the first words of the title and the caption say
+the same thing, so a viewer who reads either one knows what to do. If the
+caption says `PICK ONE` and the title opens "Pick your marble", the viewer
+has been asked twice in the first second and neither ask cost them anything.
+
 ## The caption (`hook_text`) — the render chooses one, you rarely override it
 
 - **Two or three words, second person, a verb.** `PICK ONE`. `CALL IT NOW`.
@@ -62,11 +78,29 @@ chance. Marketing rules for it:
    - ✓ `Call it now — only one gets out`
    - ✓ `Two rounds, same three marbles. Which one is yours?`
 
-## The pinned comment — the pick, again, after the fact
+## The ask — on screen, then pinned
 
-`Blue, violet or green — which did you back?` It names the whole lineup, asks
-the one question the viewer can answer, and stays true after the result, so
-it never needs editing. Every clip gets one.
+A viewer who has picked a side will say so if asked, and a comment is worth
+more than a view. The clip now asks twice, and the two should agree:
+
+- **On screen**, after the winner crosses, the render draws the closing ask
+  (Settings → Factory → closing ask; `COMMENT YOUR PICK` by default). You do
+  not write this, but write to it.
+- **Pinned**, in `comment_prompt`: `Blue, violet or green — which did you
+  back?` It names the whole lineup, asks the one question the viewer can
+  answer, and stays true after the result, so it never needs editing.
+
+Every clip gets a pinned comment, and it names the colours: "which did you
+back?" on its own makes the viewer scroll back to remember what there was.
+
+## Replay, honestly
+
+A race cannot loop seamlessly: it starts with marbles at the top and ends
+with them at the bottom, and no wording fixes that. What earns a replay is
+an ending worth seeing that comes round quickly, which the render handles by
+cutting about a second after the winner crosses. Do not write a title
+promising a loop, a hidden detail or a second viewing the clip does not
+contain — that is the same debt as promising a close finish there was not.
 
 ## The description
 

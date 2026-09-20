@@ -61,8 +61,10 @@ problem:
   ask for a wording, never with a winner's name or a margin; the clip is
   re-rendered with the same seed, so the race does not change, only the
   words over it.
-- `comment_prompt` is a question to pin as the first comment. Ask only what
-  the clip answers: which colour the viewer backed, not what they think of the
+- `comment_prompt` is a question to pin as the first comment, and it is not
+  optional: the clip asks for a comment on screen once the result is in, and
+  the pinned question is what that ask lands on. Name the colours. Ask only
+  what the clip answers: which colour the viewer backed, not what they think of the
   channel.
 
 What the first two seconds have to do — this is where three of four viewers

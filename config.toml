@@ -26,6 +26,15 @@ rounds = 2
 # consecutive clips do not open on the same words. The funnel sells texture
 # and sound and is left clean.
 seconds = 2.6
+# Caption height as a fraction of the frame's width. Studio says three of
+# four viewers leave before the race resolves, so the one thing on screen in
+# that second is drawn to be read at arm's length, not to be tasteful.
+size = 0.115
+# What the clip asks for once the result is in, on screen for the second or
+# so the race keeps running after the winner crosses. It cannot compete with
+# the hook because the hook is long over. Empty turns it off.
+cta = "COMMENT YOUR PICK"
+cta_seconds = 1.3
 marble_race = "PICK ONE | PICK YOUR MARBLE | CALL IT NOW | WHICH ONE IS YOURS? | ONLY ONE GETS OUT | DON'T BLINK | BET ON ONE"
 funnel_drop = ""
 

@@ -38,6 +38,24 @@ stage's numbers: `DECIDED BY 0.4s` pays the bet out before it is placed, and
 `PICK ONE · 4 SPINNERS` asks for arithmetic in the second we have. The second
 round of a two-round clip opens on `FINAL · RUN IT BACK`.
 
+**The caption is drawn large** — 11.5% of the frame's width, set under
+Settings → Factory → caption size. Studio's number for this channel is that
+most viewers who start a clip watch most of it and few get past the opening,
+so the one thing on screen in that second is sized to be read at arm's
+length rather than to be tasteful.
+
+**The clip asks for a comment once the result is in.** `COMMENT YOUR PICK`
+is drawn from the moment the winner crosses until the clip ends, about a
+second later (Settings → Factory → closing ask; empty turns it off). It
+cannot appear earlier, because an ask on screen would tell the viewer the
+race is about to end. The pinned comment should say the same thing in the
+same words, with the colours named.
+
+**A race cannot loop seamlessly**, and nothing in the wording should imply
+it does: it starts with marbles at the top and ends with them at the bottom.
+What earns the replay is an ending worth seeing that comes round quickly,
+which is why the clip cuts about a second after the winner crosses.
+
 **The title** is the same hook written for the feed: lead with the pick, name
 the lineup, present tense — `Pick your marble: red, blue or green`. Naming
 every colour gives nothing away; naming one is a spoiler. Numbers only when
