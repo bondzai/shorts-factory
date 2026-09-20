@@ -64,6 +64,22 @@ problem:
   the clip answers: which colour the viewer backed, not what they think of the
   channel.
 
+What the first two seconds have to do — this is where three of four viewers
+are lost, and the benchmark channels aim for is three of four *kept*:
+
+- The clip already opens mid-action (the gate is cut). Your caption is the
+  only other thing on screen. It must state a **stake**, not ask a vague
+  question: `DECIDED BY 0.8s` beats `WHO WINS?`, and a colour beats neither —
+  `RED BY 0.8s` is best when the margin is measured.
+- The title is the same sentence for the feed: the **colour and the number**
+  in the first four words. "Red wins by 0.8s on 59 pegs" — not "Can red win?"
+- A race that was not close (no runner-up inside a second) has no stake to
+  state. Say so in your QC reasons; it is a fair reject even when the gates
+  pass. Closeness is the product.
+- `comment_prompt` is not optional here: every clip asks the viewer to pick a
+  colour before it starts — "Which marble did you back?" — because a viewer
+  who has picked stays to find out. Name the colours in the prompt.
+
 Two rules that follow from that, and one that does not:
 
 - Put the stake in the first four words. It is what shows in the feed.

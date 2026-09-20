@@ -20,6 +20,12 @@ What is left is the part arithmetic cannot see:
 
 - **Does the first second give a reason to stay?** A clip that opens on a static
   title card, an empty frame, or a slow fade has already lost most of the feed.
+  Score `hook_strength` on this alone: 5 = marbles already mid-bounce and a
+  caption with a colour and a number; 3 = motion but a generic caption; 1 =
+  marbles sitting at the gate.
+- **Was the race close?** A winner more than a second clear is a clip with no
+  stake; the numbers on this channel say viewers who start it stay, so the
+  loss is all at the door. Prefer to reject and let the queue try another seed.
 - **Does the payoff land inside the clip?** A race that is still running at the
   last frame is a clip with no ending.
 - **Is the title true against the frames?** This is the one that must not slip.

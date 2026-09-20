@@ -388,6 +388,14 @@ class PhysicsSandbox:
                     ) from None
         states, impacts, balls, segments, winner, winner_frame, style, finishes = sim
         attempts_used = attempt + 1
+        # Open mid-action: drop the gate. Everything time-based shifts with it.
+        skip = int(float(params.get("skip_start_s", cfg.get("skip_start_s", 0))) * fps)
+        skip = max(0, min(skip, max(0, len(states) - fps * 2)))
+        if skip:
+            states = states[skip:]
+            impacts = [audio.Impact(im.t - skip / fps, im.strength, im.index, im.pan) for im in impacts if im.t >= skip / fps]
+            winner_frame = None if winner_frame is None else max(0, winner_frame - skip)
+            finishes = {name: max(0, f - skip) for name, f in finishes.items()}
         duration_s = len(states) / fps
         impacts = [im for im in impacts if im.t < duration_s]
 

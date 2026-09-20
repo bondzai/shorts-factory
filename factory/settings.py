@@ -43,6 +43,9 @@ SCHEMA: list[dict[str, Any]] = [
      "label": "Render scale", "help": "0.5 simulates at half size and upscales; 1.0 is sharper and about twice as slow."},
     {"section": "render", "key": "max_seconds", "type": "number", "min": 10, "max": 120, "step": 1,
      "label": "Simulation cap (s)"},
+    {"section": "render", "key": "skip_start_s", "type": "number", "min": 0, "max": 3, "step": 0.1,
+     "label": "Open mid-action (s dropped from the start)",
+     "help": "The swipe decision is made in the first two seconds; marbles leaving the gate are the dullest part."},
     {"section": "analyst", "key": "min_published_for_rules", "type": "number", "min": 1, "max": 500, "step": 1,
      "label": "Clips before the Analyst may propose rules"},
 ]

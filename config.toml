@@ -9,6 +9,10 @@ height = 1920
 fps = 30
 render_scale = 0.5
 max_seconds = 22
+# Seconds of the simulation dropped from the front, so frame one already has
+# marbles bouncing rather than leaving the gate. The swipe decision is made in
+# the first two seconds; the gate is the least interesting thing in the clip.
+skip_start_s = 0.6
 
 [overlay]
 # On-screen text for the opening seconds. A viewer only waits for an outcome
