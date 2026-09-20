@@ -118,3 +118,13 @@ def test_a_rejected_clip_carries_its_reason_into_the_prompt(sandbox):
     text = playbooks.render("plan-week", "main")
     assert "rejected: too similar to an existing clip: 0.91 > 0.88" in text
     assert "felt samey" not in text
+
+
+def test_the_market_brief_rides_on_every_playbook_and_is_not_a_playbook(sandbox):
+    assert "market-us" not in playbooks.available()
+    assert "us" in playbooks.markets()
+    text = playbooks.render("retitle", "main")
+    assert "Market: United States" in text and "American English" in text
+    with db.connect() as conn:
+        db.set_override(conn, "market", "main", "")
+    assert "Market: United States" not in playbooks.render("retitle", "main")

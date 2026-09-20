@@ -478,6 +478,29 @@ def reset_setting(section: str, key: str) -> dict[str, Any]:
 
 # --- directions: what every agent is told, editable without touching a playbook
 
+@app.get("/api/market")
+def get_market(channel: str | None = None) -> dict[str, Any]:
+    with db.connect() as conn:
+        ch = _resolve(conn, channel)
+        return {"channel": ch.id, "market": playbooks.market_for(conn, ch.id), "markets": playbooks.markets()}
+
+
+class MarketBody(BaseModel):
+    channel: str | None = None
+    market: str
+
+
+@app.put("/api/market")
+def put_market(body: MarketBody) -> dict[str, Any]:
+    if body.market and body.market not in playbooks.markets():
+        raise HTTPException(400, f"no market brief {body.market!r}; have {playbooks.markets()} (add prompts/market-<id>.md)")
+    with db.connect() as conn:
+        ch = _resolve(conn, body.channel)
+        db.set_override(conn, "market", ch.id, body.market)
+    logs.event("settings.changed", section="market", key=ch.id, market=body.market, by="human")
+    return get_market(ch.id)
+
+
 @app.get("/api/directions")
 def get_directions(channel: str | None = None) -> dict[str, Any]:
     with db.connect() as conn:

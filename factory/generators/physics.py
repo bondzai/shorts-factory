@@ -129,6 +129,11 @@ def _ball(space: pymunk.Space, pos, radius, color, name, friction=0.22) -> _Ball
     return _Ball(body=body, radius=radius, color=color, name=name)
 
 
+def _seconds(value: float) -> str:
+    """0.04 must not read as 0.0: a photo finish is the best thing a race can do."""
+    return f"{value:.2f} seconds" if value < 0.1 else f"{value:.1f} seconds"
+
+
 def _pick(rng: random.Random, weights: dict[str, float]) -> str:
     total = sum(weights.values())
     roll = rng.uniform(0, total)
@@ -459,7 +464,7 @@ class PhysicsSandbox:
                 else:
                     label += f" down {self._course_text(r)}"
                 if r["winner"]:
-                    gap = (f", {r['margin_s']:.1f} seconds ahead of {r['runner_up']}" if r["runner_up"]
+                    gap = (f", {_seconds(r['margin_s'])} ahead of {r['runner_up']}" if r["runner_up"]
                            else f"; no other marble crosses in the next {POST_WIN_S} seconds")
                     parts.append(f"{label}. The {r['winner']} marble reaches the bottom first, at "
                                  f"{r['winner_frame'] / fps:.1f} seconds{gap}.")

@@ -197,3 +197,8 @@ def test_a_long_caption_shrinks_to_fit_the_frame(sandbox):
     long = gen._overlay("marble_race", W, H, FPS, text="FINAL · VIOLET TOOK THE HEAT")
     assert long[1].size < short[1].size
     assert long[2] >= 0  # left edge inside the frame
+
+
+def test_a_photo_finish_is_not_written_as_zero_seconds():
+    assert physics._seconds(0.04) == "0.04 seconds"
+    assert physics._seconds(1.24) == "1.2 seconds"

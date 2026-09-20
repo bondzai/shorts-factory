@@ -32,3 +32,18 @@ minutes a day on it, on one screen.
 Every clip that passes the gates has been measured — length, loudness,
 similarity to what already shipped — before any person or model formed an
 opinion. The measurements cannot be argued with; the opinions can.
+
+## How every screen is laid out
+
+Title row, then a toolbar (search, filter chips, sort, a count), then the
+content, then pagination. Every list comes from the server in one shape —
+`items, total, page, page_size` — sorted by a field the server allows, 25, 50
+or 100 to a page, and the filters live in the address bar
+(`#/clips?status=published&sort=views&dir=desc&page=2`), so refresh, back and
+a shared link agree. Errors and outcomes are toasts in the corner, never a
+box in the way.
+
+Settings is five tabs — Channel, Rules, Brains, Themes, Factory — each with
+its own address. The Channel tab also picks the **market brief**: a file
+under `prompts/market-*.md` (US ships) appended to everything an agent reads,
+alongside your Directions from the Queue screen.

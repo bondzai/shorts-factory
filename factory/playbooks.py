@@ -26,7 +26,7 @@ def prompts_dir() -> Path:
 
 
 def available() -> list[str]:
-    return sorted(p.stem for p in prompts_dir().glob("*.md") if p.stem != "README")
+    return sorted(p.stem for p in prompts_dir().glob("*.md") if p.stem != "README" and not p.stem.startswith("market-"))
 
 
 def _recent(conn: sqlite3.Connection, channel_id: str, limit: int = 12) -> str:
@@ -161,6 +161,25 @@ def directions_text(conn: sqlite3.Connection, channel_id: str) -> str:
                        *[f"**{label}.** {value}" for label, value in filled], ""])
 
 
+def markets() -> list[str]:
+    return sorted(p.stem.removeprefix("market-") for p in prompts_dir().glob("market-*.md"))
+
+
+def market_for(conn: sqlite3.Connection, channel_id: str) -> str:
+    """Which market brief a channel gets. An override per channel; 'us' by default."""
+    chosen = db.overrides(conn).get(("market", channel_id))
+    if chosen is None:  # never chosen: the US brief, if it ships
+        return "us" if "us" in markets() else ""
+    return chosen if chosen in markets() else ""  # "" is a choice: no brief
+
+
+def market_text(conn: sqlite3.Connection, channel_id: str) -> str:
+    market = market_for(conn, channel_id)
+    if not market:
+        return ""
+    return "\n" + (prompts_dir() / f"market-{market}.md").read_text(encoding="utf-8").strip() + "\n"
+
+
 def render(name: str, channel_id: str | None = None) -> str:
     path = prompts_dir() / f"{name}.md"
     if not path.exists():
@@ -168,7 +187,10 @@ def render(name: str, channel_id: str | None = None) -> str:
     text = path.read_text(encoding="utf-8")
     with db.connect() as conn:
         values = context(conn, channel_id)
-        extra = directions_text(conn, values["channel"])
+        # Two things ride on every playbook: the channel's market brief (in
+        # git, one file per market) and the operator's directions (in the
+        # database, edited on the page). Both are appended, never formatted.
+        extra = market_text(conn, values["channel"]) + directions_text(conn, values["channel"])
     try:
         return text.format(**values) + extra
     except KeyError as exc:
