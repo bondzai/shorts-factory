@@ -27,8 +27,11 @@ done
 
 [ -x "$factory" ] || { echo "no factory at $factory — is the venv built?" >&2; exit 1; }
 
+# The flag belongs to the subcommand, not the program: `factory --channel x
+# playbook work` is accepted and silently ignored, which handed both workers
+# the default channel's prompt.
 if [ -n "$channel" ]; then
-  prompt="$("$factory" --channel "$channel" playbook work)"
+  prompt="$("$factory" playbook work --channel "$channel")"
 else
   prompt="$("$factory" playbook work)"
 fi
