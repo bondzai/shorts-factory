@@ -260,28 +260,37 @@ def _spinner(space: pymunk.Space, x: float, y: float, half: float, omega: float,
     space.add(body, shape)
 
 
+SPINNERS = (3, 4)  # how many rotating bars a bumpers course gets (min, max)
+SPINNER_ROWS = (0.26, 0.40, 0.54, 0.68)  # heights, as a fraction of the frame
+
+
 def _add_spinners(space, w, h, rng, style):
-    """One or two rotating bars, in the open middle of the course.
+    """Rotating bars stacked down the open middle of the course.
 
     A still frame of ramps is a diagram; a bar turning through the marbles is
-    a thing happening. They are kinematic — nothing a marble does slows them —
-    so they cannot be trapped, only strike. Not on the pegboard: a bar sweeping
+    a thing happening, and several of them make every frame busy. They are
+    kinematic — nothing a marble does slows them — so they cannot be trapped,
+    only strike. Rows alternate left and right of centre so the marbles weave
+    rather than meet a wall of bars. Not on the pegboard: a bar sweeping
     through a field of pegs reads as a glitch, not a mechanism.
     """
     if style.course != "bumpers":
         # Measured: on the zigzag a bar across the lane knocked marbles back
         # up the ramp until 10 seeds in 24 never finished; among pegs it reads
-        # as a glitch. In the bumper field it is one more thing to bounce off,
-        # and 21 of 24 seeds finished — the best of the three courses.
+        # as a glitch. In the bumper field it is one more thing to bounce off.
         return
-    for i in range(rng.randint(1, 2)):
-        y = h * (0.58 if i == 0 else 0.34) + rng.uniform(-h * 0.03, h * 0.03)
-        x = w * rng.uniform(0.42, 0.58)
-        half = w * rng.uniform(0.10, 0.14)
-        omega = rng.choice([-1, 1]) * rng.uniform(1.4, 2.2)
+    count = rng.randint(*SPINNERS)
+    rows = sorted(rng.sample(SPINNER_ROWS, min(count, len(SPINNER_ROWS))))
+    side = rng.choice([-1, 1])
+    for row in rows:
+        y = h * row + rng.uniform(-h * 0.02, h * 0.02)
+        x = w * (0.5 + side * rng.uniform(0.04, 0.12))
+        half = w * rng.uniform(0.09, 0.13)
+        omega = rng.choice([-1, 1]) * rng.uniform(1.4, 2.4)
         phase = rng.uniform(0, 3.14)
         _spinner(space, x, y, half, omega, phase, style.thickness / 2)
         style.spinners.append((x, y, half, omega, phase))
+        side = -side
 
 
 def _build_race(space: pymunk.Space, w: int, h: int, rng: random.Random, course: str | None = None,
@@ -431,7 +440,7 @@ class PhysicsSandbox:
         # Captions: the heat states its measured stake; the final restates the
         # structure, never a result — the viewer just saw the heat, and naming
         # its winner again is one more word that is not a stake.
-        hook_text = (params.get("hook_text") or "").strip() or self._default_hook(variant, rounds[0]["margin_s"])
+        hook_text = (params.get("hook_text") or "").strip() or self._default_hook(variant, rounds[0])
         overlays = [self._overlay(variant, sim_w, sim_h, fps, text=hook_text)]
         if len(rounds) > 1:
             caption = FINAL_CAPTION.format(count=_count_word(len(rounds[0]["balls"])))
@@ -654,17 +663,24 @@ class PhysicsSandbox:
 
         return states, impacts, balls, segments, winner, winner_frame, style, finishes
 
-    def _default_hook(self, variant: str, margin_s: float | None) -> str:
-        """The opening caption, from the race itself whenever the race gives one.
+    def _default_hook(self, variant: str, round_: dict | None) -> str:
+        """The opening caption: the scene, in the present tense, from the
+        course itself — never the result.
 
-        "DECIDED BY 0.4s" is a fact the simulation produced; "WHO TAKES IT?" is
-        a slogan. Three of four viewers swipe before the race resolves, and a
-        number states the stake in the one second they give us. Falls back to
-        the config line when the runner-up never crossed.
+        "DECIDED BY 0.4s" was a fact the simulation produced, but it is a fact
+        about how the race *ended*, and a viewer told the ending in the first
+        second has been paid out. "PICK ONE · 4 SPINNERS" states what they are
+        about to watch and asks them to commit; the margin stays in `facts`
+        for the description. Falls back to the config line off the race.
         """
-        if variant == "marble_race" and margin_s is not None and margin_s < CLOSE_RACE_S:
-            shown = f"{margin_s:.2f}" if margin_s < 0.1 else f"{margin_s:.1f}"
-            return f"DECIDED BY {shown}s"
+        if variant == "marble_race" and round_:
+            style = round_["style"]
+            if style.spinners:
+                return f"PICK ONE · {len(style.spinners)} SPINNERS"
+            if style.circles:
+                return f"PICK ONE · {len(style.circles)} PEGS"
+            if round_.get("segments"):
+                return f"PICK ONE · {len(round_['segments'])} RAMPS"
         cfg = settings.load().raw.get("overlay", {})
         return (cfg.get(variant) or "").strip()
 

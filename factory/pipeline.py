@@ -373,6 +373,14 @@ def lineup(facts: dict) -> set[str]:
     return names
 
 
+# Words that tell a viewer how it ended. "Decided by 0.7s" is as much a result
+# as "amber wins": the race is over before they press play.
+RESULT_WORDS = re.compile(
+    r"\b(decided|wins?\s+by|won|took|takes\s+it|beat|beats|beaten|edges|edged|"
+    r"by\s+(a\s+)?(nose|hair|inch|whisker)|by\s+\d+(\.\d+)?\s*(s|sec|seconds?)|"
+    r"photo\s+finish|upset)\b", re.IGNORECASE)
+
+
 def spoiler(facts: dict, **texts: str | None) -> str | None:
     """Which text names a winner, if any — the title has one job, keeping the
     viewer for the result, and a title that contains the result has already
@@ -384,6 +392,9 @@ def spoiler(facts: dict, **texts: str | None) -> str | None:
     for field, text in texts.items():
         if not text:
             continue
+        if field in ("title", "hook_text") and (hit := RESULT_WORDS.search(text)):
+            return (f"{field} tells the result ({hit.group(0)!r}); write the scene in the "
+                    f"present tense — what they are about to watch, not how it ended")
         named = {n for n in won | field_ if re.search(rf"\b{re.escape(n)}\b", text, re.IGNORECASE)}
         if named & won and not (field_ and field_ <= named):
             name = sorted(named & won)[0]

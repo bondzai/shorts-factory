@@ -68,17 +68,17 @@ What the first two seconds have to do — this is where three of four viewers
 are lost, and the benchmark channels aim for is three of four *kept*:
 
 - The clip already opens mid-action (the gate is cut). Your caption is the
-  only other thing on screen. It must state a **stake**, not ask a vague
-  question: `DECIDED BY 0.8s` beats `WHO WINS?`. Never the winner's colour:
-  `RED BY 0.8s` tells them how it ends, and they swipe.
-- The title is the same sentence for the feed: the **number** in the first
-  four words. "Decided by 0.8s on 59 pegs" — not "Can red win?" and not "Red
-  wins by 0.8s".
-- The stake can be a close finish *or* an upset. With two rounds, "Heat, then
-  final — same three marbles" is a title with a stake even when neither margin
-  was small; whether the heat winner held is the twist you keep. Only a clip
-  where the same marble runs away with both rounds has nothing to state; that
-  one is a fair reject even when the gates pass.
+  only other thing on screen. It sets the **scene and asks for a pick**:
+  `PICK ONE · 4 SPINNERS` beats `WHO WINS?`, and both beat anything about
+  the ending — `RED BY 0.8s` and `DECIDED BY 0.8s` both tell them how it
+  ends, and they swipe.
+- The title is the same sentence for the feed: the **scene** in the first
+  four words, present tense. "Three marbles, four spinning bars" — not "Red
+  wins by 0.8s" and not "Decided by 0.8s".
+- What makes a clip worth keeping is still a close finish or an upset — you
+  judge that in `submit_qc` from the facts. You just never put it in the
+  title. Only a clip where the same marble runs away with both rounds has
+  nothing to offer; that one is a fair reject even when the gates pass.
 - `comment_prompt` is not optional here: every clip asks the viewer to pick a
   colour before it starts — "Which marble did you back?" — because a viewer
   who has picked stays to find out. Name the colours in the prompt.
@@ -86,7 +86,8 @@ are lost, and the benchmark channels aim for is three of four *kept*:
 Two rules that follow from that, and one that does not:
 
 - Put the stake in the first four words. It is what shows in the feed.
-- Prefer a number the clip actually produced — the server put it in `facts`.
+- Prefer a number the clip actually produced — the server put it in `facts` —
+  as long as it describes the course, not the ending.
 - Do **not** write a question you have not measured the answer to. A title that
   promises something the clip does not show is the one mistake that costs more
   than a bad clip: it teaches the audience not to trust the next one.

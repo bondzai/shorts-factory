@@ -25,10 +25,12 @@ and not three.
 
 ## Captions and titles
 
-The caption in the first second is measured, not written: when the runner-up
-finishes inside a second, the race is captioned with its margin —
-`DECIDED BY 0.4s` — because that is a fact the simulation produced. A runaway
-race falls back to the default caption. **Re-render caption** on Today burns a
+The caption in the first second is measured, not written: it names the
+course the render built — `PICK ONE · 4 SPINNERS`, `PICK ONE · 75 PEGS` —
+and asks the viewer to commit. It never tells the result: the margin is a
+fact about how the race ended, and a viewer told the ending in the first
+second swipes. The server refuses titles and captions that name a winner or
+say "decided", "won", "by 0.7s"; see `prompts/skill-hooks.md`. **Re-render caption** on Today burns a
 different caption into the same race (same seed, only the pixels change).
 
 A title can change at any time, including after publishing. **Retitle** keeps
