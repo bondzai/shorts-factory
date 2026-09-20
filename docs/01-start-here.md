@@ -43,7 +43,7 @@ or 100 to a page, and the filters live in the address bar
 a shared link agree. Errors and outcomes are toasts in the corner, never a
 box in the way.
 
-Settings is five tabs — Channel, Rules, Brains, Themes, Factory — each with
-its own address. The Channel tab also picks the **market brief**: a file
+Settings is six tabs — Channel, Rules, Directions, Brains, Themes, Factory —
+each with its own address. The Channel tab also picks the **market brief**: a file
 under `prompts/market-*.md` (US ships) appended to everything an agent reads,
-alongside your Directions from the Queue screen.
+alongside your Directions (the Settings tab of that name).

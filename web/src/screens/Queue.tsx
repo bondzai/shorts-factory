@@ -4,7 +4,7 @@ import { when, statusWord } from "../lib/format";
 import { act } from "../lib/toast";
 import { useList } from "../lib/useList";
 import { useQuery } from "../lib/route";
-import { Page, Toolbar, SearchBox, Chips, DataTable, Pagination, Card, Badge, StepStrip, Column } from "../ui";
+import { Page, Toolbar, SearchBox, Chips, DataTable, Pagination, Badge, Modal, Column } from "../ui";
 import type { Route } from "../lib/route";
 import type { Snap, Task, TaskKind } from "../lib/types";
 
@@ -15,7 +15,7 @@ export function Queue({ snap, channelId, refresh, onOpen, route, navigate }: {
   const list = useList<Task>("/api/tasks", route, { channel: channelId, status: query.get("status"), kind: query.get("kind") }, [snap.tasks?.queued, snap.tasks?.claimed, snap.tasks?.done, snap.tasks?.failed]);
   const [kinds, setKinds] = useState<Record<string, TaskKind>>({});
   useEffect(() => { api<{ kinds: Record<string, TaskKind> }>(`/api/tasks?${q({ channel: channelId, page_size: 25 })}`).then((b) => setKinds(b.kinds)).catch(() => {}); }, [channelId]);
-  const active = (list.data?.items || []).filter((t) => t.status === "claimed");
+  const [modal, setModal] = useState<"add" | "handoff" | null>(null);
   const after = async () => { list.reload(); await refresh(); };
   const cancel = (id: number) => act(() => api(`/api/tasks/${id}`, { method: "DELETE" }), { ok: "Cancelled", after });
   const [picked, setPicked] = useState<Set<string | number>>(new Set());
@@ -36,16 +36,10 @@ export function Queue({ snap, channelId, refresh, onOpen, route, navigate }: {
   ];
 
   return (
-    <Page title="What agents will do next" lead="Put the work here once. Any agent connected over MCP pulls the next task with its full instructions and reports back; with a ready provider, the built-in agents can work the same queue.">
-      {active.length > 0 && (
-        <Card title="Now" accent>
-          {active.map((t) => { const cur = t.steps.find((s) => s.state === "current"); const n = t.steps.filter((s) => s.state === "done").length;
-            return <div key={t.id} className="stack"><div className="row"><b>#{t.id} {t.kind}</b><span className="hint">{t.claimed_by} is at <b>{cur ? cur.name : "…"}</b> — step {n + 1} of {t.steps.length}</span></div><StepStrip steps={t.steps} /></div>; })}
-        </Card>
-      )}
-      <AddWork snap={snap} channelId={channelId} kinds={kinds} after={async () => { list.reload(); await refresh(); }} />
-      <Directions channelId={channelId} />
-      <HandOff snap={snap} channelId={channelId} refresh={refresh} />
+    <Page title="What agents will do next" lead="Any agent connected over MCP pulls the next task with its full instructions and reports back. Live progress is on Today; what every agent is told is under Settings → Directions."
+      action={<div className="row"><button className="primary" onClick={() => setModal("add")}>Add work</button><button onClick={() => setModal("handoff")}>Hand off to an agent</button></div>}>
+      {modal === "add" && <Modal title="Add work" onClose={() => setModal(null)}><AddWork snap={snap} channelId={channelId} kinds={kinds} after={async () => { setModal(null); list.reload(); await refresh(); }} /></Modal>}
+      {modal === "handoff" && <Modal title="Hand the queue to an agent" onClose={() => setModal(null)}><HandOff snap={snap} channelId={channelId} refresh={refresh} /></Modal>}
       <Toolbar total={list.data?.total}>
         <button className="sm" disabled={!n} onClick={() => bulk("/api/tasks/cancel", { ids: [...picked] })}>Cancel {n || ""}</button>
         <button className="sm danger" disabled={!n} onClick={() => bulk("/api/tasks/delete", { ids: [...picked] }, `Delete ${n} task(s) from the queue? Clips they made stay.`)}>Delete {n || ""}</button>
@@ -58,8 +52,7 @@ export function Queue({ snap, channelId, refresh, onOpen, route, navigate }: {
         onSort={(k) => query.set({ sort: k, dir: query.get("sort") === k && query.get("dir") !== "asc" ? "asc" : "desc", page: 1 })}
         selectable selected={picked} onSelect={(id) => setPicked((p) => { const s = new Set(p); s.has(id) ? s.delete(id) : s.add(id); return s; })}
         onSelectAll={() => setPicked((p) => p.size === ids.length ? new Set() : new Set(ids))}
-        empty="Nothing queued. Add work above." />
-      {(list.data?.items || []).some((t) => t.status !== "queued") && null}
+        empty="Nothing queued. Press Add work." />
       {list.data && <Pagination page={list.data.page} pageSize={list.data.page_size} total={list.data.total} onPage={(p) => query.set({ page: p })} onPageSize={(s) => query.set({ page_size: s, page: 1 })} />}
     </Page>
   );
@@ -80,37 +73,14 @@ function AddWork({ snap, channelId, kinds, after }: { snap: Snap; channelId: str
     return <input key={k} className="w-sm" placeholder={k} value={params[k] ?? ""} onChange={(e) => setParams({ ...params, [k]: e.target.value })} />;
   };
   return (
-    <Card title="Add work">
-      <form className="row wrap" onSubmit={add}>
-        <select value={kind} onChange={(e) => { setKind(e.target.value); setParams({}); }}>{Object.entries(kinds).map(([k, v]) => <option key={k} value={k}>{k} — {v.meaning}</option>)}</select>
+    <form className="stack" onSubmit={add}>
+      <select value={kind} onChange={(e) => { setKind(e.target.value); setParams({}); }}>{Object.entries(kinds).map(([k, v]) => <option key={k} value={k}>{k} — {v.meaning}</option>)}</select>
+      <div className="row wrap">
         {Object.keys(spec.params).map(input)}
         {kind === "make-clip" && <label className="row small dim">×<input type="number" className="w-sm" min={1} max={50} value={count} onChange={(e) => setCount(Number(e.target.value))} /></label>}
-        <button type="submit" className="primary">Add to queue</button>
-        <span className="hint">{spec.builtin ? "built-in agents can do this" : "needs an external agent's judgement"}</span>
-      </form>
-    </Card>
-  );
-}
-
-function Directions({ channelId }: { channelId: string }) {
-  const [fields, setFields] = useState<{ key: string; label: string; placeholder: string; value: string }[]>([]);
-  const [values, setValues] = useState<Record<string, string>>({});
-  const [open, setOpen] = useState(false);
-  useEffect(() => { api<{ fields: typeof fields }>(`/api/directions?${q({ channel: channelId })}`).then((b) => { setFields(b.fields); setValues(Object.fromEntries(b.fields.map((f) => [f.key, f.value]))); }).catch(() => {}); }, [channelId]);
-  const filled = fields.filter((f) => f.value).length;
-  const save = () => act(() => send<{ fields: typeof fields }>("/api/directions", { channel: channelId, values }, "PUT").then((b) => setFields(b.fields)), { ok: "Directions saved" });
-  return (
-    <Card title="What every agent is told" right={<button className="sm ghost" onClick={() => setOpen(!open)}>{filled ? `${filled} of ${fields.length} set` : "nothing yet"} · {open ? "hide" : "edit"}</button>}>
-      {open && (
-        <div className="stack mt-3">
-          <div className="hint">Five short notes in your own words. Appended to every playbook and every task's instructions; they win over anything that disagrees, so you never edit a playbook to change how titles sound.</div>
-          <div className="form">
-            {fields.map((f) => <span key={f.key} style={{ display: "contents" }}><label>{f.label}</label><div className="field"><textarea rows={2} placeholder={f.placeholder} value={values[f.key] || ""} onChange={(e) => setValues({ ...values, [f.key]: e.target.value })} /></div></span>)}
-            <div className="actions"><button className="primary" onClick={save}>Save directions</button><span className="hint">applies to the next task an agent pulls</span></div>
-          </div>
-        </div>
-      )}
-    </Card>
+      </div>
+      <div className="row"><button type="submit" className="primary">Add to queue</button><span className="hint">{spec.builtin ? "built-in agents can do this" : "needs an external agent's judgement"}</span></div>
+    </form>
   );
 }
 
@@ -120,12 +90,12 @@ function HandOff({ snap, channelId, refresh }: { snap: Snap; channelId: string; 
   useEffect(() => { api<{ text: string }>(`/api/playbook/work?${q({ channel: channelId })}`).then((b) => setText(b.text)).catch(() => {}); }, [channelId]);
   const copy = async () => { try { await navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* shown below */ } };
   return (
-    <Card title="Hand the queue to an agent" hint="Paste this into Codex, Claude Code or any MCP-connected agent. It is the same for every task and every model — the task carries its own playbook."
-      right={<button className="sm ok" onClick={copy} disabled={!text}>{copied ? "Copied" : "Copy"}</button>}>
-      <pre className="captured" style={{ maxHeight: 120 }}>{text || "loading…"}</pre>
+    <div className="stack">
+      <div className="row"><span className="hint grow">Paste this into Codex, Claude Code or any MCP-connected agent. It is the same for every task and every model — the task carries its own playbook.</span><button className="sm ok" onClick={copy} disabled={!text}>{copied ? "Copied" : "Copy"}</button></div>
+      <pre className="captured" style={{ maxHeight: 260 }}>{text || "loading…"}</pre>
       {snap.agents?.available
         ? <div className="row mt-3"><button onClick={() => act(() => send("/api/tasks/work", { channel: channelId }), { after: refresh })} disabled={snap.job?.running}>Run with built-in agents</button><span className="hint">does every make-clip task in the queue, in a job</span></div>
         : <div className="hint mt-3">No built-in provider is ready (Settings → Brains), so an external agent works this queue.</div>}
-    </Card>
+    </div>
   );
 }

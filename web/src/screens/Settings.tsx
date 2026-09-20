@@ -8,6 +8,7 @@ import type { Channel, Snap } from "../lib/types";
 const TABS = [
   { id: "channel", label: "Channel", meaning: "name, handle, driver, what it may make" },
   { id: "rules", label: "Rules", meaning: "what the agents read before every run" },
+  { id: "directions", label: "Directions", meaning: "your own notes, appended to everything an agent reads" },
   { id: "brains", label: "Brains", meaning: "which model each agent runs on" },
   { id: "themes", label: "Themes", meaning: "seasons: colours, marbles, decorations" },
   { id: "factory", label: "Factory", meaning: "the knobs: gates, captions, retention, rounds" },
@@ -22,6 +23,7 @@ export function Settings({ snap, channelId, refresh, tab, setTab }: { snap: Snap
       </div>
       {current.id === "channel" && <><ChannelForm ch={snap.channel} refresh={refresh} /><AddChannel onDone={refresh} /></>}
       {current.id === "rules" && <Rules channelId={channelId} />}
+      {current.id === "directions" && <Directions channelId={channelId} />}
       {current.id === "brains" && <Brains refresh={refresh} />}
       {current.id === "themes" && <Themes />}
       {current.id === "factory" && <FactorySettings />}
@@ -189,6 +191,21 @@ function Rules({ channelId }: { channelId: string }) {
           {r.proposals.map((p) => <Card key={p}><div className="small mb-3">{p}</div><button className="sm ok" onClick={() => accept(p)}>Accept</button></Card>)}
           {!r.proposals.length && <div className="hint">No pending proposals{r.digest ? ` (last digest: ${r.digest.n_published} clips with metrics)` : ""}. The Analyst writes nothing below the sample threshold.</div>}
         </div>
+      </div>
+    </Card>
+  );
+}
+
+function Directions({ channelId }: { channelId: string }) {
+  const [fields, setFields] = useState<{ key: string; label: string; placeholder: string; value: string }[]>([]);
+  const [values, setValues] = useState<Record<string, string>>({});
+  useEffect(() => { api<{ fields: typeof fields }>(`/api/directions?${q({ channel: channelId })}`).then((b) => { setFields(b.fields); setValues(Object.fromEntries(b.fields.map((f) => [f.key, f.value]))); }).catch(() => {}); }, [channelId]);
+  const save = () => act(() => send<{ fields: typeof fields }>("/api/directions", { channel: channelId, values }, "PUT").then((b) => setFields(b.fields)), { ok: "Directions saved" });
+  return (
+    <Card title="What every agent is told" hint="Five short notes in your own words. Appended to every playbook and every task's instructions; they win over anything that disagrees, so you never edit a playbook to change how titles sound. Applies to the next task an agent pulls.">
+      <div className="form mt-3">
+        {fields.map((f) => <Field key={f.key} label={f.label}><textarea rows={2} placeholder={f.placeholder} value={values[f.key] || ""} onChange={(e) => setValues({ ...values, [f.key]: e.target.value })} /></Field>)}
+        <div className="actions"><button className="primary" onClick={save}>Save directions</button></div>
       </div>
     </Card>
   );

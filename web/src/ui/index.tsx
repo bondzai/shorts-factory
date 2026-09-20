@@ -1,4 +1,4 @@
-// The eight pieces every screen is built from. A screen that needs a ninth
+// The pieces every screen is built from. A screen that needs another one
 // is a screen that is doing too much.
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { useToasts } from "../lib/toast";
@@ -108,6 +108,25 @@ export function Drawer({ onClose, children }: { onClose: () => void; children: R
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
   return <><div className="scrim" onClick={onClose} /><div className="drawer" role="dialog">{children}</div></>;
+}
+
+/* Modal: a centred dialog for one short form. A list screen stays a list;
+   the thing that creates a row opens here and closes when it is done. */
+export function Modal({ title, onClose, children }: { title: ReactNode; onClose: () => void; children: ReactNode }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  return (
+    <>
+      <div className="scrim" onClick={onClose} />
+      <div className="modal" role="dialog" aria-modal="true">
+        <div className="row mb-3"><h2>{title}</h2><button className="sm ghost right" onClick={onClose} aria-label="close">✕</button></div>
+        {children}
+      </div>
+    </>
+  );
 }
 
 export function Field({ label, help, children }: { label: ReactNode; help?: ReactNode; children: ReactNode }) {

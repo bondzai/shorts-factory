@@ -111,6 +111,7 @@ table.data tr.clickable { cursor: pointer; } table.data tr.clickable:hover td { 
 .pagination { display: flex; align-items: center; gap: var(--s2); margin-top: var(--s3); font-size: var(--f1); color: var(--dim); }
 .pagination .pages { display: flex; gap: var(--s1); }
 .scrim { position: fixed; inset: 0; background: var(--scrim); z-index: 19; }
+.modal { position: fixed; top: 12vh; left: 50%; transform: translateX(-50%); width: min(720px, calc(100vw - 32px)); max-height: 76vh; overflow: auto; background: var(--bg); border: 1px solid var(--line); border-radius: var(--r2); z-index: 20; padding: var(--s4) var(--s5) var(--s5); box-shadow: 0 12px 40px var(--shadow); }
 .drawer { position: fixed; top: 0; right: 0; height: 100vh; width: min(640px, 100vw); background: var(--bg); border-left: 1px solid var(--line); z-index: 20; overflow: auto; padding: var(--s4) var(--s5) var(--s6); }
 dl.facts { display: grid; grid-template-columns: 130px 1fr; gap: var(--s1) var(--s3); margin: 0; font-size: var(--f2); }
 dl.facts dt { color: var(--faint); font-family: ui-monospace, monospace; font-size: var(--f1); } dl.facts dd { margin: 0; word-break: break-word; }
@@ -171,5 +172,5 @@ details.run > summary::-webkit-details-marker { display: none; } details.run .ev
   nav.side .foot { margin: 0 0 0 auto; padding: 0; border: 0; }
   header.top { padding: var(--s2) var(--s4); } .content { padding: var(--s4) var(--s4) 60px; }
   .clip { grid-template-columns: 1fr; } .form { grid-template-columns: 1fr; } .form label { padding-top: 0; } .form .actions { grid-column: 1; }
-  .drawer { width: 100vw; }
+  .drawer { width: 100vw; } .modal { top: 0; max-height: 100vh; width: 100vw; border-radius: 0; }
 }

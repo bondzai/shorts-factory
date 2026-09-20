@@ -2,8 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import { api, q, send } from "../lib/api";
 import { fmt, download } from "../lib/format";
 import { act, toast } from "../lib/toast";
-import { Page, Card } from "../ui";
-import type { Clip, Snap } from "../lib/types";
+import { Page, Card, StepStrip } from "../ui";
+import type { Clip, Snap, Task } from "../lib/types";
 
 export function Today({ snap, channelId, refresh, sound, setSound, onOpen }: {
   snap: Snap; channelId: string; refresh: () => Promise<void>; sound: boolean; setSound: (v: boolean) => void; onOpen: (id: string) => void;
@@ -42,6 +42,7 @@ export function Today({ snap, channelId, refresh, sound, setSound, onOpen }: {
     return (
       <Page title={`Nothing waiting on ${snap.channel.name}`}
         lead={snap.planned ? `${snap.planned} clip(s) are planned — press Build planned.` : snap.agents?.available ? "Press Plan to ask for ideas, then Build planned." : "Add work on the Queue screen; an agent renders it and it shows up here."}>
+        <LiveNow snap={snap} channelId={channelId} />
         <Card hint="Every clip you have handled is under Clips, each with View and Download while its file is kept." />
       </Page>
     );
@@ -49,11 +50,32 @@ export function Today({ snap, channelId, refresh, sound, setSound, onOpen }: {
   return (
     <Page title={`${snap.queue.length} to decide · ${snap.approved.length} to upload`}
       action={<button className="sm" onClick={() => setSound(!sound)}>Sound: {sound ? "on" : "off"}</button>}>
+      <LiveNow snap={snap} channelId={channelId} />
       <ClipCard key={current.id} clip={current} sound={sound} refresh={refresh} decide={decide} channelId={channelId} position={`${safe + 1} of ${items.length}`} onOpen={onOpen} />
       <div className="strip">
         {items.map((c, i) => <button key={c.id} className="sm" aria-current={i === safe} onClick={() => setIndex(i)}>{c.status === "approved" ? "✓ " : ""}{i + 1}. {(c.title || c.id).slice(0, 32)}</button>)}
       </div>
     </Page>
+  );
+}
+
+/* What is happening right now: each claimed task, who holds it, which step
+   it is on. Fetched whenever the snapshot changes, so it moves at the same
+   rate as the rest of the screen. */
+function LiveNow({ snap, channelId }: { snap: Snap; channelId: string }) {
+  const [active, setActive] = useState<Task[]>([]);
+  const claimed = snap.tasks?.claimed || 0;
+  useEffect(() => {
+    if (!claimed) { setActive([]); return; }
+    api<{ items: Task[] }>(`/api/tasks?${q({ channel: channelId, status: "claimed", page_size: 25 })}`).then((b) => setActive(b.items)).catch(() => {});
+  }, [channelId, claimed, snap.job?.log?.length]);
+  if (!active.length && !snap.job?.running) return null;
+  return (
+    <Card title="Now" accent>
+      {snap.job?.running && <div className="hint">{snap.job.name} is running · {snap.job.log[snap.job.log.length - 1] || ""}</div>}
+      {active.map((t) => { const cur = t.steps.find((s) => s.state === "current"); const done = t.steps.filter((s) => s.state === "done").length;
+        return <div key={t.id} className="stack mt-3"><div className="row"><b>#{t.id} {t.kind}</b><span className="hint">{t.claimed_by} is at <b>{cur ? cur.name : "…"}</b> — step {done + 1} of {t.steps.length}</span></div><StepStrip steps={t.steps} /></div>; })}
+    </Card>
   );
 }
 
