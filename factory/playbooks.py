@@ -83,6 +83,39 @@ def _retention(conn: sqlite3.Connection, channel_id: str) -> str:
     return f"Measured on this channel (n = {len(rows)}):\n" + "\n".join(lines)
 
 
+def _published(conn: sqlite3.Connection, channel_id: str) -> str:
+    import json as _json
+
+    rows = conn.execute(
+        """
+        SELECT id, title, views, avg_view_pct, swipe_away_pct, hook_text,
+               comment_prompt, title_history_json, published_at
+        FROM clips WHERE channel_id = ? AND published_at IS NOT NULL
+        ORDER BY COALESCE(swipe_away_pct, -1) DESC, views DESC
+        """,
+        (channel_id,),
+    ).fetchall()
+    if not rows:
+        return "Nothing published on this channel yet."
+    lines = []
+    for r in rows:
+        history = _json.loads(r["title_history_json"] or "[]")
+        metrics = "no metrics yet"
+        if r["views"] is not None:
+            metrics = f"{r['views']} views"
+            if r["avg_view_pct"] is not None:
+                metrics += f", {r['avg_view_pct']:.0f}% viewed"
+            if r["swipe_away_pct"] is not None:
+                metrics += f", {r['swipe_away_pct']:.0f}% swiped away"
+        lines.append(
+            f"- {r['id']}  “{r['title']}”  — {metrics}"
+            + (f"; caption “{r['hook_text']}”" if r["hook_text"] else "")
+            + (f"; retitled {len(history)}× (was “{history[-1]['title']}” at "
+               f"{history[-1].get('views')} views)" if history else "")
+        )
+    return "\n".join(lines)
+
+
 def context(conn: sqlite3.Connection, channel_id: str | None = None) -> dict[str, Any]:
     channel = channels.resolve(conn, channel_id)
     cfg = settings.load()
@@ -94,6 +127,7 @@ def context(conn: sqlite3.Connection, channel_id: str | None = None) -> dict[str
         "rules": channel.rules().strip(),
         "recent": _recent(conn, channel.id),
         "retention": _retention(conn, channel.id),
+        "published": _published(conn, channel.id),
         "max_sameness": cfg.raw["qc"]["max_sameness"],
         "min_seconds": cfg.raw["qc"]["min_seconds"],
         "max_seconds": cfg.raw["qc"]["max_seconds"],

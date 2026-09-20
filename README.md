@@ -210,6 +210,57 @@ The retention advice inside `make-clip.md` prints the numbers it rests on
 directly above itself, so when the numbers move the advice can be argued with
 rather than followed out of habit.
 
+## The caption, the title, and the gauge on the title
+
+YouTube's own analysis of the first published race said the same thing twice:
+76% average viewed, 25% stayed. The clip holds whoever starts it and loses
+whoever is deciding whether to. Two things decide that — the caption in the
+first second and the title — and until this section neither could be changed.
+
+**The caption is measured, not written.** `physics` now records every marble's
+crossing, not only the winner's, and when the runner-up is inside a second the
+opening caption is the margin: `DECIDED BY 0.4s`. That is a fact the simulation
+produced, on screen in the one second the viewer gives us. A runaway race falls
+back to the config line. `facts.margin_s`, `facts.finishes` and
+`facts.hook_text` say which happened.
+
+```bash
+factory rehook <clip> "DECIDED BY 0.4s"   # re-burn a caption; same seed, same race
+factory rehook <clip> --measured          # let the render choose from what it measures
+```
+
+Only pixels change, so the clip stays where it was in the pipeline — a queued
+clip stays queued, an approved one goes back to the queue. A published clip
+refuses: the caption is in the uploaded file.
+
+**The title can change, and the change keeps its receipt.**
+
+```bash
+factory retitle <clip> "This marble race is decided by 0.4 seconds" --why "stake first"
+```
+
+`retitle` keeps the old title and the metrics at the moment of the change
+(views, average viewed, swiped away, when they were pulled). Without that a
+retitle is a lever with no gauge: next week's numbers would be credited to a
+title that was only on the video for half the week. On a manual-driver channel
+the tool says the new title also has to be typed into Studio.
+
+**The comment prompt** is a third field on metadata: a question to pin as the
+first comment. Only one the clip answers — which colour the viewer backed — and
+the Review screen's "Copy for upload" puts it under the hashtags.
+
+The Review screen edits all three in place; the MCP `submit_metadata` takes
+`hook_text` and `comment_prompt`, and `retitle` is its own tool. The `retitle`
+playbook lists published clips worst-swipe-away first with their caption and
+their title history, so an agent proposes from the numbers rather than from
+taste.
+
+One honesty note that this work surfaced: the first published title, "decided
+by half a second", was written before the margin was recorded anywhere — the
+clip's stored description at the time was the seed number. It cannot be
+checked now. Every race rendered from here on records its margin, and the
+title playbook says to use it.
+
 ## Disk, and clips that stopped halfway
 
 ```bash

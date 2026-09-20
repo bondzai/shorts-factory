@@ -52,6 +52,18 @@ here — name the specific thing that resolves, not the category. "This marble
 race is decided by half a second" states a stake. "Marble race #14" states a
 filename.
 
+Two more fields on `submit_metadata`, both optional, both for the same
+problem:
+
+- `hook_text` is the caption burned into the opening seconds. The render
+  already chose one from what it measured — for a close race, the margin, as
+  `facts.margin_s` — and `render_clip` shows it. Override it only with
+  something the facts support; the clip is re-rendered with the same seed, so
+  the race does not change, only the words over it.
+- `comment_prompt` is a question to pin as the first comment. Ask only what
+  the clip answers: which colour the viewer backed, not what they think of the
+  channel.
+
 Two rules that follow from that, and one that does not:
 
 - Put the stake in the first four words. It is what shows in the feed.

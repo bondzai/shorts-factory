@@ -33,13 +33,34 @@ class ClipPlanBatch(BaseModel):
     plans: list[ClipPlan]
 
 
+TITLE_MIN, TITLE_MAX = 20, 90
+HOOK_MAX = 28  # what fits across a phone at the overlay's size
+
+
 class Metadata(BaseModel):
     """English-language publishing metadata."""
 
-    title: str = Field(min_length=20, max_length=90)
+    title: str = Field(min_length=TITLE_MIN, max_length=TITLE_MAX)
     description: str = Field(min_length=20, max_length=900)
     hashtags: list[str] = Field(min_length=3, max_length=5)
     rationale: str = Field(description="Why this title should stop a thumb.")
+    hook_text: str | None = Field(
+        default=None,
+        max_length=HOOK_MAX,
+        description=(
+            "On-screen caption for the opening seconds, burned into the video. "
+            "Prefer a number the render produced (see facts.margin_s). Leave "
+            "unset to keep what was rendered."
+        ),
+    )
+    comment_prompt: str | None = Field(
+        default=None,
+        max_length=140,
+        description=(
+            "A question to pin as the first comment. Only a question the clip "
+            "itself answers, e.g. which colour the viewer backed."
+        ),
+    )
 
 
 class QCVerdict(BaseModel):

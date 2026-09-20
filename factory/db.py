@@ -45,6 +45,17 @@ def migrate(conn: sqlite3.Connection) -> list[str]:
         conn.execute("ALTER TABLE clips ADD COLUMN purged_at TEXT")
         done.append("clips.purged_at added")
 
+    # The two levers Studio's own analysis points at, plus the record that
+    # makes pulling one of them measurable.
+    for column, ddl in (
+        ("hook_text", "TEXT"),
+        ("comment_prompt", "TEXT"),
+        ("title_history_json", "TEXT NOT NULL DEFAULT '[]'"),
+    ):
+        if column not in _columns(conn, "clips"):
+            conn.execute(f"ALTER TABLE clips ADD COLUMN {column} {ddl}")
+            done.append(f"clips.{column} added")
+
     if "proposals_json" not in _columns(conn, "digests"):
         conn.execute("ALTER TABLE digests ADD COLUMN proposals_json TEXT NOT NULL DEFAULT '[]'")
         done.append("digests.proposals_json added")
@@ -125,6 +136,7 @@ _ALLOWED_COLUMNS = {
     "duration_s", "width", "height", "fps",
     "loudness_lufs", "phash", "sameness", "title", "description",
     "hashtags_json", "qc_json", "reject_reason", "platform", "remote_id",
+    "params_json", "hook_text", "comment_prompt", "title_history_json",
     "published_at", "views", "avg_view_pct", "swipe_away_pct", "likes",
     "metrics_at", "purged_at",
 }

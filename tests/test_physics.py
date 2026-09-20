@@ -66,7 +66,7 @@ def test_a_settled_funnel_just_ends():
 # agent shown four frames. These pin the fix.
 
 def _look(seed):
-    states, _, balls, segments, _, _, style = simulate(seed, frames=40)
+    states, _, balls, segments, _, _, style, _ = simulate(seed, frames=40)
     return {
         "ramps": len(segments),
         "marbles": len(balls),

@@ -134,6 +134,10 @@ def _clip_json(row) -> dict[str, Any]:
         "qc": json.loads(row["qc_json"] or "null"),
         "reject_reason": row["reject_reason"],
         "has_video": bool(row["video_path"]),
+        "hook_text": row["hook_text"],
+        "comment_prompt": row["comment_prompt"],
+        "title_history": json.loads(row["title_history_json"] or "[]"),
+        "published_at": row["published_at"],
     }
 
 
@@ -461,6 +465,53 @@ def approve(clip_id: str) -> dict[str, str]:
 
 class RejectBody(BaseModel):
     reason: str = "not good enough"
+
+
+class TextBody(BaseModel):
+    title: str | None = None
+    comment_prompt: str | None = None
+    why: str = ""
+
+
+@app.patch("/api/clip/{clip_id}/text")
+def edit_text(clip_id: str, body: TextBody) -> dict[str, Any]:
+    out: dict[str, Any] = {"clip": clip_id}
+    with db.connect() as conn:
+        try:
+            if body.title is not None:
+                out = pipeline.retitle(conn, clip_id, body.title, by="human", why=body.why)
+            if body.comment_prompt is not None:
+                if db.get(conn, clip_id) is None:
+                    raise ValueError(f"no clip {clip_id}")
+                db.update(conn, clip_id, comment_prompt=body.comment_prompt.strip() or None)
+                out["comment_prompt"] = body.comment_prompt.strip() or None
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from None
+    return out
+
+
+class HookBody(BaseModel):
+    text: str
+
+
+@app.post("/api/clip/{clip_id}/hook")
+def rehook(clip_id: str, body: HookBody) -> dict[str, Any]:
+    """A minute of ffmpeg, so it runs as a job like build does."""
+    with db.connect() as conn:
+        row = db.get(conn, clip_id)
+        if row is None:
+            raise HTTPException(404, f"no clip {clip_id}")
+        ch = _resolve(conn, row["channel_id"])
+
+    def work(emit) -> float:
+        with db.connect() as conn:
+            emit(f"{clip_id}  re-rendering with caption {body.text.strip()!r}")
+            outcome = pipeline.rehook(conn, clip_id, body.text)
+            emit(f"{clip_id}  {outcome.status}: {outcome.detail}")
+        return 0.0
+
+    JOB.start("rehook", ch.id, work)
+    return JOB.state()
 
 
 @app.post("/api/clip/{clip_id}/reject")

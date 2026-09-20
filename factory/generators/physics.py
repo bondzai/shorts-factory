@@ -34,6 +34,8 @@ IMPACT_DV = 22.0  # velocity change that counts as a hit, in sim px/s
 MAX_IMPACTS_PER_FRAME = 2  # 54 balls landing at once is a wash, not a sound
 STALL_SPEED = 12.0  # below this, in sim px/s, nothing is moving any more
 MAX_ATTEMPTS = 4  # a stalled race is retried on a derived seed, not abandoned
+POST_WIN_S = 1.3  # how long the race keeps running after the winner crosses
+CLOSE_RACE_S = 1.0  # a runner-up inside this gets the margin on screen
 
 
 class _Stalled(RuntimeError):
@@ -272,10 +274,19 @@ class PhysicsSandbox:
                         f"{variant} seed {seed} stalled on every one of "
                         f"{MAX_ATTEMPTS} attempts ({exc})"
                     ) from None
-        states, impacts, balls, segments, winner, winner_frame, style = sim
+        states, impacts, balls, segments, winner, winner_frame, style, finishes = sim
         attempts_used = attempt + 1
         duration_s = len(states) / fps
         impacts = [im for im in impacts if im.t < duration_s]
+
+        finish_s = {
+            name: round(f / fps, 2)
+            for name, f in sorted(finishes.items(), key=lambda kv: kv[1])
+        }
+        order = list(finish_s)
+        runner_up = order[1] if len(order) > 1 else None
+        margin_s = round(finish_s[order[1]] - finish_s[order[0]], 2) if runner_up else None
+        hook_text = (params.get("hook_text") or "").strip() or self._default_hook(variant, margin_s)
 
         clip_dir = work_dir
         clip_dir.mkdir(parents=True, exist_ok=True)
@@ -283,7 +294,7 @@ class PhysicsSandbox:
         silent = render.encode_frames(
             self._frames(
                 states, balls, segments, sim_w, sim_h,
-                overlay=self._overlay(variant, sim_w, sim_h, fps),
+                overlay=self._overlay(variant, sim_w, sim_h, fps, text=hook_text),
                 style=style,
             ),
             out_path=clip_dir / "video.mp4",
@@ -297,10 +308,15 @@ class PhysicsSandbox:
             names = ", ".join(b.name for b in balls)
             ramp_count = len(segments)
             if winner:
+                gap = (
+                    f", {margin_s:.1f} seconds ahead of {runner_up}"
+                    if runner_up else
+                    f"; no other marble crosses in the next {POST_WIN_S} seconds"
+                )
                 description = (
                     f"{len(balls)} marbles ({names}) race down a {ramp_count}-ramp "
                     f"zigzag course. The {winner} marble reaches the bottom first, at "
-                    f"{winner_frame / fps:.1f} seconds."
+                    f"{winner_frame / fps:.1f} seconds{gap}."
                 )
             else:
                 description = (
@@ -326,6 +342,10 @@ class PhysicsSandbox:
                 "ramps": len(segments),
                 "palette": style.background,
                 "sim_attempts": attempts_used,
+                "finishes": finish_s,
+                "runner_up": runner_up,
+                "margin_s": margin_s,
+                "hook_text": hook_text,
             },
         )
 
@@ -350,6 +370,7 @@ class PhysicsSandbox:
         previous = [(b.body.velocity.x, b.body.velocity.y) for b in balls]
         winner: str | None = None
         winner_frame: int | None = None
+        finishes: dict[str, int] = {}
         stalled = 0
 
         for frame in range(max_frames):
@@ -385,12 +406,17 @@ class PhysicsSandbox:
                     break
                 raise _Stalled(f"no winner by {frame / fps:.1f}s")
 
-            if finish_y is not None and winner is None:
+            if finish_y is not None:
+                # Every crossing is recorded, not only the first: the gap to
+                # the runner-up is what the opening caption is built from.
                 for ball in balls:
+                    if ball.name in finishes:
+                        continue
                     if ball.body.position.y - ball.radius <= finish_y:
-                        winner, winner_frame = ball.name, frame
-                        break
-            if winner_frame is not None and frame >= winner_frame + int(fps * 1.3):
+                        finishes[ball.name] = frame
+                        if winner is None:
+                            winner, winner_frame = ball.name, frame
+            if winner_frame is not None and frame >= winner_frame + int(fps * POST_WIN_S):
                 break
 
         # Varying the course changed the duration spread as well as the look,
@@ -407,12 +433,27 @@ class PhysicsSandbox:
                     f"finished in {len(states) / fps:.1f}s, under the {floor}s floor"
                 )
 
-        return states, impacts, balls, segments, winner, winner_frame, style
+        return states, impacts, balls, segments, winner, winner_frame, style, finishes
 
-    def _overlay(self, variant: str, sim_w: int, sim_h: int, fps: int):
+    def _default_hook(self, variant: str, margin_s: float | None) -> str:
+        """The opening caption, from the race itself whenever the race gives one.
+
+        "DECIDED BY 0.4s" is a fact the simulation produced; "WHO TAKES IT?" is
+        a slogan. Three of four viewers swipe before the race resolves, and a
+        number states the stake in the one second they give us. Falls back to
+        the config line when the runner-up never crossed.
+        """
+        if variant == "marble_race" and margin_s is not None and margin_s < CLOSE_RACE_S:
+            shown = f"{margin_s:.2f}" if margin_s < 0.1 else f"{margin_s:.1f}"
+            return f"DECIDED BY {shown}s"
+        cfg = settings.load().raw.get("overlay", {})
+        return (cfg.get(variant) or "").strip()
+
+    def _overlay(self, variant: str, sim_w: int, sim_h: int, fps: int, text: str | None = None):
         """Opening caption, or None. Returns (text, font, x, y, last_frame)."""
         cfg = settings.load().raw.get("overlay", {})
-        text = (cfg.get(variant) or "").strip()
+        if text is None:
+            text = (cfg.get(variant) or "").strip()
         if not text:
             return None
         from ..brand import _font

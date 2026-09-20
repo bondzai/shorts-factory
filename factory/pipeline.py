@@ -103,6 +103,44 @@ def plan(
 
 # --- stages 2-4: render, metadata, qc ---------------------------------------
 
+def _render_stage(conn: sqlite3.Connection, ch: Channel, clip_id: str, params: dict, *, by: str | None = None):
+    """Render, measure, hash and record one clip.
+
+    One body for build, the credential-free agent path and a caption re-render,
+    so the three cannot drift apart in what they measure.
+    """
+    row = db.get(conn, clip_id)
+    gen = generators.get(row["generator"])
+    clip = gen.generate(
+        seed=row["seed"], variant=row["variant"], params=params,
+        work_dir=settings.load().work_dir / ch.id / clip_id,
+    )
+    info = render.probe(clip.video_path)
+    loudness = render.loudness_lufs(clip.video_path)
+    frames = render.sample_frames(clip.video_path, _sample_times(info["duration_s"]))
+    if not frames:
+        raise RuntimeError("could not sample any frame from the render")
+    digest_hash = phash.clip_hash(frames)
+    sameness = round(
+        phash.max_similarity(digest_hash, db.known_phashes(conn, ch.id, exclude=clip_id)), 4
+    )
+    db.update(
+        conn, clip_id, status=RENDERED, video_path=str(clip.video_path),
+        render_desc=clip.description, facts_json=json.dumps(clip.facts, default=str),
+        duration_s=info["duration_s"], width=info["width"], height=info["height"],
+        fps=info["fps"], loudness_lufs=loudness, phash=digest_hash, sameness=sameness,
+        hook_text=clip.facts.get("hook_text"),
+    )
+    # The silent mp4 and the wav are dead the moment the mux lands.
+    swept = gc.sweep_intermediates(clip.video_path.parent)
+    logs.event(
+        "clip.rendered", channel=ch.id, clip=clip_id, duration_s=info["duration_s"],
+        loudness_lufs=loudness, sameness=sameness, facts=clip.facts,
+        mb_reclaimed=swept.mb, **({"by": by} if by else {}),
+    )
+    return clip, info, loudness, frames, sameness
+
+
 def build(conn: sqlite3.Connection, clip_id: str, *, force: bool = False) -> StageOutcome:
     """Take a clip as far as the review queue, resuming from wherever it stopped.
 
@@ -151,45 +189,8 @@ def build(conn: sqlite3.Connection, clip_id: str, *, force: bool = False) -> Sta
                 raise ValueError(
                     f"{ch.id} no longer allows {row['generator']}/{row['variant']}"
                 )
-            gen = generators.get(row["generator"])
-            clip = gen.generate(
-                seed=row["seed"],
-                variant=row["variant"],
-                params=json.loads(row["params_json"]),
-                work_dir=cfg.work_dir / ch.id / clip_id,
-            )
-            info = render.probe(clip.video_path)
-            loudness = render.loudness_lufs(clip.video_path)
-            frames = render.sample_frames(clip.video_path, _sample_times(info["duration_s"]))
-            if not frames:
-                raise RuntimeError("could not sample any frame from the render")
-            digest_hash = phash.clip_hash(frames)
-            sameness = phash.max_similarity(
-                digest_hash, db.known_phashes(conn, ch.id, exclude=clip_id)
-            )
-
-            db.update(
-                conn,
-                clip_id,
-                status=RENDERED,
-                video_path=str(clip.video_path),
-                render_desc=clip.description,
-                facts_json=json.dumps(clip.facts, default=str),
-                duration_s=info["duration_s"],
-                width=info["width"],
-                height=info["height"],
-                fps=info["fps"],
-                loudness_lufs=loudness,
-                phash=digest_hash,
-                sameness=round(sameness, 4),
-            )
-            # The silent mp4 and the wav are dead the moment the mux lands.
-            swept = gc.sweep_intermediates(clip.video_path.parent)
-            logs.event(
-                "clip.rendered", channel=ch.id, clip=clip_id,
-                duration_s=info["duration_s"], loudness_lufs=loudness,
-                sameness=round(sameness, 4), facts=clip.facts,
-                mb_reclaimed=swept.mb,
+            clip, info, loudness, frames, sameness = _render_stage(
+                conn, ch, clip_id, json.loads(row["params_json"])
             )
     except Exception as exc:
         db.update(conn, clip_id, status=FAILED, reject_reason=f"render: {exc}")
@@ -333,37 +334,11 @@ def create_and_render(
         variant=variant, seed=seed, hook=hook, by="agent",
     )
 
-    gen = generators.get(generator)
-    clip = gen.generate(
-        seed=seed, variant=variant, params={},
-        work_dir=settings.load().work_dir / ch.id / clip_id,
-    )
-    info = render.probe(clip.video_path)
-    loudness = render.loudness_lufs(clip.video_path)
-    frames = render.sample_frames(clip.video_path, _sample_times(info["duration_s"]))
-    if not frames:
-        raise RuntimeError("could not sample any frame from the render")
-    digest_hash = phash.clip_hash(frames)
-    sameness = phash.max_similarity(
-        digest_hash, db.known_phashes(conn, ch.id, exclude=clip_id)
-    )
-    db.update(
-        conn, clip_id, status=RENDERED, video_path=str(clip.video_path),
-        render_desc=clip.description, facts_json=json.dumps(clip.facts, default=str),
-        duration_s=info["duration_s"], width=info["width"], height=info["height"],
-        fps=info["fps"], loudness_lufs=loudness, phash=digest_hash,
-        sameness=round(sameness, 4),
-    )
-    swept = gc.sweep_intermediates(clip.video_path.parent)
-    logs.event(
-        "clip.rendered", channel=ch.id, clip=clip_id, duration_s=info["duration_s"],
-        loudness_lufs=loudness, sameness=round(sameness, 4), facts=clip.facts,
-        mb_reclaimed=swept.mb, by="agent",
-    )
+    clip, info, loudness, frames, sameness = _render_stage(conn, ch, clip_id, {}, by="agent")
     facts = {
         **info,
         "loudness_lufs": loudness,
-        "sameness": round(sameness, 4),
+        "sameness": sameness,
         "shows": clip.description,
         # Without this an external agent is asked whether the clip repeats the
         # channel and given nothing to compare it against, so it answers about
@@ -390,11 +365,106 @@ def attach_metadata(conn: sqlite3.Connection, clip_id: str, meta) -> None:
     db.update(
         conn, clip_id, status=DESCRIBED, title=meta.title,
         description=meta.description, hashtags_json=json.dumps(meta.hashtags),
+        comment_prompt=(meta.comment_prompt or "").strip() or None,
     )
     logs.event(
         "clip.described", channel=row["channel_id"], clip=clip_id,
         title=meta.title, hashtags=meta.hashtags, cost_usd=0.0, by="agent",
+        comment_prompt=meta.comment_prompt,
     )
+    wanted = (meta.hook_text or "").strip()
+    if wanted and wanted != (row["hook_text"] or ""):
+        rehook(conn, clip_id, wanted, by="agent")
+
+
+def rehook(conn: sqlite3.Connection, clip_id: str, text: str | None, *, by: str = "human") -> StageOutcome:
+    """Burn a different opening caption into a clip that has not shipped.
+
+    Same seed, same race: the simulation is deterministic, so the only pixels
+    that change are the caption's. The hard gates still re-run, because a
+    re-render is a re-render. A clip in the review queue stays there; an
+    approved one goes back to the queue, since what was approved has changed.
+    """
+    row = db.get(conn, clip_id)
+    if row is None:
+        raise ValueError(f"no clip {clip_id}")
+    if row["status"] == PUBLISHED:
+        raise ValueError(f"{clip_id} is published; the caption is in the uploaded pixels")
+    ch = channels.get(conn, row["channel_id"])
+    params = json.loads(row["params_json"] or "{}")
+    if text is None:
+        # Let the render choose from what it measures — for a clip rendered
+        # before captions were measured, this is how it catches up.
+        params.pop("hook_text", None)
+    else:
+        text = text.strip()
+        if not text:
+            raise ValueError("an empty caption is not a caption; pass None to let the render choose")
+        params["hook_text"] = text
+    db.update(conn, clip_id, params_json=json.dumps(params))
+    before = row["status"]
+    try:
+        clip, info, loudness, frames, sameness = _render_stage(conn, ch, clip_id, params, by=by)
+    except Exception as exc:
+        db.update(conn, clip_id, status=FAILED, reject_reason=f"render: {exc}")
+        logs.event("clip.failed", level="error", channel=ch.id, clip=clip_id, stage="rehook", error=str(exc))
+        return StageOutcome(clip_id, FAILED, f"render failed: {exc}")
+    failures = qc.hard_failures(probe=info, loudness_lufs=loudness, sameness=sameness)
+    if failures:
+        reason = "; ".join(failures)
+        db.update(conn, clip_id, status=QC_REJECTED, reject_reason=reason)
+        logs.event("clip.qc", level="warn", channel=ch.id, clip=clip_id, passed=False, hard_failures=failures, by=by)
+        return StageOutcome(clip_id, QC_REJECTED, reason)
+    after = AWAITING_APPROVAL if before in (AWAITING_APPROVAL, APPROVED) else (
+        RENDERED if before in (PLANNED, RENDERED, FAILED, QC_REJECTED) else before
+    )
+    db.update(conn, clip_id, status=after)
+    shown = clip.facts.get("hook_text")
+    logs.event("clip.rehooked", channel=ch.id, clip=clip_id, hook_text=shown, was=before, now=after, by=by,
+               measured=text is None)
+    return StageOutcome(clip_id, after, f"caption is now {shown!r}")
+
+
+def retitle(
+    conn: sqlite3.Connection, clip_id: str, title: str, *, by: str = "human", why: str = ""
+) -> dict:
+    """Change a title and keep what it replaced, with the numbers at that moment.
+
+    Retitling is the one lever left on a published clip, and without a snapshot
+    it is a lever with no gauge: next week's metrics would be credited to a
+    title that was only on the video for half the period.
+    """
+    from .models import TITLE_MAX, TITLE_MIN
+
+    row = db.get(conn, clip_id)
+    if row is None:
+        raise ValueError(f"no clip {clip_id}")
+    if not row["title"]:
+        raise ValueError(f"{clip_id} has no title yet; write metadata first")
+    title = " ".join(title.split())
+    if not TITLE_MIN <= len(title) <= TITLE_MAX:
+        raise ValueError(f"title must be {TITLE_MIN}-{TITLE_MAX} characters, like every title here")
+    if title == row["title"]:
+        raise ValueError("that is already the title")
+    history = json.loads(row["title_history_json"] or "[]")
+    history.append({
+        "title": row["title"], "until": db.now(), "by": by, "why": why,
+        "views": row["views"], "avg_view_pct": row["avg_view_pct"],
+        "swipe_away_pct": row["swipe_away_pct"], "metrics_at": row["metrics_at"],
+    })
+    db.update(conn, clip_id, title=title, title_history_json=json.dumps(history))
+    ch = channels.get(conn, row["channel_id"])
+    published = bool(row["published_at"])
+    logs.event(
+        "clip.retitled", channel=ch.id, clip=clip_id, title=title, was=row["title"],
+        by=by, why=why, published=published,
+    )
+    return {
+        "clip": clip_id, "title": title, "was": row["title"], "published": published,
+        "changes": len(history),
+        # On a manual channel nothing here reaches YouTube by itself.
+        "needs_manual_update": published and ch.driver == "manual",
+    }
 
 
 def apply_qc(conn: sqlite3.Connection, clip_id: str, verdict) -> tuple[bool, str]:

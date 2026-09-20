@@ -68,6 +68,13 @@ def _clip_summary(row) -> dict[str, Any]:
         "qc": json.loads(row["qc_json"] or "null"),
         "video_path": row["video_path"],
         "cost_usd": row["cost_usd"],
+        "hook_text": row["hook_text"],
+        "comment_prompt": row["comment_prompt"],
+        "title_history": json.loads(row["title_history_json"] or "[]"),
+        "published_at": row["published_at"],
+        "views": row["views"],
+        "avg_view_pct": row["avg_view_pct"],
+        "swipe_away_pct": row["swipe_away_pct"],
     }
 
 
@@ -250,7 +257,12 @@ def build_server():
         title: str,
         description: str,
         hashtags: list[str],
+        hook_text: str | None = None,
+        comment_prompt: str | None = None,
     ) -> dict[str, Any]:
+        """hook_text re-renders the clip with that caption burned in (same seed,
+        same race) when it differs from what render_clip used. comment_prompt is
+        a question to pin as the first comment; only one the clip answers."""
         from pydantic import ValidationError
 
         from .models import Metadata
@@ -259,6 +271,7 @@ def build_server():
             meta = Metadata(
                 title=title, description=description, hashtags=hashtags,
                 rationale="written by an external agent",
+                hook_text=hook_text, comment_prompt=comment_prompt,
             )
         except ValidationError as exc:
             raise ToolError(f"metadata rejected: {exc}") from None
@@ -268,7 +281,31 @@ def build_server():
             except ValueError as exc:
                 raise ToolError(str(exc)) from None
         logs.event("mcp.call", actor="mcp", tool="submit_metadata", clip=clip_id)
-        return {"clip": clip_id, "status": "described", "title": meta.title}
+        with db.connect() as conn:
+            row = db.get(conn, clip_id)
+        return {
+            "clip": clip_id, "status": row["status"], "title": meta.title,
+            "hook_text": row["hook_text"], "comment_prompt": row["comment_prompt"],
+        }
+
+    @server.tool(
+        description=(
+            "Change a clip's title. The old title and the metrics at the moment "
+            "of the change are kept, so the next metrics pull reads as "
+            "before/after rather than as one blurred number. Works on published "
+            "clips; on a manual-driver channel the new title also has to be "
+            "typed into Studio, and the result says so. 20-90 characters. Say "
+            "why in `why` — it is what the next reviewer reads."
+        )
+    )
+    def retitle(clip_id: str, title: str, why: str) -> dict[str, Any]:
+        with db.connect() as conn:
+            try:
+                out = pipeline.retitle(conn, clip_id, title, by="agent", why=why)
+            except ValueError as exc:
+                raise ToolError(str(exc)) from None
+        logs.event("mcp.call", actor="mcp", tool="retitle", clip=clip_id)
+        return out
 
     @server.tool(
         description=(

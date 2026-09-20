@@ -89,6 +89,9 @@
   .note { border: 1px dashed var(--line); border-radius: 10px; padding: 13px 15px; font-size: 12.5px; color: var(--faint); line-height: 1.75; }
   textarea { width: 100%; min-height: 380px; font: 12.5px/1.9 ui-monospace, SFMono-Regular, monospace; background: #0e0e15; }
   .badge { border-radius: 999px; font-size: 11.5px; padding: 2px 9px; }
+input.title{font-size:20px;font-weight:600;width:100%;margin:0 0 6px}
+.row{display:flex;gap:8px;align-items:center;margin:6px 0}
+.row input{flex:1}
 </style>
 </head>
 <body>
@@ -237,7 +240,17 @@ function renderReview() {
     <div class="clip">
       <video id="player" src="/api/clip/${c.id}/video" autoplay loop playsinline ${sound ? "" : "muted"} controls></video>
       <div>
-        <h2>${esc(c.title || "(no title)")}</h2>
+        <input id="title" class="title" value="${esc(c.title || "")}" maxlength="90" spellcheck="false" placeholder="title (20-90 characters)">
+        <div class="row">
+          <input id="hook" value="${esc(c.hook_text || "")}" maxlength="28" spellcheck="false" placeholder="opening caption" ${c.status === "published" ? "disabled" : ""}>
+          <button class="small" id="rehook" ${c.status === "published" ? "disabled" : ""}>Re-render caption</button>
+        </div>
+        <input id="prompt" value="${esc(c.comment_prompt || "")}" maxlength="140" spellcheck="false" placeholder="question to pin as the first comment">
+        <div class="row">
+          <button class="small" id="savetext">Save title &amp; prompt</button>
+          <button class="small" id="copy">Copy for upload</button>
+          <span class="hint">${c.title_history?.length ? `retitled ${c.title_history.length}×, was “${esc(c.title_history.at(-1).title)}”` : ""}</span>
+        </div>
         <div class="tags">${(c.hashtags || []).map(esc).join(" ")}</div>
         <div class="desc">${esc(c.description)}</div>
         <dl>
@@ -262,6 +275,35 @@ function renderReview() {
       `<button class="small" data-go="${i}" aria-current="${i === index}">${i + 1}. ${esc((q.title || q.id).slice(0, 32))}</button>`).join("")}</div>`;
   $("#approve").onclick = () => decide(c.id, "approve");
   $("#reject").onclick = () => decide(c.id, "reject");
+  $("#savetext").onclick = async () => {
+    const title = $("#title").value.trim(), comment_prompt = $("#prompt").value.trim();
+    const body = { comment_prompt };
+    if (title !== (c.title || "")) body.title = title;
+    try {
+      const out = await api(`/api/clip/${c.id}/text`, {
+        method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
+      });
+      if (out.needs_manual_update) alert("Saved. This clip is published on a manual channel — change the title in YouTube Studio too.");
+    } catch (err) { alert(err.message); return; }
+    channels = [];
+    await refresh({ force: true });
+  };
+  $("#rehook").onclick = async () => {
+    const text = $("#hook").value.trim();
+    if (!text) { alert("Type a caption first."); return; }
+    try { await send(`/api/clip/${c.id}/hook`, { text }); }
+    catch (err) { alert(err.message); return; }
+    alert("Re-rendering with the new caption — watch Runs. The clip stays in the queue.");
+  };
+  $("#copy").onclick = async () => {
+    const text = [
+      $("#title").value.trim(), "", c.description || "", "",
+      (c.hashtags || []).join(" "), "",
+      $("#prompt").value.trim() ? `Pinned comment: ${$("#prompt").value.trim()}` : "",
+    ].join("\n").trim();
+    try { await navigator.clipboard.writeText(text); $("#copy").textContent = "Copied"; }
+    catch { alert(text); }
+  };
   document.querySelectorAll("[data-go]").forEach((b) => {
     b.onclick = () => { index = Number(b.dataset.go); renderReview(); };
   });
@@ -297,7 +339,7 @@ async function renderLibrary() {
       <tbody>${body.clips.map((c) => `
         <tr>
           <td><div>${esc(c.title || "(untitled)")}</div>
-              <div class="hint">${c.id} · seed ${c.seed}${c.reject_reason ? ` · <span style="color:var(--no)">${esc(c.reject_reason.slice(0, 70))}</span>` : ""}</div></td>
+              <div class="hint">${c.id} · seed ${c.seed}${c.title_history?.length ? ` · retitled ${c.title_history.length}×` : ""}${c.reject_reason ? ` · <span style="color:var(--no)">${esc(c.reject_reason.slice(0, 70))}</span>` : ""}</div></td>
           <td class="hint">${esc(c.variant)}</td>
           <td><span class="badge" style="background:var(--panel2);color:var(--dim)">${esc(c.status.replace(/_/g, " "))}</span></td>
           <td>${num(c.views)}</td><td>${fmt(c.avg_view_pct)}${c.avg_view_pct != null ? "%" : ""}</td>
@@ -477,6 +519,8 @@ $("#sound").onclick = () => {
   if (p) { p.muted = !sound; p.play().catch(() => {}); }
 };
 document.addEventListener("keydown", (event) => {
+  // Typing a title must not approve the clip on the letter "a".
+  if (event.target.matches("input, textarea, select")) return;
   if (event.target?.matches?.("input, textarea, select")) return;
   if (view !== "review") return;
   const queue = state?.queue || [];

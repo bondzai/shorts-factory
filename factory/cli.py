@@ -248,6 +248,25 @@ def cmd_reject(args) -> int:
     return 0
 
 
+def cmd_retitle(args) -> int:
+    with db.connect() as conn:
+        out = pipeline.retitle(conn, args.clip_id, args.title, by="human", why=args.why or "")
+    print(f"{out['clip']}: {out['was']!r} -> {out['title']!r}  (change #{out['changes']})")
+    if out["needs_manual_update"]:
+        print("published on a manual channel: change it in YouTube Studio as well")
+    return 0
+
+
+def cmd_rehook(args) -> int:
+    if bool(args.text) == bool(args.measured):
+        print("give a caption, or --measured to let the render choose one", file=sys.stderr)
+        return 2
+    with db.connect() as conn:
+        outcome = pipeline.rehook(conn, args.clip_id, None if args.measured else args.text)
+    print(f"{outcome.clip_id} {outcome.status}: {outcome.detail}")
+    return 0 if outcome.status != "failed" else 1
+
+
 def cmd_publish(args) -> int:
     with db.connect() as conn:
         channel = channels.resolve(conn, args.channel)
@@ -603,6 +622,19 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("clip_id")
     p.add_argument("reason")
     p.set_defaults(func=cmd_reject)
+
+    p = sub.add_parser("retitle", help="change a title, keeping the old one and its numbers")
+    p.add_argument("clip_id")
+    p.add_argument("title")
+    p.add_argument("--why", default="")
+    p.set_defaults(func=cmd_retitle)
+
+    p = sub.add_parser("rehook", help="re-render an unpublished clip with a new opening caption")
+    p.add_argument("clip_id")
+    p.add_argument("text", nargs="?", default=None)
+    p.add_argument("--measured", action="store_true",
+                   help="drop any fixed caption and let the render choose from what it measures")
+    p.set_defaults(func=cmd_rehook)
 
     p = sub.add_parser("publish", help="publish approved clips")
     p.add_argument("--dry-run", action="store_true")
