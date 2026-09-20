@@ -91,7 +91,7 @@ STAGES = {"zigzag": 0.16, "pegboard": 0.12, "bumpers": 0.14, "funnels": 0.09, "g
 # its gravity set so the median finish lands mid-window (see README).
 STAGE_GRAVITY = {"zigzag": -600.0, "pegboard": -110.0, "bumpers": -95.0,
                  "funnels": -45.0, "gauntlet": -55.0, "cascade": -200.0,
-                 "pinwheel": -40.0, "sieve": -140.0, "pachinko": -70.0, "rockers": -150.0, "drums": -60.0}
+                 "pinwheel": -40.0, "sieve": -60.0, "pachinko": -70.0, "rockers": -150.0, "drums": -40.0}
 STAGE_NOUN = {"zigzag": "ramps", "pegboard": "pegs", "bumpers": "bumpers",
               "funnels": "funnels", "gauntlet": "spinners", "cascade": "chutes",
               "pinwheel": "arms", "sieve": "bars", "pachinko": "pegs", "rockers": "planks", "drums": "drums"}
@@ -105,6 +105,7 @@ SPINNER_STAGES = {"bumpers": (3, 4), "gauntlet": (5, 6)}
 # many to expect.
 WHEEL_STAGES = {"pinwheel": 2}
 ROCK_AMPLITUDE = 0.42  # radians, either way
+TIP_GAP = 0.15  # of the width between the tips of neighbouring sieve bars: past the biggest marble, with air
 STAGE_BLURB = {
     "zigzag": "ramps — fast, the classic",
     "pegboard": "pegs — a slow rattle down a Galton board",
@@ -373,25 +374,59 @@ def _stage_pinwheel(space, w, h, rng, style):
 
 
 def _stage_sieve(space, w, h, rng, style):
-    """Rows of short bars with gaps between them, each bar tilted a little
-    so nothing rests on it. Offsets alternate row to row, so a marble that
-    drops through one gap lands on a bar in the next."""
-    rows = rng.randint(6, 8)
+    """Rows of short bars with gaps between them, each bar tilted so nothing
+    rests on it. Offsets alternate row to row, so a marble that drops
+    through one gap lands on a bar in the next.
+
+    The pocket, seen rather than guessed: a marble wedges between the low
+    tip of one bar and the high tip of the next, and with four bars a row
+    the tips were 67px apart against a 60px marble. So the gap between tips
+    is what is sized, and the bar takes what is left of the pitch. Two other
+    fixes were tried first and measured worse: sloping the outer bars inward
+    made a V with the next bar in (11 of 20 finished), and leaving out the
+    bars near the walls opened a free-fall channel that finished under the
+    QC floor (7 of 24).
+    """
+    # Four to six rows, not six to eight: at eight the rows were 82px apart
+    # and a 60px marble wedged between a bar and the dipped end of the bar
+    # in the row above, at the walls where those ends meet (46% of marbles
+    # ended the clip there, measured).
+    rows = rng.randint(3, 4)
     per_row = rng.choice([3, 4])
-    top, bottom = h * 0.82, h * 0.22
+    # The bottom row stays above the run-in throat, for the same reason the
+    # drums do: at 0.22h the last stuck marbles were pinned between a bar
+    # and a throat arm. Three or four rows over this height keeps the rows
+    # at least 134px apart, past the wedge a 60px marble finds at 82px.
+    top, bottom = h * 0.84, h * 0.42
     pitch = w / per_row
     segments = []
     for i in range(rows):
         y = top - (top - bottom) * i / max(rows - 1, 1)
         offset = pitch / 2 if i % 2 else 0.0
+        direction = 1 if i % 2 else -1  # every bar in a row slopes the same way
         for j in range(per_row + 1):
             cx = offset + j * pitch
-            span = pitch * rng.uniform(0.50, 0.60)
-            tilt = rng.choice([-1, 1]) * rng.uniform(0.16, 0.30) * span
-            a, b = (cx - span / 2, y + tilt / 2), (cx + span / 2, y - tilt / 2)
-            if a[0] < -10 or b[0] > w + 10:
+            span = pitch - max(pitch * rng.uniform(0.50, 0.62), TIP_GAP * w)
+            a_x, b_x = cx - span / 2, cx + span / 2
+            if b_x < 6 or a_x > w - 6:
                 continue
-            _wall(space, a, b, thickness=style.thickness / 2)
+            # A tip that stops short of a wall needs the same clearance as a
+            # tip facing another tip: the last stuck marble, r=21, sat at
+            # x=509 against a tip that ended 41px from the wall.
+            if a_x >= 6 and a_x < TIP_GAP * w:
+                a_x = TIP_GAP * w
+            if b_x <= w - 6 and b_x > w - TIP_GAP * w:
+                b_x = w - TIP_GAP * w
+            if b_x - a_x < 24:
+                continue
+            span = b_x - a_x
+            # A bar that meets a wall has its wall end high, whichever way
+            # the row slopes: sloping down into the wall makes a corner a
+            # marble rolls into and stays in (seen at x=30 and x=506).
+            direction_here = 1 if a_x < 6 else (-1 if b_x > w - 6 else direction)
+            tilt = direction_here * rng.uniform(0.42, 0.55) * span
+            a, b = (a_x, y + tilt / 2), (b_x, y - tilt / 2)
+            _wall(space, a, b, thickness=style.thickness / 2, friction=0.12)
             segments.append((a, b))
     return segments, w * 0.6, lambda count: [w * 0.2 + (w * 0.6) * i / max(count - 1, 1) for i in range(count)]
 
@@ -448,21 +483,30 @@ def _stage_rockers(space, w, h, rng, style):
 def _stage_drums(space, w, h, rng, style):
     """Large spinning drums, staggered. A marble that lands on one is carried
     round by friction and let go on the far side, so the drum's direction
-    decides which way it heads next."""
-    rows = rng.randint(3, 4)
-    top, bottom = h * 0.78, h * 0.28
-    # Between any two drums in a row there has to be room for the biggest
-    # marble with air to spare, and every drum in a row turns the same way:
-    # two turning toward each other make a pinch a marble never leaves.
-    # Measured — the first version trapped 14 seeds in 24 that way.
+    decides which way it heads next.
+
+    Every drum is sized from the gaps around it — to its neighbours in the
+    row, to the walls, and to the rows above and below — each of which has
+    to clear the biggest marble with air. Three versions were measured
+    before this one: drums turning toward each other made a pinch; a
+    3-drum row's outer drum sat 31px from the wall; and rows 160px apart
+    with 110px drums left 50px between rows, less than a marble, where 68%
+    of them ended the clip. Three-drum rows come out small, two-drum rows
+    big, and every drum in a row turns the same way.
+    """
+    rows = rng.randint(4, 5)
+    # The bottom row stays above the run-in throat: at 0.24h the lowest
+    # drums overlapped the throat's mouth and pinned marbles between a drum
+    # and an arm — every stuck marble in the diagnostic sat at that height.
+    top, bottom = h * 0.84, h * 0.44
+    row_gap = (top - bottom) / max(rows - 1, 1)
     for i in range(rows):
         y = top - (top - bottom) * i / max(rows - 1, 1)
         count = 2 if i % 2 == 0 else 3
-        # ... and the same room between the outer drums and the walls.
-        r = min(w * rng.uniform(0.10, 0.13), w / count / 2 - w * 0.065)
+        r = min(w * rng.uniform(0.06, 0.11), (w / (count + 1) - w * 0.13) / 2, (row_gap - w * 0.14) / 2)
         direction = rng.choice([-1, 1])
         for j in range(count):
-            x = w * (j + 0.5) / count
+            x = w * (j + 1) / (count + 1)
             omega = direction * rng.uniform(1.6, 2.6)
             body = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
             body.position = (x, y)
@@ -539,7 +583,11 @@ FINISH_GATE_CHANCE = 0.72
 #   pinwheel   half-way leader wins 75% -> 20%, came from last 35% -> 60%
 #   sieve      70% -> 57%, came from last 35% -> 50%
 #   drums      85% -> 65%
-GATE_STAGES = ("bumpers", "gauntlet", "pinwheel", "sieve", "drums")
+# The pinwheel came off the list after five unattended renders: with the
+# throat, 15 of 20 seeds finish and 47% of marbles end the clip stuck in the
+# pocket where a throat arm meets the peg above it; without it, 20 of 20
+# and 5%. The surprise it bought (75% -> 20%) was bought with dead marbles.
+GATE_STAGES = ("bumpers", "gauntlet", "sieve", "drums")
 GATE_HEIGHT = 0.085  # of the frame above the line: close enough that nothing re-spreads
 GATE_GAP = (0.17, 0.21)  # of the width; about 3-3.7 of the largest marble
 SPINNER_ROWS = {"bumpers": (0.26, 0.40, 0.54, 0.68), "gauntlet": (0.20, 0.30, 0.40, 0.50, 0.60, 0.70)}  # heights, frame fractions
