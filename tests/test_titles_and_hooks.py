@@ -241,3 +241,17 @@ def test_the_retitle_playbook_lists_published_clips_worst_first(channel):
     text = playbooks.render("retitle", CH)
     assert "74% swiped away" in text
     assert "caption “WHICH ONE WINS?”" in text
+
+
+def test_a_stamped_then_rejected_clip_is_not_published_anywhere(channel):
+    """The first funnel was stamped published_at and rejected afterwards. It
+    then appeared in the retitle playbook as a live clip with no metrics, and
+    Codex duly reasoned about it. Status is the truth; the timestamp is history."""
+    from factory import playbooks
+
+    clip_id = clip(QC_REJECTED, published_at="2026-09-19T13:58:50+00:00")
+    text = playbooks.render("retitle", CH)
+    assert clip_id not in text
+    with db.connect() as conn:
+        out = pipeline.retitle(conn, clip_id, "Eight ramps and one marble ahead at the line")
+    assert out["published"] is False and out["needs_manual_update"] is False

@@ -90,7 +90,7 @@ def _published(conn: sqlite3.Connection, channel_id: str) -> str:
         """
         SELECT id, title, views, avg_view_pct, swipe_away_pct, hook_text,
                comment_prompt, title_history_json, published_at
-        FROM clips WHERE channel_id = ? AND published_at IS NOT NULL
+        FROM clips WHERE channel_id = ? AND status = 'published'
         ORDER BY COALESCE(swipe_away_pct, -1) DESC, views DESC
         """,
         (channel_id,),

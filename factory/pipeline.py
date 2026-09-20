@@ -454,7 +454,9 @@ def retitle(
     })
     db.update(conn, clip_id, title=title, title_history_json=json.dumps(history))
     ch = channels.get(conn, row["channel_id"])
-    published = bool(row["published_at"])
+    # Status, not the timestamp: a clip can be stamped and then thrown out, and
+    # a thrown-out clip is not on anyone's screen.
+    published = row["status"] == PUBLISHED
     logs.event(
         "clip.retitled", channel=ch.id, clip=clip_id, title=title, was=row["title"],
         by=by, why=why, published=published,
