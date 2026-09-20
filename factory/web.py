@@ -260,6 +260,136 @@ class IdsBody(BaseModel):
     ids: list[str]
 
 
+# --- settings: what config.toml says, what the page changed, and the schema ---
+
+def _coerce(field: dict[str, Any], value: Any) -> Any:
+    if field["type"] == "number":
+        try:
+            value = float(value)
+        except (TypeError, ValueError):
+            raise ValueError(f"{field['label']}: not a number") from None
+        if "min" in field and value < field["min"] or "max" in field and value > field["max"]:
+            raise ValueError(f"{field['label']}: must be between {field['min']} and {field['max']}")
+        return int(value) if float(value).is_integer() and field.get("step", 1) == 1 else value
+    if field["type"] == "select":
+        for option in field["options"]:
+            if str(option) == str(value):
+                return option
+        raise ValueError(f"{field['label']}: must be one of {field['options']}")
+    return str(value)
+
+
+def _settings_view() -> dict[str, Any]:
+    cfg = settings.load()
+    fields = []
+    for f in settings.SCHEMA:
+        key = (f["section"], f["key"])
+        fields.append({
+            **f,
+            "value": cfg.raw.get(f["section"], {}).get(f["key"]),
+            "default": cfg.base.get(f["section"], {}).get(f["key"]),
+            "overridden": key in cfg.overrides,
+        })
+    return {"fields": fields}
+
+
+@app.get("/api/settings")
+def get_settings() -> dict[str, Any]:
+    return _settings_view()
+
+
+class SettingBody(BaseModel):
+    section: str
+    key: str
+    value: Any
+
+
+@app.put("/api/settings")
+def put_setting(body: SettingBody) -> dict[str, Any]:
+    field = next((f for f in settings.SCHEMA if f["section"] == body.section and f["key"] == body.key), None)
+    if field is None:
+        raise HTTPException(404, f"no setting {body.section}.{body.key}")
+    try:
+        value = _coerce(field, body.value)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from None
+    with db.connect() as conn:
+        db.set_override(conn, body.section, body.key, value)
+    settings.invalidate()
+    logs.event("settings.changed", section=body.section, key=body.key, value=value, by="human")
+    return _settings_view()
+
+
+@app.delete("/api/settings/{section}/{key}")
+def reset_setting(section: str, key: str) -> dict[str, Any]:
+    with db.connect() as conn:
+        db.clear_override(conn, section, key)
+    settings.invalidate()
+    logs.event("settings.reset", section=section, key=key, by="human")
+    return _settings_view()
+
+
+# --- brains: which model each built-in agent runs on ---------------------------
+
+def _brains_view() -> dict[str, Any]:
+    return {
+        "providers": [{**p.as_dict(), "key_present": p.key_present()} for p in llm.providers()],
+        "agents": {a: llm.assignment(a) for a in llm.AGENTS},
+        "readiness": llm.readiness(),
+        "needs_vision": sorted(llm.NEEDS_VISION),
+        "presets": llm.PRESETS,
+        "mcp_command": [str(settings.ROOT / ".venv" / "bin" / "factory"), "mcp"],
+        "overridden": any(k[0] == "llm" for k in settings.load().overrides),
+    }
+
+
+@app.get("/api/brains")
+def get_brains() -> dict[str, Any]:
+    return _brains_view()
+
+
+class BrainsBody(BaseModel):
+    providers: list[dict[str, Any]]
+    agents: dict[str, str]
+
+
+@app.put("/api/brains")
+def put_brains(body: BrainsBody) -> dict[str, Any]:
+    try:
+        parsed = [llm._provider_from(p) for p in body.providers]
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from None
+    ids = [p.id for p in parsed]
+    if len(set(ids)) != len(ids):
+        raise HTTPException(400, "two providers share an id")
+    by_id = {p.id: p for p in parsed}
+    for agent, chosen in body.agents.items():
+        if agent not in llm.AGENTS:
+            raise HTTPException(400, f"no agent {agent!r}; have {list(llm.AGENTS)}")
+        pid, _, model = chosen.partition("/")
+        if pid not in by_id or not model:
+            raise HTTPException(400, f"{agent}: choose provider/model, e.g. anthropic/claude-sonnet-5")
+        if agent in llm.NEEDS_VISION and not by_id[pid].vision:
+            raise HTTPException(400, f"{agent} judges frames; {pid} is marked as unable to see images")
+    with db.connect() as conn:
+        db.set_override(conn, "llm", "providers", [p.as_dict() for p in parsed])
+        db.set_override(conn, "llm", "agents", body.agents)
+    settings.invalidate()
+    llm._openai_client.cache_clear()
+    logs.event("settings.changed", section="llm", key="brains", agents=body.agents, by="human")
+    return _brains_view()
+
+
+class TestBody(BaseModel):
+    provider: str
+    model: str | None = None
+
+
+@app.post("/api/brains/test")
+def test_brain(body: TestBody) -> dict[str, Any]:
+    return llm.test_provider(body.provider, body.model)
+
+
 @app.post("/api/clips/bin")
 def bin_clips(body: IdsBody) -> dict[str, Any]:
     with db.connect() as conn:

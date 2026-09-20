@@ -16,7 +16,8 @@ def sandbox(tmp_path, monkeypatch):
     """
     raw = copy.deepcopy(settings.load().raw)
     monkeypatch.setattr(settings, "ROOT", tmp_path)
-    fake = settings.Settings(raw)
+    # base is config.toml alone; the page shows it as the default under an override.
+    fake = settings.Settings(raw, base=copy.deepcopy(raw))
     monkeypatch.setattr(settings, "load", lambda: fake)
     settings.load_env.cache_clear()
     return tmp_path

@@ -41,6 +41,12 @@ def migrate(conn: sqlite3.Connection) -> list[str]:
             )
             done.append(f"{table}.channel_id added")
 
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS settings (
+               section TEXT NOT NULL, key TEXT NOT NULL, value_json TEXT NOT NULL,
+               updated_at TEXT NOT NULL, PRIMARY KEY (section, key))"""
+    )
+
     if "purged_at" not in _columns(conn, "clips"):
         conn.execute("ALTER TABLE clips ADD COLUMN purged_at TEXT")
         done.append("clips.purged_at added")
@@ -289,6 +295,26 @@ def search_clips(
     sql += " ORDER BY created_at DESC LIMIT ?"
     args.append(limit)
     return conn.execute(sql, args).fetchall()
+
+
+def overrides(conn: sqlite3.Connection) -> dict[tuple[str, str], Any]:
+    rows = conn.execute("SELECT section, key, value_json FROM settings").fetchall()
+    return {(r["section"], r["key"]): json.loads(r["value_json"]) for r in rows}
+
+
+def set_override(conn: sqlite3.Connection, section: str, key: str, value: Any) -> None:
+    conn.execute(
+        """INSERT INTO settings (section, key, value_json, updated_at) VALUES (?, ?, ?, ?)
+           ON CONFLICT(section, key) DO UPDATE SET value_json = excluded.value_json,
+                                                  updated_at = excluded.updated_at""",
+        (section, key, json.dumps(value), now()),
+    )
+    conn.commit()
+
+
+def clear_override(conn: sqlite3.Connection, section: str, key: str) -> None:
+    conn.execute("DELETE FROM settings WHERE section = ? AND key = ?", (section, key))
+    conn.commit()
 
 
 def start_run(conn: sqlite3.Connection, channel_id: str, kind: str) -> int:

@@ -279,6 +279,41 @@ Python venv and the page should not be the thing that needs npm. It needs the
 network for the first load of React itself. Moving to a Vite build later is a
 move, not a rewrite.
 
+## Brains: any model, one database
+
+Two ways to run an agent, and the factory does not care which:
+
+* **External, over MCP.** Codex, Claude Code, Gemini CLI — anything that
+  speaks MCP registers the server once (Settings shows the exact command for
+  each) and reads the playbooks. No key goes into this project. This is how
+  every clip so far was made.
+* **Built-in.** The factory calls a model itself for Plan, Build and Digest.
+  Which model, and whose, is configuration: a provider plus a model per agent,
+  set on the Settings screen or in `config.toml`.
+
+Providers come in two kinds. `anthropic` uses the Anthropic SDK. `openai`
+is anything that speaks the OpenAI chat API — OpenAI, Ollama and LM Studio on
+this machine, Groq, Gemini's compatible endpoint, OpenRouter — with structured
+output done the portable way: "reply with JSON matching this schema",
+validated with pydantic, retried once with the validation error. A local
+model costs nothing and the ledger says so.
+
+```bash
+factory brains                        # where each agent runs, and whether it can
+factory brains --test ollama --model qwen2.5vl:7b
+factory config list                   # every knob the page can turn
+factory config set qc.max_sameness 0.9
+```
+
+Keys never pass through the page: a provider carries the *name* of the
+variable in `.env`, and the page says whether it is set. QC judges four
+frames, so it refuses a provider marked as unable to see images — that is a
+rule, not a hint.
+
+`config.toml` stays the default. Anything changed on the page is an override
+in the `settings` table, shown as one, resettable. The database's own
+location is the one thing that cannot come from the database.
+
 ## Disk, and clips that stopped halfway
 
 ```bash

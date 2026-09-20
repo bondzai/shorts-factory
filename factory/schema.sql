@@ -66,6 +66,14 @@ CREATE TABLE IF NOT EXISTS digests (
     rules_applied  INTEGER NOT NULL DEFAULT 0
 );
 
+CREATE TABLE IF NOT EXISTS settings (
+    section     TEXT NOT NULL,
+    key         TEXT NOT NULL,
+    value_json  TEXT NOT NULL,
+    updated_at  TEXT NOT NULL,
+    PRIMARY KEY (section, key)
+);
+
 CREATE TABLE IF NOT EXISTS runs (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     channel_id  TEXT NOT NULL DEFAULT 'main' REFERENCES channels (id),

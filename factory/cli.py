@@ -73,26 +73,15 @@ def cmd_doctor(args) -> int:
         except ImportError:
             print(f"{module:9} MISSING — pip install -e .")
             ok = False
-    # Constructing the client never fails, so checking that proves nothing —
-    # the SDK only raises when a request goes out. Look at what it resolved.
-    try:
-        client = llm.client()
-        if client.api_key or client.auth_token:
-            print("auth      ok")
-        else:
-            print(
-                "auth      MISSING — put ANTHROPIC_API_KEY=... in this repo's .env,\n"
-                "          export it, or run `ant auth login`. An export only\n"
-                "          exists in the terminal you typed it in."
-            )
-            ok = False
-    except Exception as exc:
-        print(f"auth      {exc}")
-        ok = False
+    # Per agent, because each can run on its own provider now. Not fatal: the
+    # external path (Codex or Claude Code over MCP) needs none of this.
+    for agent, r in llm.readiness().items():
+        print(f"{agent:9s} {r.get('provider', '?')}/{r.get('model', '?')}  {'ok' if r['ok'] else 'not ready — ' + str(r['why'])}")
+    if not llm.has_credentials():
+        print("          built-in agents are not all ready; playbooks over MCP still work")
     with db.connect() as conn:
         found = channels.all_channels(conn)
     print(f"channels  {len(found)} ({', '.join(c.id for c in found) or 'none — run factory init'})")
-    print(f"model     {cfg.llm['model']}")
     return 0 if ok else 1
 
 
@@ -281,6 +270,51 @@ def cmd_bin(args) -> int:
         else:
             for clip_id in pipeline.bin_clips(conn, args.clip_ids):
                 print(f"{clip_id} binned")
+    return 0
+
+
+def cmd_config(args) -> int:
+    cfg = settings.load()
+    if args.action == "list":
+        for f in settings.SCHEMA:
+            key = (f["section"], f["key"])
+            value = cfg.raw.get(f["section"], {}).get(f["key"])
+            mark = "  (override)" if key in cfg.overrides else ""
+            print(f"{f['section']}.{f['key']:26s} {value!r}{mark}")
+        return 0
+    section, _, key = args.name.partition(".")
+    field = next((f for f in settings.SCHEMA if f["section"] == section and f["key"] == key), None)
+    if field is None:
+        print(f"no setting {args.name}; run `factory config list`", file=sys.stderr)
+        return 2
+    with db.connect() as conn:
+        if args.action == "reset":
+            db.clear_override(conn, section, key)
+            print(f"{args.name} back to config.toml")
+        else:
+            from .web import _coerce
+            try:
+                value = _coerce(field, args.value)
+            except ValueError as exc:
+                print(exc, file=sys.stderr)
+                return 2
+            db.set_override(conn, section, key, value)
+            print(f"{args.name} = {value!r}")
+    settings.invalidate()
+    return 0
+
+
+def cmd_brains(args) -> int:
+    if args.test:
+        result = llm.test_provider(args.test, args.model)
+        print(json.dumps(result, indent=2))
+        return 0 if result.get("ok") else 1
+    for p in llm.providers():
+        key = "no key needed" if not p.api_key_env else (f"{p.api_key_env} set" if p.key_present() else f"{p.api_key_env} MISSING")
+        print(f"{p.id:12s} {p.kind:9s} {p.base_url or '-':52s} {key}{'  no vision' if not p.vision else ''}")
+    print()
+    for agent, r in llm.readiness().items():
+        print(f"{agent:9s} {r.get('provider', '?')}/{r.get('model', '?'):28s} {'ok' if r['ok'] else 'NOT READY: ' + str(r['why'])}")
     return 0
 
 
@@ -654,6 +688,17 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--destroy", action="store_true", help="delete binned clips and their files for good")
     p.add_argument("--yes", action="store_true")
     p.set_defaults(func=cmd_bin)
+
+    p = sub.add_parser("config", help="list or change the settings the page can change")
+    p.add_argument("action", choices=["list", "set", "reset"])
+    p.add_argument("name", nargs="?", help="section.key, e.g. qc.max_sameness")
+    p.add_argument("value", nargs="?")
+    p.set_defaults(func=cmd_config)
+
+    p = sub.add_parser("brains", help="which model each built-in agent runs on, and whether it can")
+    p.add_argument("--test", metavar="PROVIDER", help="one-word round trip through a provider")
+    p.add_argument("--model", default=None)
+    p.set_defaults(func=cmd_brains)
 
     p = sub.add_parser("restore", help="put a rejected clip back in the review queue")
     p.add_argument("clip_ids", nargs="+")

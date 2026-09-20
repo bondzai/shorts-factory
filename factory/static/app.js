@@ -679,8 +679,163 @@ function Settings({ snap, channelId, refresh, channels }) {
         <span></span><div class="row"><button type="submit">Save channel</button><button type="button" onClick=${pause}>${ch.active ? "Pause channel" : "Resume channel"}</button></div>
       </form>
     </div>
+    <${Brains} refresh=${refresh} />
+    <${FactorySettings} />
     ${rules ? html`<${Rules} rules=${rules} channelId=${channelId} reload=${loadRules} />` : null}
     <${AddChannel} onDone=${refresh} />`;
+}
+
+/* ---------- Brains: which model each built-in agent runs on, and how to plug in an external one ---------- */
+
+function Brains({ refresh }) {
+  const [b, setB] = useState(null);
+  const [providers, setProviders] = useState([]);
+  const [agents, setAgents] = useState({});
+  const [tests, setTests] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [copied, setCopied] = useState(null);
+  const load = useCallback(() => api("/api/brains").then((body) => {
+    setB(body); setProviders(body.providers); setAgents(body.agents);
+  }), []);
+  useEffect(() => { load().catch((err) => alert(err.message)); }, [load]);
+  if (!b) return null;
+
+  const setP = (i, k, v) => setProviders((ps) => ps.map((p, j) => j === i ? { ...p, [k]: v } : p));
+  const addPreset = (e) => {
+    const id = e.target.value; e.target.value = "";
+    if (!id) return;
+    const preset = id === "custom" ? { id: "custom", kind: "openai", base_url: "", api_key_env: "", vision: true, json_mode: "object", models: [] }
+      : b.presets.find((p) => p.id === id);
+    if (providers.some((p) => p.id === preset.id)) { alert(`${preset.id} is already listed`); return; }
+    setProviders([...providers, { ...preset, key_present: false }]);
+  };
+  const save = async () => {
+    setSaving(true);
+    try { const out = await send("/api/brains", { providers, agents }, "PUT"); setB(out); setProviders(out.providers); setAgents(out.agents); }
+    catch (err) { alert(err.message); }
+    setSaving(false); refresh();
+  };
+  const test = async (p) => {
+    const model = (p.models && p.models[0]) || prompt(`Model to test ${p.id} with:`);
+    if (!model) return;
+    setTests((t) => ({ ...t, [p.id]: { pending: true } }));
+    try {
+      await send("/api/brains", { providers, agents }, "PUT");
+      const r = await send("/api/brains/test", { provider: p.id, model });
+      setTests((t) => ({ ...t, [p.id]: r }));
+    } catch (err) { setTests((t) => ({ ...t, [p.id]: { ok: false, error: err.message } })); }
+  };
+  const copy = async (key, text) => { try { await navigator.clipboard.writeText(text); setCopied(key); setTimeout(() => setCopied(null), 1500); } catch { alert(text); } };
+  const cmd = b.mcp_command.map((s) => s.includes(" ") ? `"${s}"` : s).join(" ");
+  const external = [
+    ["Codex", `codex mcp add shorts-factory -- ${cmd}`],
+    ["Claude Code", `claude mcp add shorts-factory -- ${cmd}`],
+    ["Gemini CLI (~/.gemini/settings.json)", JSON.stringify({ mcpServers: { "shorts-factory": { command: b.mcp_command[0], args: b.mcp_command.slice(1) } } }, null, 2)],
+  ];
+  const ready = b.readiness;
+
+  return html`
+    <div class="card">
+      <h3>Brains</h3>
+      <div class="hint" style=${{ marginBottom: 12 }}>Two ways to run an agent. <b>External</b>: any MCP-capable agent — Codex, Claude Code, Gemini CLI — reads the playbooks and calls this factory's tools; nothing to configure here beyond registering the server once. <b>Built-in</b>: the factory calls a model itself for Plan, Build and Digest; pick a provider and model per agent below. Keys never go through this page — only the name of the variable in <code>.env</code>.</div>
+
+      <div class="hint" style=${{ margin: "12px 0 6px", color: "var(--ink)" }}>External agents — register this factory once, then use the playbooks</div>
+      ${external.map(([name, text]) => html`
+        <div key=${name} class="row">
+          <span class="hint" style=${{ width: 210 }}>${name}</span>
+          <pre class="captured" style=${{ margin: 0, flex: 1, maxHeight: 90, overflow: "auto" }}>${text}</pre>
+          <button class="small" onClick=${() => copy(name, text)}>${copied === name ? "Copied" : "Copy"}</button>
+        </div>`)}
+
+      <div class="hint" style=${{ margin: "18px 0 6px", color: "var(--ink)" }}>Built-in providers</div>
+      <table>
+        <thead><tr><th>id</th><th>kind</th><th>endpoint</th><th>key variable</th><th>sees images</th><th>JSON</th><th>models (comma-separated)</th><th></th></tr></thead>
+        <tbody>
+          ${providers.map((p, i) => html`
+            <tr key=${i}>
+              <td><input value=${p.id} onChange=${(e) => setP(i, "id", e.target.value)} style=${{ width: 100 }} /></td>
+              <td><select value=${p.kind} onChange=${(e) => setP(i, "kind", e.target.value)}><option value="anthropic">anthropic</option><option value="openai">openai-compatible</option></select></td>
+              <td><input value=${p.base_url || ""} disabled=${p.kind === "anthropic"} placeholder="http://localhost:11434/v1" onChange=${(e) => setP(i, "base_url", e.target.value)} style=${{ width: 250 }} /></td>
+              <td><input value=${p.api_key_env || ""} placeholder="none (local)" onChange=${(e) => setP(i, "api_key_env", e.target.value)} style=${{ width: 150 }} />
+                <div class="hint">${!p.api_key_env ? "no key needed" : p.key_present ? html`<span class="good">set in .env</span>` : html`<span class="bad">not set in .env</span>`}</div></td>
+              <td><input type="checkbox" checked=${!!p.vision} onChange=${(e) => setP(i, "vision", e.target.checked)} /></td>
+              <td><select value=${p.json_mode} onChange=${(e) => setP(i, "json_mode", e.target.value)}><option value="schema">schema</option><option value="object">object</option><option value="none">none</option></select></td>
+              <td><input value=${(p.models || []).join(", ")} onChange=${(e) => setP(i, "models", e.target.value.split(",").map((s) => s.trim()).filter(Boolean))} style=${{ width: 220 }} /></td>
+              <td style=${{ whiteSpace: "nowrap" }}>
+                <button class="small" onClick=${() => test(p)} disabled=${tests[p.id]?.pending}>${tests[p.id]?.pending ? "Testing…" : "Test"}</button>
+                <button class="small" onClick=${() => setProviders(providers.filter((_, j) => j !== i))}>Remove</button>
+                ${tests[p.id] && !tests[p.id].pending ? html`<div class=${"hint " + (tests[p.id].ok ? "good" : "bad")}>${tests[p.id].ok ? `ok · ${tests[p.id].latency_ms} ms · "${tests[p.id].reply}"` : tests[p.id].error}</div>` : null}
+              </td>
+            </tr>`)}
+        </tbody>
+      </table>
+      <div class="row">
+        <select onChange=${addPreset} defaultValue="">
+          <option value="">Add a provider…</option>
+          ${b.presets.map((p) => html`<option key=${p.id} value=${p.id}>${p.id}${p.free ? " (local, free)" : ""}</option>`)}
+          <option value="custom">custom endpoint</option>
+        </select>
+      </div>
+
+      <div class="hint" style=${{ margin: "18px 0 6px", color: "var(--ink)" }}>Which model each built-in agent uses</div>
+      <table>
+        <thead><tr><th>agent</th><th>does</th><th>provider</th><th>model</th><th>ready?</th></tr></thead>
+        <tbody>
+          ${Object.keys(agents).map((a) => {
+            const [pid, model] = [agents[a].split("/")[0], agents[a].split("/").slice(1).join("/")];
+            const prov = providers.find((p) => p.id === pid);
+            const r = ready[a] || {};
+            const does = { idea: "picks what to make", metadata: "writes the title", qc: "judges four frames — needs a model that sees images", analyst: "reads the numbers, proposes rules" }[a];
+            return html`
+              <tr key=${a}>
+                <td><b>${a}</b></td><td class="hint">${does}</td>
+                <td><select value=${pid} onChange=${(e) => setAgents({ ...agents, [a]: `${e.target.value}/${model}` })}>
+                  ${providers.map((p) => html`<option key=${p.id} value=${p.id} disabled=${b.needs_vision.includes(a) && !p.vision}>${p.id}${b.needs_vision.includes(a) && !p.vision ? " (no images)" : ""}</option>`)}</select></td>
+                <td><input list=${`models-${pid}`} value=${model} onChange=${(e) => setAgents({ ...agents, [a]: `${pid}/${e.target.value}` })} style=${{ width: 220 }} />
+                  <datalist id=${`models-${pid}`}>${(prov?.models || []).map((m) => html`<option key=${m} value=${m} />`)}</datalist></td>
+                <td>${r.ok ? html`<span class="good">ready${r.free ? " · free" : ""}</span>` : html`<span class="bad">${r.why || "—"}</span>`}</td>
+              </tr>`;
+          })}
+        </tbody>
+      </table>
+      <div class="row" style=${{ marginTop: 10 }}>
+        <button class="ok" onClick=${save} disabled=${saving}>${saving ? "Saving…" : "Save brains"}</button>
+        <span class="hint">${b.overridden ? "set on this page (config.toml is the default underneath)" : "from config.toml"}</span>
+      </div>
+    </div>`;
+}
+
+/* ---------- FactorySettings: every knob, rendered from the schema ---------- */
+
+function FactorySettings() {
+  const [s, setS] = useState(null);
+  const load = useCallback(() => api("/api/settings").then(setS), []);
+  useEffect(() => { load().catch((err) => alert(err.message)); }, [load]);
+  if (!s) return null;
+  const put = async (f, value) => {
+    try { setS(await send("/api/settings", { section: f.section, key: f.key, value }, "PUT")); }
+    catch (err) { alert(err.message); }
+  };
+  const reset = async (f) => {
+    try { setS(await api(`/api/settings/${f.section}/${f.key}`, { method: "DELETE" })); }
+    catch (err) { alert(err.message); }
+  };
+  const groups = [...new Set(s.fields.map((f) => f.section))];
+  return html`
+    <div class="card">
+      <h3>Factory settings</h3>
+      <div class="hint" style=${{ marginBottom: 12 }}>config.toml is the default. A value changed here is stored in the database as an override, marked, and can be reset. Changes apply to the next render or QC, not to clips already made.</div>
+      ${groups.map((g) => html`
+        <div key=${g} class="hint" style=${{ margin: "12px 0 4px", color: "var(--ink)", textTransform: "uppercase", fontSize: 11, letterSpacing: ".08em" }}>${g}</div>
+        ${s.fields.filter((f) => f.section === g).map((f) => html`
+          <div key=${f.key} class="row" style=${{ alignItems: "flex-start" }}>
+            <div style=${{ width: 260 }}><div style=${{ fontSize: 13 }}>${f.label}</div>${f.help ? html`<div class="hint">${f.help}</div>` : null}</div>
+            ${f.type === "select" ? html`<select value=${String(f.value)} onChange=${(e) => put(f, e.target.value)}>${f.options.map((o) => html`<option key=${o} value=${String(o)}>${o}</option>`)}</select>`
+            : f.type === "number" ? html`<input type="number" defaultValue=${f.value} min=${f.min} max=${f.max} step=${f.step} onBlur=${(e) => { if (String(e.target.value) !== String(f.value)) put(f, e.target.value); }} style=${{ width: 120, flex: "none" }} />`
+            : html`<input defaultValue=${f.value} onBlur=${(e) => { if (e.target.value !== f.value) put(f, e.target.value); }} style=${{ width: 260, flex: "none" }} />`}
+            ${f.overridden ? html`<span class="hint">override · default ${String(f.default)} <button class="small" onClick=${() => reset(f)}>reset</button></span>` : html`<span class="hint">default</span>`}
+          </div>`)}`)}
+    </div>`;
 }
 
 function Rules({ rules: r, channelId, reload }) {

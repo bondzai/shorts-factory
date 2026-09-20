@@ -5,6 +5,7 @@ description = "Generator-slot content pipeline for YouTube Shorts / FB Reels"
 requires-python = ">=3.11"
 dependencies = [
     "anthropic>=1.0",
+    "openai>=1.30",
     "pydantic>=2.7",
     "pymunk>=6.6",
     "pillow>=10.3",
