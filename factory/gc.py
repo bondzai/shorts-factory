@@ -100,7 +100,7 @@ def sweep_clips(
             sql += " AND channel_id = ?"
             args.append(channel_id)
         for row in conn.execute(sql, args).fetchall():
-            path = Path(row["video_path"])
+            path = db.video_file(row)
             before = swept.files
             _unlink(path, swept, dry_run)
             for name in INTERMEDIATES:

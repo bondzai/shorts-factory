@@ -24,6 +24,39 @@ def _columns(conn: sqlite3.Connection, table: str) -> set[str]:
     return {r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
 
 
+def video_file(row) -> Path | None:
+    """The clip's file on this machine, from whatever the row stores.
+
+    Rows store the path relative to ROOT (data/work/<channel>/<id>/clip.mp4)
+    so the same database works from a checkout on the Desktop, from the old
+    scratch folder, and from /app inside the container. An absolute path is
+    honoured if it still exists; otherwise the part from data/ onward is
+    tried under ROOT. Measured need: moving the project folder left every
+    one of 11 clips pointing into a directory that no longer existed.
+    """
+    stored = row["video_path"] if isinstance(row, sqlite3.Row) or hasattr(row, "keys") else row
+    if not stored:
+        return None
+    path = Path(stored)
+    if path.is_absolute():
+        if path.exists():
+            return path
+        parts = path.parts
+        if "data" in parts:
+            return settings.ROOT.joinpath(*parts[parts.index("data"):])
+        return path
+    return settings.ROOT / path
+
+
+def relative_video_path(path: Path) -> str:
+    """What to store: relative to ROOT when under it, else as given."""
+    path = Path(path)
+    try:
+        return str(path.resolve().relative_to(settings.ROOT))
+    except ValueError:
+        return str(path)
+
+
 def migrate(conn: sqlite3.Connection) -> list[str]:
     """Bring a database written before channels existed up to date.
 
@@ -34,6 +67,18 @@ def migrate(conn: sqlite3.Connection) -> list[str]:
     from .channels import DEFAULT_ID
 
     done: list[str] = []
+    # Paths written as absolute by earlier versions: rewrite the ones under
+    # any data/ directory to ROOT-relative, so the database survives the
+    # project moving. Idempotent — relative rows are left alone.
+    rows = (conn.execute("SELECT id, video_path FROM clips WHERE video_path LIKE '/%'").fetchall()
+            if "video_path" in _columns(conn, "clips") else [])
+    for row in rows:
+        parts = Path(row["video_path"]).parts
+        if "data" in parts:
+            conn.execute("UPDATE clips SET video_path = ? WHERE id = ?",
+                         (str(Path(*parts[parts.index("data"):])), row["id"]))
+    if rows:
+        done.append(f"video paths made relative to ROOT ({len(rows)})")
     for table in ("clips", "digests"):
         if "channel_id" not in _columns(conn, table):
             conn.execute(

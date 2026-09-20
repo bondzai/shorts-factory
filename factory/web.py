@@ -960,7 +960,7 @@ def clip_detail(clip_id: str) -> dict[str, Any]:
         row = db.get(conn, clip_id)
     if row is None:
         raise HTTPException(404, f"no clip {clip_id}")
-    path = Path(row["video_path"]) if row["video_path"] else None
+    path = db.video_file(row)
     return {
         **_clip_json(row),
         "facts": json.loads(row["facts_json"] or "{}"),
@@ -988,7 +988,7 @@ def video(clip_id: str, download: bool = False) -> FileResponse:
         row = db.get(conn, clip_id)
     if row is None or not row["video_path"]:
         raise HTTPException(404, "no video for that clip")
-    path = Path(row["video_path"])
+    path = db.video_file(row)
     if not path.exists():
         raise HTTPException(410, f"file is gone: {path}")
     if download:

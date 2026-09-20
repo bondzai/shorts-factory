@@ -126,7 +126,7 @@ def _render_stage(conn: sqlite3.Connection, ch: Channel, clip_id: str, params: d
         phash.max_similarity(digest_hash, db.known_phashes(conn, ch.id, exclude=clip_id)), 4
     )
     db.update(
-        conn, clip_id, status=RENDERED, video_path=str(clip.video_path),
+        conn, clip_id, status=RENDERED, video_path=db.relative_video_path(clip.video_path),
         render_desc=clip.description, facts_json=json.dumps(clip.facts, default=str),
         duration_s=info["duration_s"], width=info["width"], height=info["height"],
         fps=info["fps"], loudness_lufs=loudness, phash=digest_hash, sameness=sameness,
@@ -158,7 +158,7 @@ def build(conn: sqlite3.Connection, clip_id: str, *, force: bool = False) -> Sta
     cfg = settings.load()
     spent = 0.0
 
-    existing = Path(row["video_path"]) if row["video_path"] else None
+    existing = db.video_file(row)
     reuse_render = (
         not force
         and existing is not None
@@ -698,7 +698,7 @@ def destroy_clips(conn: sqlite3.Connection, clip_ids: list[str]) -> list[str]:
         if not row["deleted_at"]:
             raise ValueError(f"{clip_id} is not in the bin; bin it first")
         if row["video_path"]:
-            shutil.rmtree(Path(row["video_path"]).parent, ignore_errors=True)
+            shutil.rmtree(db.video_file(row).parent, ignore_errors=True)
         conn.execute("DELETE FROM clips WHERE id = ?", (clip_id,))
         conn.commit()
         logs.event("clip.destroyed", channel=row["channel_id"], clip=clip_id, was=row["status"],
@@ -717,7 +717,7 @@ def restore(conn: sqlite3.Connection, clip_id: str) -> None:
     row = db.get(conn, clip_id)
     if row is None or row["status"] != QC_REJECTED:
         raise ValueError(f"{clip_id} is not a rejected clip")
-    if not row["video_path"] or not Path(row["video_path"]).exists():
+    if not row["video_path"] or not db.video_file(row).exists():
         raise ValueError(f"{clip_id} has no render on disk; rebuild it instead")
     if row["reject_reason"] and row["reject_reason"].startswith("too similar"):
         raise ValueError(f"{clip_id} failed a measured gate ({row['reject_reason'].split(';')[0]}); that does not change by looking again")
@@ -753,7 +753,7 @@ def publish_one(conn: sqlite3.Connection, clip_id: str) -> StageOutcome:
     try:
         result = driver.publish(
             clip_id=row["id"],
-            video_path=Path(row["video_path"]),
+            video_path=db.video_file(row),
             title=row["title"],
             description=row["description"],
             hashtags=json.loads(row["hashtags_json"] or "[]"),

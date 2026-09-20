@@ -30,7 +30,7 @@ def _print_row(row) -> None:
     print(f"\n{row['id']}  {row['generator']}/{row['variant']} seed={row['seed']}")
     print(f"  title      {row['title']}")
     print(f"  hashtags   {' '.join(json.loads(row['hashtags_json'] or '[]'))}")
-    print(f"  file       {row['video_path']}")
+    print(f"  file       {db.video_file(row)}")
     print(
         f"  technical  {row['duration_s']}s {row['width']}x{row['height']} "
         f"@{row['fps']}fps  {row['loudness_lufs']} LUFS  sameness={row['sameness']}"
