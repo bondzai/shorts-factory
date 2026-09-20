@@ -91,6 +91,8 @@ function ClipCard({ clip: c, sound, refresh, decide, position, channelId, onOpen
   const [rendering, setRendering] = useState(false);
   const [version, setVersion] = useState(0);
   const [copied, setCopied] = useState(false);
+  const [slot, setSlot] = useState<string>("");
+  useEffect(() => { api<{ schedule_text: string }>(`/api/clip/${c.id}/upload_text`).then((b) => setSlot(b.schedule_text)).catch(() => {}); }, [c.id]);
   const qc = c.qc || {};
 
   const saveText = () => act(async () => {
@@ -115,9 +117,12 @@ function ClipCard({ clip: c, sound, refresh, decide, position, channelId, onOpen
     setRendering(false); setVersion((v) => v + 1); await refresh();
   };
   const copy = async () => {
-    const text = [title.trim(), "", c.description || "", "", (c.hashtags || []).join(" "), "", prompt.trim() ? `Pinned comment: ${prompt.trim()}` : ""].join("\n").trim();
-    try { await navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1500); }
-    catch { toast("Could not reach the clipboard — select the text and copy it.", "error"); }
+    // The server lays it out under headings (TITLE, DESCRIPTION, HASHTAGS,
+    // PINNED COMMENT, SCHEDULE, METADATA) so nothing lands in the wrong box.
+    try {
+      const out = await api<{ text: string }>(`/api/clip/${c.id}/upload_text`);
+      await navigator.clipboard.writeText(out.text); setCopied(true); setTimeout(() => setCopied(false), 1500);
+    } catch { toast("Could not reach the clipboard — open Details and copy from there.", "error"); }
   };
   const uploaded = () => {
     if (!window.confirm("Mark this clip as uploaded? It moves to published and leaves this screen.")) return;
@@ -157,7 +162,7 @@ function ClipCard({ clip: c, sound, refresh, decide, position, channelId, onOpen
             <>
               <button className="ok" onClick={() => download(c.id)}>Download clip</button>
               <button className="ok" onClick={uploaded}>I uploaded it</button>
-              <span className="hint">approved — fix the caption if you want, download, upload by hand, then mark it</span>
+              <span className="hint">approved — download, upload by hand{slot ? `, schedule for ${slot}` : ""}, then mark it</span>
             </>
           ) : (
             <>

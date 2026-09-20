@@ -20,6 +20,7 @@ from __future__ import annotations
 import atexit
 import json
 import os
+from datetime import datetime
 import threading
 import urllib.error
 import urllib.request
@@ -102,7 +103,7 @@ def enabled_for(event: str) -> bool:
     cfg = _config()
     if not cfg.get("webhook_url"):
         return False
-    if event == "notify.test":
+    if event in ("notify.test", "notify.daily"):
         return True
     wanted = cfg.get("on")
     return True if wanted is None else event in wanted
@@ -145,6 +146,71 @@ def _deliver(url: str, payload: dict[str, Any], event: str) -> None:
         logs.event("notify.failed", level="warn", event_name=event, status=exc.code)
     except Exception as exc:
         logs.event("notify.failed", level="warn", event_name=event, error=str(exc))
+
+
+def daily_text(conn) -> str | None:
+    """How many approved clips wait for upload, per channel, and when to do it.
+    None when nothing waits — a reminder about nothing is noise."""
+    from . import channels, db, schedule
+    from .models import APPROVED
+
+    lines = []
+    for ch in channels.all_channels(conn):
+        rows = db.search_clips(conn, ch.id, status=APPROVED, limit=10)
+        if not rows:
+            continue
+        titles = "; ".join((r["title"] or r["id"])[:60] for r in rows[:3])
+        more = f" (+{len(rows) - 3} more)" if len(rows) > 3 else ""
+        lines.append(f"[{ch.id}] {len(rows)} approved, ready to upload: {titles}{more}")
+    if not lines:
+        return None
+    return "\n".join(lines) + f"\nNext slot: {schedule.describe(schedule.next_slot())} — open Today, Copy for upload."
+
+
+def daily(force: bool = False) -> bool:
+    """Post the reminder once per local day. Returns whether it was posted."""
+    from . import db, schedule
+
+    with db.connect() as conn:
+        key = datetime.now(schedule.timezone()).date().isoformat()
+        if not force and db.overrides(conn).get(("notify", "daily_sent")) == key:
+            return False
+        text = daily_text(conn)
+        db.set_override(conn, "notify", "daily_sent", key)
+        conn.commit()
+    if text is None:
+        return False
+    return post("notify.daily", text, kind="daily")
+
+
+def due(now: datetime | None = None) -> bool:
+    """Is it the reminder minute (or just past it, unsent today)?"""
+    from . import schedule
+
+    at = _config().get("daily_at")
+    if not at:
+        return False
+    h, m = schedule.parse_hhmm(at, (5, 45))
+    now = now or datetime.now(schedule.timezone())
+    return (now.hour, now.minute) >= (h, m)
+
+
+def start_scheduler(interval_s: float = 30.0) -> threading.Thread:
+    """A daemon that posts the daily reminder while the server runs. It checks
+    the clock every half minute and sends at most once per local day; a
+    restart after the minute has passed still sends, a second run does not."""
+    def loop() -> None:
+        import time
+        while True:
+            try:
+                if due():
+                    daily()
+            except Exception:  # never let the reminder take the server down
+                pass
+            time.sleep(interval_s)
+    thread = threading.Thread(target=loop, name="daily-reminder", daemon=True)
+    thread.start()
+    return thread
 
 
 def run_finished(

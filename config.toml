@@ -36,6 +36,10 @@ funnel_drop = ""
 # This points away from this machine on purpose: the CLI, the web UI and the MCP
 # server share one database, so none of them needs telling what the others did.
 webhook_url = ""   # or FACTORY_WEBHOOK_URL in .env, which wins and stays out of git
+# A daily reminder, at this local time (publish.timezone), of how many approved
+# clips are waiting to be uploaded — sent only while `factory serve` is running.
+# Empty disables it. 05:45 is a quarter of an hour before the US-evening slot.
+daily_at = "05:45"
 on = ["run.failed", "task.finished", "clip.qc", "clip.published", "clip.failed",
       "clip.publish_failed", "clip.retitled", "clip.approved"]
 
@@ -87,3 +91,9 @@ min_published_for_rules = 30
 
 [publish]
 driver = "manual"
+# When to upload, in your local time, chosen for the audience: 06:00 in
+# Bangkok is 18:00-19:00 in New York, the evening slot with the highest CPM.
+# "Copy for upload" prints the next slot, and the daily reminder fires just
+# before it.
+best_time = "06:00"
+timezone = "Asia/Bangkok"

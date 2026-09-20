@@ -14,6 +14,8 @@ reads your database and spends your API credit.
 
 from __future__ import annotations
 
+import os
+
 import json
 import threading
 import traceback
@@ -105,6 +107,13 @@ class _Job:
 
 JOB = _Job()
 app = FastAPI(title="shorts-factory", docs_url=None, redoc_url=None)
+
+
+@app.on_event("startup")
+def _start_daily_reminder() -> None:
+    from . import notify
+    if not os.environ.get("FACTORY_NO_SCHEDULER"):
+        notify.start_scheduler()
 
 
 # --- a password gate, only when FACTORY_PASSWORD is set ------------------------
@@ -1112,6 +1121,17 @@ class TextBody(BaseModel):
     title: str | None = None
     comment_prompt: str | None = None
     why: str = ""
+
+
+@app.get("/api/clip/{clip_id}/upload_text")
+def upload_text(clip_id: str) -> dict[str, Any]:
+    """What to paste into the upload form, under headings, plus the next slot."""
+    from . import schedule
+    with db.connect() as conn:
+        try:
+            return schedule.upload_text(conn, clip_id)
+        except ValueError as exc:
+            raise HTTPException(404, str(exc)) from None
 
 
 @app.patch("/api/clip/{clip_id}/text")

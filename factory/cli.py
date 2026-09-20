@@ -524,11 +524,18 @@ def cmd_notify(args) -> int:
         return 1
     from urllib.parse import urlsplit
 
-    print(f"posting a test notification to {urlsplit(url).netloc} (the path is a secret and stays unprinted)")
-    sent = notify.post(
-        "notify.test", "[test] shorts-factory can reach this endpoint",
-        channel="test", kind="test", status="ok",
-    )
+    if getattr(args, "daily", False):
+        print(f"posting the daily reminder to {urlsplit(url).netloc}")
+        sent = notify.daily(force=True)
+        if not sent:
+            print("nothing approved is waiting, so nothing was sent")
+            return 0
+    else:
+        print(f"posting a test notification to {urlsplit(url).netloc} (the path is a secret and stays unprinted)")
+        sent = notify.post(
+            "notify.test", "[test] shorts-factory can reach this endpoint",
+            channel="test", kind="test", status="ok",
+        )
     if not sent:
         print("event not in [notify] on = [...]; nothing was sent")
         return 1
@@ -807,7 +814,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--clip", default=None)
     p.set_defaults(func=cmd_logs)
 
-    sub.add_parser("notify", help="post a test notification to the configured webhook", description="post a test notification to the configured webhook").set_defaults(func=cmd_notify)
+    p = sub.add_parser("notify", help="post a test notification, or today's upload reminder, to the configured webhook", description="post a test notification, or today's upload reminder, to the configured webhook")
+    p.add_argument("--daily", action="store_true", help="send the daily 'approved clips waiting' reminder now")
+    p.set_defaults(func=cmd_notify)
 
     p = sub.add_parser("gc", help="delete rendered files whose outcome is settled", description="delete rendered files whose outcome is settled")
     p.add_argument("--dry-run", action="store_true")
