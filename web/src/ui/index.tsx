@@ -41,14 +41,14 @@ export function Chips({ options, value, onChange, all = "all" }: { options: { va
 }
 
 export interface Column<T> { key: string; label: ReactNode; sortable?: boolean; render: (row: T) => ReactNode; width?: string; align?: "right" }
-export function DataTable<T extends { id: string | number }>({ columns, rows, sort, dir, onSort, onRow, empty = "Nothing matches.", loading, selectable, selected, onSelect, onSelectAll }: {
+export function DataTable<T extends { id: string | number; key?: string }>({ columns, rows, sort, dir, onSort, onRow, empty = "Nothing matches.", loading, selectable, selected, onSelect, onSelectAll }: {
   columns: Column<T>[]; rows: T[]; sort?: string; dir?: string; onSort?: (key: string) => void; onRow?: (row: T) => void;
   empty?: ReactNode; loading?: boolean; selectable?: boolean; selected?: Set<string | number>; onSelect?: (id: string | number) => void; onSelectAll?: () => void;
 }) {
   return (
     <table className="data">
       <thead><tr>
-        {selectable && <th style={{ width: 28 }}><input type="checkbox" checked={rows.length > 0 && rows.every((r) => selected?.has(r.id))} onChange={onSelectAll} title="select all on this page" /></th>}
+        {selectable && <th style={{ width: 28 }}><input type="checkbox" checked={rows.length > 0 && rows.every((r) => selected?.has(r.key ?? r.id))} onChange={onSelectAll} title="select all on this page" /></th>}
         {columns.map((c) => (
           <th key={c.key} className={c.sortable ? "sortable" : undefined} style={{ width: c.width, textAlign: c.align }} onClick={c.sortable && onSort ? () => onSort(c.key) : undefined}>
             {c.label}{sort === c.key ? (dir === "asc" ? " ↑" : " ↓") : ""}
@@ -57,8 +57,8 @@ export function DataTable<T extends { id: string | number }>({ columns, rows, so
       </tr></thead>
       <tbody>
         {rows.map((r) => (
-          <tr key={r.id} className={onRow ? "clickable" : undefined} onClick={onRow ? (e) => { if (!(e.target as HTMLElement).closest("button, input, a, select")) onRow(r); } : undefined}>
-            {selectable && <td><input type="checkbox" checked={!!selected?.has(r.id)} onChange={() => onSelect?.(r.id)} /></td>}
+          <tr key={r.key ?? r.id} className={onRow ? "clickable" : undefined} onClick={onRow ? (e) => { if (!(e.target as HTMLElement).closest("button, input, a, select")) onRow(r); } : undefined}>
+            {selectable && <td><input type="checkbox" checked={!!selected?.has(r.key ?? r.id)} onChange={() => onSelect?.(r.key ?? r.id)} /></td>}
             {columns.map((c) => <td key={c.key} style={{ textAlign: c.align }}>{c.render(r)}</td>)}
           </tr>
         ))}

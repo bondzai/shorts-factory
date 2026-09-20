@@ -10,7 +10,7 @@ similarity score. No brain can change a measurement.
 
 **External, over MCP.** Codex, Claude Code and Gemini CLI can all connect to
 the factory as an MCP server. Register it once — Settings → Brains shows the
-exact command for each — then paste the standing prompt from the Queue screen.
+exact command for each — then paste the standing prompt from **Clips → Hand off to an agent**.
 The prompt is six lines and never changes, because each task carries its own
 full instructions. No API key goes into this project.
 

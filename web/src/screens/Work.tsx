@@ -1,0 +1,128 @@
+// One list for everything the channel is making: a task until it has a
+// clip, the clip from then on. What was asked for and what came of it are
+// the same row at different stages, so they live on the same screen.
+import { useEffect, useState } from "react";
+import { api, q, send } from "../lib/api";
+import { num, pct, when, download } from "../lib/format";
+import { act } from "../lib/toast";
+import { useList } from "../lib/useList";
+import { useQuery } from "../lib/route";
+import { Page, Toolbar, SearchBox, Chips, DataTable, Pagination, Badge, Modal, StepStrip, Column } from "../ui";
+import type { Route } from "../lib/route";
+import type { Clip, Snap, Task, TaskKind } from "../lib/types";
+
+type Row = (Clip & { row_kind: "clip"; stage: string; key: string }) | (Task & { row_kind: "task"; stage: string; key: string });
+interface WorkPage { items: Row[]; total: number; page: number; page_size: number; stages: { id: string; count: number }[]; modules: Record<string, string[]>; binned: number; kinds: Record<string, TaskKind> }
+
+const STAGE: Record<string, { word: string; tone?: "ok" | "no" | "key" }> = {
+  queued: { word: "queued" }, rendering: { word: "rendering", tone: "key" }, to_review: { word: "to review", tone: "key" },
+  approved: { word: "approved", tone: "ok" }, published: { word: "published", tone: "ok" }, rejected: { word: "rejected", tone: "no" },
+  failed: { word: "failed", tone: "no" }, cancelled: { word: "cancelled" }, done: { word: "done" },
+};
+const stageWord = (s: string) => STAGE[s]?.word || s;
+
+export function Work({ snap, channelId, refresh, onOpen, route, navigate }: {
+  snap: Snap; channelId: string; refresh: () => Promise<void>; onOpen: (id: string) => void; route: Route; navigate: (v: string, p?: Record<string, string | number | undefined>) => void;
+}) {
+  const query = useQuery(route, navigate);
+  const list = useList<Row>("/api/work", route, { channel: channelId, stage: query.get("stage"), variant: query.get("variant") }, [snap.tasks?.queued, snap.tasks?.claimed, snap.tasks?.done, snap.tasks?.failed, snap.counts?.awaiting_approval, snap.counts?.approved]);
+  const body = list.data as WorkPage | null;
+  const [modal, setModal] = useState<"add" | "handoff" | null>(null);
+  const [picked, setPicked] = useState<Set<string | number>>(new Set());
+  useEffect(() => setPicked(new Set()), [list.data]);
+  const rows = body?.items || [];
+  const keys = rows.map((r) => r.key);
+  const after = async () => { setPicked(new Set()); list.reload(); await refresh(); };
+  // A selection can hold both kinds; each action takes the half it applies to.
+  const pickedClips = rows.filter((r) => r.row_kind === "clip" && picked.has(r.key)).map((r) => r.id as string);
+  const pickedTasks = rows.filter((r) => r.row_kind === "task" && picked.has(r.key) && ["queued", "claimed", "failed", "cancelled", "done"].includes(r.status)).map((r) => r.id as number);
+  const bulk = (path: string, payload: unknown, confirmText?: string) => { if (confirmText && !window.confirm(confirmText)) return; act(() => send(path, payload), { after }); };
+  const restore = (id: string) => act(() => send(`/api/clip/${id}/restore`), { ok: "Back to review", after });
+  const cancel = (id: number) => act(() => api(`/api/tasks/${id}`, { method: "DELETE" }), { ok: "Cancelled", after });
+
+  const columns: Column<Row>[] = [
+    { key: "title", label: "What", sortable: true, render: (r) => r.row_kind === "clip"
+        ? <><div>{r.title || "(untitled)"}</div><div className="hint">{r.id} · {r.generator}/{r.variant} · seed {r.seed}{r.title_history?.length ? ` · retitled ${r.title_history.length}×` : ""}{r.reject_reason && <> · <span className="no-text">{r.reject_reason.slice(0, 80)}</span></>}</div></>
+        : <><div><b>{r.kind}</b> <span className="dim small">{Object.entries(r.params).map(([k, v]) => `${k}=${v}`).join(" ")}</span></div>
+            <div className="hint">#{r.id} · {r.meaning}{r.claimed_by ? ` · ${r.claimed_by}` : ""}{r.error ? <> · <span className="no-text">{r.error.slice(0, 80)}</span></> : r.result?.summary ? ` · ${r.result.summary.slice(0, 80)}` : ""}</div>
+            {r.status === "claimed" && <StepStrip steps={r.steps} />}</> },
+    { key: "stage", label: "Stage", sortable: true, render: (r) => <Badge tone={STAGE[r.stage]?.tone}>{stageWord(r.stage)}</Badge> },
+    { key: "views", label: "Views", sortable: true, align: "right", render: (r) => r.row_kind === "clip" ? num(r.views) : "" },
+    { key: "avg_view_pct", label: "Viewed", sortable: true, align: "right", render: (r) => r.row_kind === "clip" ? pct(r.avg_view_pct) : "" },
+    { key: "swipe_away_pct", label: "Swiped", sortable: true, align: "right", render: (r) => r.row_kind === "clip" ? pct(r.swipe_away_pct) : "" },
+    { key: "created_at", label: "Made", sortable: true, render: (r) => <span className="dim small">{when(r.created_at)}</span> },
+    { key: "actions", label: "", render: (r) => <span className="row" style={{ whiteSpace: "nowrap" }}>
+        {r.row_kind === "clip" ? <>
+          <button className="sm" onClick={() => onOpen(r.id)}>View</button>
+          {r.has_video ? <button className="sm" onClick={() => download(r.id)}>Download</button> : <span className="hint">no file</span>}
+          {r.status === "qc_rejected" && r.has_video && !(r.reject_reason || "").startsWith("too similar") && <button className="sm" onClick={() => restore(r.id)}>Back to review</button>}
+        </> : ["queued", "claimed"].includes(r.status) ? <button className="sm" onClick={() => cancel(r.id)}>Cancel</button> : null}
+      </span> },
+  ];
+  const sortKey = query.get("sort"), dir = query.get("dir");
+  const onSort = (k: string) => query.set({ sort: k, dir: sortKey === k && dir !== "asc" ? "asc" : "desc", page: 1 });
+
+  return (
+    <Page title="Everything this channel is making"
+      lead={`One row per piece of work, from queued to published. Tick rows to act on them; binned clips are under Bin${body?.binned ? ` (${body.binned} there now)` : ""}.`}
+      action={<div className="row"><button className="primary" onClick={() => setModal("add")}>Add work</button><button onClick={() => setModal("handoff")}>Hand off to an agent</button></div>}>
+      {modal === "add" && body && <Modal title="Add work" onClose={() => setModal(null)}><AddWork snap={snap} channelId={channelId} kinds={body.kinds} after={async () => { setModal(null); await after(); }} /></Modal>}
+      {modal === "handoff" && <Modal title="Hand the queue to an agent" onClose={() => setModal(null)}><HandOff snap={snap} channelId={channelId} refresh={refresh} /></Modal>}
+      <Toolbar total={body?.total}>
+        <button className="sm" disabled={!pickedClips.length} onClick={() => bulk("/api/clips/bin", { ids: pickedClips })}>Move to bin {pickedClips.length || ""}</button>
+        <button className="sm" disabled={!pickedTasks.length} onClick={() => bulk("/api/tasks/delete", { ids: pickedTasks }, `Remove ${pickedTasks.length} task(s) from the queue?`)}>Remove task {pickedTasks.length || ""}</button>
+        <button className="sm ghost" onClick={() => bulk("/api/tasks/clear", { channel: channelId }, "Remove every done, failed and cancelled task on this channel?")}>Clear finished tasks</button>
+        <SearchBox value={query.get("q")} onChange={(v) => query.set({ q: v, page: 1 })} placeholder="search titles, ids, parameters, who" />
+        <Chips options={(body?.stages || []).map((s) => ({ value: s.id, label: `${stageWord(s.id)} ${s.count}` }))} value={query.get("stage")} onChange={(v) => query.set({ stage: v, page: 1 })} all="any stage" />
+        <Chips options={Object.values(body?.modules || {}).flat().map((v) => ({ value: v }))} value={query.get("variant")} onChange={(v) => query.set({ variant: v, page: 1 })} all="any variant" />
+      </Toolbar>
+      <DataTable columns={columns} rows={rows as (Row & { id: string | number })[]} loading={list.loading} sort={sortKey} dir={dir} onSort={onSort}
+        onRow={(r) => { if (r.row_kind === "clip") onOpen(r.id as string); }}
+        selectable selected={picked} onSelect={(id) => setPicked((p) => { const s = new Set(p); s.has(id) ? s.delete(id) : s.add(id); return s; })}
+        onSelectAll={() => setPicked((p) => p.size === keys.length ? new Set() : new Set(keys))} empty="Nothing yet. Press Add work." />
+      {body && <Pagination page={body.page} pageSize={body.page_size} total={body.total} onPage={(p) => query.set({ page: p })} onPageSize={(s) => query.set({ page_size: s, page: 1 })} />}
+    </Page>
+  );
+}
+
+function AddWork({ snap, channelId, kinds, after }: { snap: Snap; channelId: string; kinds: Record<string, TaskKind>; after: () => Promise<void> }) {
+  const [kind, setKind] = useState("make-clip");
+  const [params, setParams] = useState<Record<string, string>>({});
+  const [count, setCount] = useState(1);
+  const spec = kinds[kind] || { params: {}, builtin: false, meaning: "" };
+  const variants = snap.channel.variants || [];
+  const add = (e: React.FormEvent) => { e.preventDefault(); act(() => send("/api/tasks", { channel: channelId, kind, params, count: Number(count) }), { ok: `Queued ${count}`, after: async () => { setParams({}); setCount(1); await after(); } }); };
+  const input = (k: string) => {
+    if (k === "generator") return null;
+    if (k === "variant") return <select key={k} value={params.variant || ""} onChange={(e) => setParams({ ...params, variant: e.target.value, generator: e.target.value.split("/")[0] })}><option value="">variant…</option>{variants.map((v) => <option key={v} value={v.split("/")[1]}>{v}</option>)}</select>;
+    if (k === "course") return <select key={k} value={params.course || ""} onChange={(e) => setParams({ ...params, course: e.target.value })} title="the shape of the descent; empty lets the seed choose"><option value="">any course</option>{["zigzag", "pegboard", "bumpers"].map((c) => <option key={c} value={c}>{c}</option>)}</select>;
+    if (k === "background") return <label key={k} className="row small dim" title="backdrop colour; unticked lets the theme choose"><input type="checkbox" checked={!!params.background} onChange={(e) => setParams({ ...params, background: e.target.checked ? "#1a1a2a" : "" })} /> backdrop{params.background && <input type="color" value={params.background} onChange={(e) => setParams({ ...params, background: e.target.value })} />}</label>;
+    return <input key={k} className="w-sm" placeholder={k} value={params[k] ?? ""} onChange={(e) => setParams({ ...params, [k]: e.target.value })} />;
+  };
+  return (
+    <form className="stack" onSubmit={add}>
+      <select value={kind} onChange={(e) => { setKind(e.target.value); setParams({}); }}>{Object.entries(kinds).map(([k, v]) => <option key={k} value={k}>{k} — {v.meaning}</option>)}</select>
+      <div className="row wrap">
+        {Object.keys(spec.params).map(input)}
+        {kind === "make-clip" && <label className="row small dim">×<input type="number" className="w-sm" min={1} max={50} value={count} onChange={(e) => setCount(Number(e.target.value))} /></label>}
+      </div>
+      <div className="row"><button type="submit" className="primary">Add to queue</button><span className="hint">{spec.builtin ? "built-in agents can do this" : "needs an external agent's judgement"}</span></div>
+    </form>
+  );
+}
+
+function HandOff({ snap, channelId, refresh }: { snap: Snap; channelId: string; refresh: () => Promise<void> }) {
+  const [text, setText] = useState("");
+  const [copied, setCopied] = useState(false);
+  useEffect(() => { api<{ text: string }>(`/api/playbook/work?${q({ channel: channelId })}`).then((b) => setText(b.text)).catch(() => {}); }, [channelId]);
+  const copy = async () => { try { await navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* shown below */ } };
+  return (
+    <div className="stack">
+      <div className="row"><span className="hint grow">Paste this into Codex, Claude Code or any MCP-connected agent. It is the same for every task and every model — the task carries its own playbook.</span><button className="sm ok" onClick={copy} disabled={!text}>{copied ? "Copied" : "Copy"}</button></div>
+      <pre className="captured" style={{ maxHeight: 260 }}>{text || "loading…"}</pre>
+      {snap.agents?.available
+        ? <div className="row mt-3"><button onClick={() => act(() => send("/api/tasks/work", { channel: channelId }), { after: refresh })} disabled={snap.job?.running}>Run with built-in agents</button><span className="hint">does every make-clip task in the queue, in a job</span></div>
+        : <div className="hint mt-3">No built-in provider is ready (Settings → Brains), so an external agent works this queue.</div>}
+    </div>
+  );
+}

@@ -9,7 +9,7 @@ import { Toasts } from "./ui";
 import { Logo } from "./ui/Logo";
 import { useTheme, type Theme } from "./lib/theme";
 import { Today } from "./screens/Today";
-import { Queue } from "./screens/Queue";
+import { Work } from "./screens/Work";
 import { Clips, ClipDrawer } from "./screens/Clips";
 import { Results } from "./screens/Results";
 import { Activity } from "./screens/Activity";
@@ -19,8 +19,7 @@ import type { Channel, Snap } from "./lib/types";
 
 const VIEWS = [
   { id: "today", name: "Today", meaning: "decide, then upload" },
-  { id: "queue", name: "Queue", meaning: "what agents will do next" },
-  { id: "clips", name: "Clips", meaning: "everything ever made" },
+  { id: "clips", name: "Clips", meaning: "queued, rendering, made" },
   { id: "results", name: "Results", meaning: "how published clips did" },
   { id: "activity", name: "Activity", meaning: "what ran, and what happened" },
   { id: "bin", name: "Bin", meaning: "what you threw away" },
@@ -54,7 +53,7 @@ export default function App() {
   const reload = useCallback(async () => { await loadChannels(); await refresh(); }, [loadChannels, refresh]);
 
   if (channels && !channels.length) return <div className="main"><div className="content"><p className="empty">No channels yet.</p><AddChannel onDone={reload} /></div></div>;
-  const view = VIEWS.some((v) => v.id === route.view) ? route.view : "today";
+  const view = route.view === "queue" ? "clips" : VIEWS.some((v) => v.id === route.view) ? route.view : "today";
   const queueCount = snap ? snap.queue.length + snap.approved.length : 0;
   const taskCount = (snap?.tasks?.queued || 0) + (snap?.tasks?.claimed || 0);
   const screenProps = { channelId: channelId!, refresh: reload, route, navigate, onOpen: setOpenClip };
@@ -65,7 +64,7 @@ export default function App() {
         <div className="brand"><Logo />shorts factory</div>
         {VIEWS.map((v) => (
           <a key={v.id} href={`#/${v.id}`} aria-current={view === v.id ? "page" : undefined}>
-            <span className="name">{v.name}{v.id === "today" && queueCount > 0 && <span className="count">{queueCount}</span>}{v.id === "queue" && taskCount > 0 && <span className="count">{taskCount}</span>}</span>
+            <span className="name">{v.name}{v.id === "today" && queueCount > 0 && <span className="count">{queueCount}</span>}{v.id === "clips" && taskCount > 0 && <span className="count" title="queued or rendering">{taskCount}</span>}</span>
             <span className="meaning">{v.meaning}</span>
           </a>
         ))}
@@ -78,8 +77,7 @@ export default function App() {
           {openClip && <ClipDrawer id={openClip} close={() => setOpenClip(null)} refresh={reload} sound={sound} />}
           {!snap ? <p className="empty">{error ? `cannot reach the server: ${error}` : "loading…"}</p>
             : view === "today" ? <Today snap={snap} {...screenProps} sound={sound} setSound={setSound} />
-            : view === "queue" ? <Queue snap={snap} {...screenProps} />
-            : view === "clips" ? <Clips {...screenProps} />
+            : view === "clips" ? <Work snap={snap} {...screenProps} />
             : view === "bin" ? <Clips {...screenProps} bin />
             : view === "results" ? <Results {...screenProps} />
             : view === "activity" ? <Activity {...screenProps} />
@@ -113,7 +111,7 @@ function Header({ channels, channelId, setChannelId, snap, refresh, error, navig
           <button disabled={busy} onClick={() => run("/api/build")} title="Render, title and QC everything planned">Build planned</button>
           <button disabled={busy} onClick={() => run("/api/digest")} title="Ask the built-in Analyst what the numbers say">Digest</button>
         </>
-      ) : <button onClick={() => navigate("queue")} title="No API key is set, so clips are made by an agent over MCP. The Queue screen hands it the work.">Make clips with an agent</button>}
+      ) : <button onClick={() => navigate("clips")} title="No API key is set, so clips are made by an agent over MCP. Add work on the Clips screen and hand it off.">Make clips with an agent</button>}
       {!manual && <button disabled={busy} onClick={() => run("/api/publish")} title="Publish every approved clip through the channel's driver">Publish approved</button>}
       <span className="pill" title="this channel / all channels">${fmt(snap?.spend_usd, 4)} <span className="dim">/ ${fmt(snap?.spend_total_usd, 4)}</span></span>
       {error && <span className="job no-text">{error}</span>}

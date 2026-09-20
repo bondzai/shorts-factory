@@ -291,6 +291,14 @@ def latest_digest(conn: sqlite3.Connection, channel_id: str) -> sqlite3.Row | No
 PAGE_SIZES = (25, 50, 100)
 CLIP_SORTS = {"created_at", "title", "status", "views", "avg_view_pct", "swipe_away_pct", "sameness", "duration_s"}
 TASK_SORTS = {"id", "kind", "status", "created_at", "claimed_by"}
+WORK_SORTS = {"created_at", "title", "stage", "views", "avg_view_pct", "swipe_away_pct"}
+# One vocabulary for where a piece of work is, whether it is still a task or
+# already a clip. Ordered the way work moves.
+STAGES = ["queued", "rendering", "to_review", "approved", "published", "rejected", "failed", "cancelled", "done"]
+_CLIP_STAGE = ("CASE status WHEN 'planned' THEN 'queued' WHEN 'rendered' THEN 'rendering' "
+               "WHEN 'described' THEN 'rendering' WHEN 'awaiting_approval' THEN 'to_review' "
+               "WHEN 'qc_rejected' THEN 'rejected' ELSE status END")
+_TASK_STAGE = "CASE status WHEN 'claimed' THEN 'rendering' ELSE status END"
 RUN_SORTS = {"id", "kind", "status", "started_at", "cost_usd"}
 
 
@@ -506,6 +514,51 @@ def tasks(
              if not sort else _order(sort, direction, TASK_SORTS, "id"))
     rows = conn.execute(sql + order + " LIMIT ? OFFSET ?", args + [size, (p - 1) * size]).fetchall()
     return rows, total
+
+
+def work(
+    conn: sqlite3.Connection, channel_id: str, *, stage: str | None = None, variant: str | None = None,
+    query: str | None = None, sort: str | None = None, direction: str | None = None,
+    page: int | None = None, page_size: int | None = None,
+) -> tuple[list[sqlite3.Row], int, dict[str, int]]:
+    """Every piece of work on a channel as one list: a task until it has a
+    clip, the clip from then on. A task is what was asked for and a clip is
+    what came of it, and showing them on two screens made the reader work
+    out which one to look at. Returns (rows, total, count per stage); each
+    row carries row_kind ('task' | 'clip') and the id of the underlying row."""
+    base = f"""
+        WITH w AS (
+            SELECT 'clip' AS row_kind, id AS id, NULL AS task_id, id AS clip_id, status,
+                   {_CLIP_STAGE} AS stage, title, variant, created_at,
+                   views, avg_view_pct, swipe_away_pct,
+                   COALESCE(title, '') || ' ' || id || ' ' || COALESCE(render_desc, '') AS haystack
+            FROM clips WHERE channel_id = ? AND deleted_at IS NULL
+            UNION ALL
+            SELECT 'task', 't' || id, id, NULL, status,
+                   {_TASK_STAGE}, kind || ' ' || params_json, json_extract(params_json, '$.variant'), created_at,
+                   NULL, NULL, NULL,
+                   kind || ' ' || params_json || ' ' || COALESCE(result_json, '') || ' ' || COALESCE(error, '') || ' ' || COALESCE(claimed_by, '')
+            FROM tasks WHERE channel_id = ? AND clip_id IS NULL
+        )
+        SELECT * FROM w WHERE 1 = 1"""
+    args: list[Any] = [channel_id, channel_id]
+    counts = {r["stage"]: r["n"] for r in conn.execute(
+        base.replace("SELECT * FROM w WHERE 1 = 1", "SELECT stage, COUNT(*) n FROM w GROUP BY stage"), args)}
+    if stage:
+        base += " AND stage = ?"; args.append(stage)
+    if variant:
+        base += " AND variant = ?"; args.append(variant)
+    if query:
+        base += " AND haystack LIKE ?"; args.append(f"%{query}%")
+    total = conn.execute(base.replace("SELECT * FROM w", "SELECT COUNT(*) FROM w", 1), args).fetchone()[0]
+    p, size = page_args(page, page_size)
+    order = _order(sort, direction, WORK_SORTS, "created_at").replace(", id DESC", ", row_kind DESC, id DESC")
+    rows = conn.execute(base + order + " LIMIT ? OFFSET ?", args + [size, (p - 1) * size]).fetchall()
+    return rows, total, counts
+
+
+def get_task(conn: sqlite3.Connection, task_id: int) -> sqlite3.Row | None:
+    return conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
 
 
 def task_counts(conn: sqlite3.Connection, channel_id: str) -> dict[str, int]:

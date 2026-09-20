@@ -748,6 +748,47 @@ def destroy_clips(body: IdsBody) -> dict[str, Any]:
             raise HTTPException(400, str(exc)) from None
 
 
+@app.get("/api/work")
+def work(
+    channel: str | None = None, stage: str | None = None, variant: str | None = None, q: str | None = None,
+    sort: str | None = None, dir: str | None = None, page: int = 1, page_size: int = 25,
+) -> dict[str, Any]:
+    """Tasks and clips as one list. Each item says which it is (row_kind) and
+    where it is (stage); a task item is tasks.as_dict, a clip item is the
+    same shape /api/clips gives, so the page needs no third kind of row."""
+    with db.connect() as conn:
+        ch = _resolve(conn, channel)
+        rows, total, counts = db.work(conn, ch.id, stage=stage, variant=variant, query=q,
+                                      sort=sort, direction=dir, page=page, page_size=page_size)
+        items = []
+        for w in rows:
+            if w["row_kind"] == "task":
+                t = db.get_task(conn, int(w["task_id"]))
+                if t is None:
+                    continue
+                items.append({**tasks.as_dict(t), "row_kind": "task", "stage": w["stage"], "key": w["id"]})
+            else:
+                row = db.get(conn, w["clip_id"])
+                if row is None:
+                    continue
+                items.append({
+                    **_clip_json(row), "row_kind": "clip", "stage": w["stage"], "key": w["id"],
+                    "created_at": row["created_at"], "views": row["views"],
+                    "avg_view_pct": row["avg_view_pct"], "swipe_away_pct": row["swipe_away_pct"],
+                })
+        binned = conn.execute(
+            "SELECT COUNT(*) n FROM clips WHERE channel_id = ? AND deleted_at IS NOT NULL", (ch.id,)
+        ).fetchone()["n"]
+        modules = generators.available(ch.variants)
+    p, size = db.page_args(page, page_size)
+    return {
+        "items": items, "total": total, "page": p, "page_size": size,
+        "stages": [{"id": s, "count": counts.get(s, 0)} for s in db.STAGES if counts.get(s)],
+        "modules": modules, "binned": binned,
+        "kinds": {k: {"meaning": v["meaning"], "params": v["params"], "builtin": v["builtin"]} for k, v in tasks.KINDS.items()},
+    }
+
+
 @app.get("/api/clips")
 def clips(
     channel: str | None = None,

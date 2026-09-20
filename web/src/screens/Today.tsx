@@ -41,7 +41,7 @@ export function Today({ snap, channelId, refresh, sound, setSound, onOpen }: {
   if (!items.length) {
     return (
       <Page title={`Nothing waiting on ${snap.channel.name}`}
-        lead={snap.planned ? `${snap.planned} clip(s) are planned — press Build planned.` : snap.agents?.available ? "Press Plan to ask for ideas, then Build planned." : "Add work on the Queue screen; an agent renders it and it shows up here."}>
+        lead={snap.planned ? `${snap.planned} clip(s) are planned — press Build planned.` : snap.agents?.available ? "Press Plan to ask for ideas, then Build planned." : "Add work on the Clips screen; an agent renders it and it shows up here."}>
         <LiveNow snap={snap} channelId={channelId} />
         <Card hint="Every clip you have handled is under Clips, each with View and Download while its file is kept." />
       </Page>

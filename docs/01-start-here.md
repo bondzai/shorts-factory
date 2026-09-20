@@ -6,9 +6,10 @@ minutes a day on it, on one screen.
 
 ## The daily loop
 
-1. **Queue** — add work: "make three marble races". An agent (Codex, Claude
-   Code, or the built-in one) pulls each task, renders the clip, writes a
-   title, judges it, and reports back.
+1. **Clips → Add work** — "make three marble races". An agent (Codex,
+   Claude Code, or the built-in one) pulls each task, renders the clip,
+   writes a title, judges it, and reports back. The same row moves from
+   *queued* to *rendering* to *to review* as it goes.
 2. **Today** — what came out is waiting for you. Watch it, approve or reject
    (`A` / `R`), fix the opening caption if you want, then **Download**,
    upload by hand, and press **I uploaded it**.
@@ -21,8 +22,7 @@ minutes a day on it, on one screen.
 | screen | what you do there |
 |---|---|
 | **Today** | decide on what is waiting, then upload what you approved |
-| **Queue** | put work in the system; watch who is doing what, step by step |
-| **Clips** | everything ever made — view it, download it, bin it |
+| **Clips** | one row per piece of work, queued to published — add work, hand it to an agent, view, download, bin |
 | **Results** | how published clips did; enter metrics; retitle |
 | **Activity** | what ran and what happened inside each run |
 | **Bin** | what you threw away — restore, or delete for good |
