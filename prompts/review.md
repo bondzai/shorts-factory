@@ -23,9 +23,12 @@ What is left is the part arithmetic cannot see:
   Score `hook_strength` on this alone: 5 = marbles already mid-bounce and a
   caption with a colour and a number; 3 = motion but a generic caption; 1 =
   marbles sitting at the gate.
-- **Was the race close?** A winner more than a second clear is a clip with no
-  stake; the numbers on this channel say viewers who start it stay, so the
-  loss is all at the door. Prefer to reject and let the queue try another seed.
+- **Is there a stake?** With two rounds (`facts.rounds`) a clip has one when
+  *either* a round is close (margin inside a second) *or* the final's winner
+  is not the heat's — an upset is a story even at a distance. Reject only when
+  both rounds are runaways **and** the same marble wins both; that clip has
+  nothing to find out. The first two-round batch was rejected for lacking a
+  close finish when one of them had an upset; that was the wrong call.
 - **Does the payoff land inside the clip?** A race that is still running at the
   last frame is a clip with no ending.
 - **Is the title true against the frames?** This is the one that must not slip.
