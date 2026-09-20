@@ -359,3 +359,14 @@ def test_a_binned_published_clip_still_guards_sameness(channel):
     with db.connect() as conn:
         pipeline.bin_clips(conn, [clip_id, binned])
         assert db.known_phashes(conn, CH) == ["f" * 64]
+
+
+def test_a_clip_can_be_read_in_full_without_downloading(client, tmp_path):
+    video = tmp_path / "clip.mp4"; video.write_bytes(b"\x00" * 2048)
+    clip_id = clip(PUBLISHED, video_path=str(video), published_at="2026-09-19T00:00:00Z",
+                   facts_json='{"winner": "green", "margin_s": 0.4}', views=715)
+    body = client.get(f"/api/clip/{clip_id}").json()
+    assert body["facts"]["margin_s"] == 0.4
+    assert body["file"]["exists"] is True and body["file"]["mb"] == 0.0
+    assert body["views"] == 715
+    assert client.get("/api/clip/nope").status_code == 404

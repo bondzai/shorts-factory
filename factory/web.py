@@ -414,6 +414,35 @@ def accept_rules(body: AcceptBody) -> dict[str, Any]:
     return {"applied": applied, "text": ch.rules_path.read_text()}
 
 
+@app.get("/api/clip/{clip_id}")
+def clip_detail(clip_id: str) -> dict[str, Any]:
+    """Everything the page knows about one clip, for viewing without downloading."""
+    with db.connect() as conn:
+        row = db.get(conn, clip_id)
+    if row is None:
+        raise HTTPException(404, f"no clip {clip_id}")
+    path = Path(row["video_path"]) if row["video_path"] else None
+    return {
+        **_clip_json(row),
+        "facts": json.loads(row["facts_json"] or "{}"),
+        "params": json.loads(row["params_json"] or "{}"),
+        "created_at": row["created_at"],
+        "published_at": row["published_at"],
+        "deleted_at": row["deleted_at"],
+        "purged_at": row["purged_at"],
+        "views": row["views"],
+        "avg_view_pct": row["avg_view_pct"],
+        "swipe_away_pct": row["swipe_away_pct"],
+        "likes": row["likes"],
+        "metrics_at": row["metrics_at"],
+        "file": {
+            "path": str(path.relative_to(settings.ROOT)) if path and path.is_relative_to(settings.ROOT) else (str(path) if path else None),
+            "exists": bool(path and path.exists()),
+            "mb": round(path.stat().st_size / 1e6, 2) if path and path.exists() else None,
+        },
+    }
+
+
 @app.get("/api/clip/{clip_id}/video")
 def video(clip_id: str, download: bool = False) -> FileResponse:
     with db.connect() as conn:

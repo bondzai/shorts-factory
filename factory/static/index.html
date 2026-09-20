@@ -82,6 +82,12 @@
   pre.captured { background: #0d0d14; border-radius: 8px; padding: 10px 12px; font: 12px/1.6 ui-monospace, monospace; color: var(--dim); white-space: pre-wrap; margin: 8px 0 0; }
   form.grid { display: grid; grid-template-columns: 150px 1fr; gap: 8px 14px; align-items: center; max-width: 620px; font-size: 13px; }
   form.grid label { color: var(--dim); }
+  .scrim { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 19; }
+  .drawer { position: fixed; top: 0; right: 0; height: 100vh; width: min(640px, 100vw); background: var(--bg); border-left: 1px solid var(--line); z-index: 20; overflow: auto; padding: 18px 22px 40px; }
+  .drawer .clip { grid-template-columns: 240px 1fr; }
+  .facts { display: grid; grid-template-columns: 130px 1fr; gap: 4px 12px; font-size: 12.5px; margin: 0 0 14px; }
+  .facts dt { color: var(--faint); font-family: ui-monospace, monospace; font-size: 12px; } .facts dd { margin: 0; word-break: break-word; }
+  tr.clickable { cursor: pointer; } tr.clickable:hover td { background: var(--panel); }
 </style>
 </head>
 <body>
