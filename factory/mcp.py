@@ -230,12 +230,21 @@ def build_server():
         to pass either."""
         from mcp.server.mcpserver.utilities.types import Image
 
+        from . import tasks as task_queue
+
         with db.connect() as conn:
             try:
+                channel_id = resolve_channel_id(conn, channel)
+                # A held task's parameters win: omitted ones are filled in,
+                # changed ones are refused (see tasks.held_params).
+                _, use = task_queue.held_params(conn, channel_id, {
+                    "variant": variant, "seed": seed, "generator": generator,
+                    "course": course, "background": background,
+                })
                 clip_id, frames, facts = pipeline.create_and_render(
-                    conn, channel, variant=variant, generator=generator,
-                    seed=seed, hook=hook,
-                    params={k: v for k, v in (("course", course), ("background", background)) if v} or None,
+                    conn, channel, variant=use["variant"], generator=use["generator"] or "physics",
+                    seed=use["seed"], hook=hook,
+                    params={k: v for k, v in (("course", use.get("course")), ("background", use.get("background"))) if v} or None,
                 )
                 task_id = db.attach_clip_to_claimed_task(conn, resolve_channel_id(conn, channel), clip_id)
                 if task_id:

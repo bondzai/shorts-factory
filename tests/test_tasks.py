@@ -187,3 +187,23 @@ def test_tasks_can_be_deleted_and_finished_ones_cleared(client):
     assert client.post("/api/tasks/clear", json={"channel": CH}).json()["cleared"] == 2
     assert client.post("/api/tasks/delete", json={"ids": [ids[2], 9999]}).json()["deleted"] == [ids[2]]
     assert client.get(f"/api/tasks?channel={CH}").json()["total"] == 0
+
+
+def test_a_held_task_fixes_the_render_parameters(sandbox):
+    """Told seed 7301, an agent rendered a random seed and reported the task
+    done. The server fills in what the agent omits and refuses what it changes."""
+    from factory import tasks
+    with db.connect() as conn:
+        db.migrate(conn)
+        channels.create(conn, name="Main", channel_id="main")
+        tasks.enqueue(conn, "main", "make-clip", {"generator": "physics", "variant": "marble_race", "seed": 7301, "course": "bumpers"})
+        conn.commit()
+        assert tasks.held_params(conn, "main", {"seed": None})[0] is None  # nothing claimed yet
+        task = db.claim_task(conn, "test", channel_id="main")
+        task_id, use = tasks.held_params(conn, "main", {"variant": "marble_race", "seed": None, "generator": "physics", "course": None, "background": None})
+        assert task_id == task["id"] and use["seed"] == 7301 and use["course"] == "bumpers"
+        with pytest.raises(ValueError, match="asks for seed=7301; you passed 2005185816"):
+            tasks.held_params(conn, "main", {"seed": 2005185816})
+        with pytest.raises(ValueError, match="course"):
+            tasks.held_params(conn, "main", {"seed": 7301, "course": "zigzag"})
+        assert "do not change the seed" in tasks.instructions(conn, task)

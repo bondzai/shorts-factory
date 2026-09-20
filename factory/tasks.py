@@ -74,13 +74,43 @@ def enqueue(
     return ids
 
 
+def held_params(conn: sqlite3.Connection, channel_id: str, given: dict) -> tuple[int | None, dict]:
+    """What `render_clip` should actually use while a make-clip task is held.
+
+    A task's parameters are the operator's decision, not a suggestion: an
+    agent that was told seed 7301 and rendered a random seed instead did the
+    wrong task and reported it done. So the server fills in anything the
+    agent left out, and refuses anything the agent changed — the same way it
+    overwrites a guessed duration with the measured one.
+    """
+    task = db.claimed_make_clip(conn, channel_id)
+    if task is None:
+        return None, given
+    wanted = json.loads(task["params_json"] or "{}")
+    merged = dict(given)
+    for key, value in wanted.items():
+        have = given.get(key)
+        if have is None or have == "":
+            merged[key] = value
+        elif str(have) != str(value):
+            raise ValueError(
+                f"task #{task['id']} asks for {key}={value!r}; you passed {have!r}. Use the "
+                f"task's parameters exactly — if they cannot render, finish the task with "
+                f"ok=false and the error instead of changing them."
+            )
+    return int(task["id"]), merged
+
+
 def instructions(conn: sqlite3.Connection, row: sqlite3.Row) -> str:
     """The playbook for this kind, with this task's parameters on top."""
     params = json.loads(row["params_json"] or "{}")
     head = [f"# Task #{row['id']}: {row['kind']} on {row['channel_id']}", ""]
     if params:
-        head.append("Parameters for this task — use exactly these:")
+        head.append("Parameters for this task — use exactly these, every one, in `render_clip`:")
         head += [f"- {k}: {v}" for k, v in params.items()]
+        head.append("The server checks: a render with different parameters is refused. If these")
+        head.append("parameters cannot render, finish the task with ok=false and the error;")
+        head.append("do not change the seed to make it work.")
     else:
         head.append("This task has no parameters; the playbook below is the whole brief.")
     head += ["", f"When finished, call `finish_task` with task_id={row['id']}, ok=true and a one-line",

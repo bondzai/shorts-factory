@@ -404,6 +404,15 @@ def claim_task(
     return conn.execute("SELECT * FROM tasks WHERE id = ?", (row["id"],)).fetchone()
 
 
+def claimed_make_clip(conn: sqlite3.Connection, channel_id: str) -> sqlite3.Row | None:
+    """The make-clip task an agent is holding on this channel, oldest first."""
+    return conn.execute(
+        """SELECT * FROM tasks WHERE channel_id = ? AND status = 'claimed'
+           AND kind = 'make-clip' ORDER BY claimed_at LIMIT 1""",
+        (channel_id,),
+    ).fetchone()
+
+
 def attach_clip_to_claimed_task(conn: sqlite3.Connection, channel_id: str, clip_id: str) -> int | None:
     """When an agent renders while holding a make-clip task, that render is the
     task's clip. Attached at render time so the step tracker can show progress
