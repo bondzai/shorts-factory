@@ -7,7 +7,7 @@ import { num, pct, when, download } from "../lib/format";
 import { act } from "../lib/toast";
 import { useList } from "../lib/useList";
 import { useQuery } from "../lib/route";
-import { Page, Toolbar, SearchBox, Chips, DataTable, Pagination, Badge, Modal, StepStrip, Column } from "../ui";
+import { Page, Toolbar, SearchBox, Chips, DataTable, Pagination, Badge, Modal, StepStrip, Field, Column } from "../ui";
 import type { Route } from "../lib/route";
 import type { Clip, Snap, Task, TaskKind } from "../lib/types";
 
@@ -85,28 +85,59 @@ export function Work({ snap, channelId, refresh, onOpen, route, navigate }: {
   );
 }
 
+const COURSES = [
+  { id: "", label: "Any — the seed decides", help: "" },
+  { id: "zigzag", label: "Zigzag — ramps", help: "fast, 6-9 ramps, the classic" },
+  { id: "pegboard", label: "Pegboard — pegs", help: "slow rattle down a field of pegs" },
+  { id: "bumpers", label: "Bumpers — bumpers and spinning bars", help: "the busiest frame" },
+];
+
 function AddWork({ snap, channelId, kinds, after }: { snap: Snap; channelId: string; kinds: Record<string, TaskKind>; after: () => Promise<void> }) {
   const [kind, setKind] = useState("make-clip");
-  const [params, setParams] = useState<Record<string, string>>({});
+  const [variant, setVariant] = useState("");
+  const [course, setCourse] = useState("");
+  const [seed, setSeed] = useState("");
+  const [customBackdrop, setCustomBackdrop] = useState(false);
+  const [backdrop, setBackdrop] = useState("#1a1a2a");
   const [count, setCount] = useState(1);
   const spec = kinds[kind] || { params: {}, builtin: false, meaning: "" };
   const variants = snap.channel.variants || [];
-  const add = (e: React.FormEvent) => { e.preventDefault(); act(() => send("/api/tasks", { channel: channelId, kind, params, count: Number(count) }), { ok: `Queued ${count}`, after: async () => { setParams({}); setCount(1); await after(); } }); };
-  const input = (k: string) => {
-    if (k === "generator") return null;
-    if (k === "variant") return <select key={k} value={params.variant || ""} onChange={(e) => setParams({ ...params, variant: e.target.value, generator: e.target.value.split("/")[0] })}><option value="">variant…</option>{variants.map((v) => <option key={v} value={v.split("/")[1]}>{v}</option>)}</select>;
-    if (k === "course") return <select key={k} value={params.course || ""} onChange={(e) => setParams({ ...params, course: e.target.value })} title="the shape of the descent; empty lets the seed choose"><option value="">any course</option>{["zigzag", "pegboard", "bumpers"].map((c) => <option key={c} value={c}>{c}</option>)}</select>;
-    if (k === "background") return <label key={k} className="row small dim" title="backdrop colour; unticked lets the theme choose"><input type="checkbox" checked={!!params.background} onChange={(e) => setParams({ ...params, background: e.target.checked ? "#1a1a2a" : "" })} /> backdrop{params.background && <input type="color" value={params.background} onChange={(e) => setParams({ ...params, background: e.target.value })} />}</label>;
-    return <input key={k} className="w-sm" placeholder={k} value={params[k] ?? ""} onChange={(e) => setParams({ ...params, [k]: e.target.value })} />;
-  };
+  const isClip = kind === "make-clip";
+  const n = seed ? 1 : Math.max(1, Math.min(50, Number(count) || 1));
+  const params: Record<string, string> = {};
+  if (isClip) {
+    if (variant) { params.variant = variant.split("/")[1]; params.generator = variant.split("/")[0]; }
+    if (course) params.course = course;
+    if (seed) params.seed = seed;
+    if (customBackdrop) params.background = backdrop;
+  }
+  const add = (e: React.FormEvent) => { e.preventDefault(); act(() => send("/api/tasks", { channel: channelId, kind, params, count: n }), { ok: n === 1 ? "Queued 1 task" : `Queued ${n} tasks`, after }); };
   return (
-    <form className="stack" onSubmit={add}>
-      <select value={kind} onChange={(e) => { setKind(e.target.value); setParams({}); }}>{Object.entries(kinds).map(([k, v]) => <option key={k} value={k}>{k} — {v.meaning}</option>)}</select>
-      <div className="row wrap">
-        {Object.keys(spec.params).map(input)}
-        {kind === "make-clip" && <label className="row small dim">×<input type="number" className="w-sm" min={1} max={50} value={count} onChange={(e) => setCount(Number(e.target.value))} /></label>}
+    <form className="form" onSubmit={add} style={{ maxWidth: "none" }}>
+      <Field label="What to do" help={spec.meaning}>
+        <select value={kind} onChange={(e) => setKind(e.target.value)}>{Object.keys(kinds).map((k) => <option key={k} value={k}>{k}</option>)}</select>
+      </Field>
+      {isClip && <>
+        <Field label="Format" help="The generator and its variant. Leave on the channel's default unless you are trying something else.">
+          <select value={variant} onChange={(e) => setVariant(e.target.value)}><option value="">Channel default ({variants[0] || "physics/marble_race"})</option>{variants.map((v) => <option key={v} value={v}>{v}</option>)}</select>
+        </Field>
+        <Field label="Course" help={COURSES.find((c) => c.id === course)?.help || "Which track the marbles run. Any lets each seed pick, which keeps the channel varied."}>
+          <select value={course} onChange={(e) => setCourse(e.target.value)}>{COURSES.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}</select>
+        </Field>
+        <Field label="Seed" help={seed ? "This exact race, every time. Use it to re-make a race you liked with a new caption or backdrop." : "Empty = a fresh random race. Set a number only to reproduce a specific race."}>
+          <input className="w-md" inputMode="numeric" pattern="[0-9]*" placeholder="leave empty for a new race" value={seed} onChange={(e) => setSeed(e.target.value.replace(/[^0-9]/g, ""))} />
+        </Field>
+        <Field label="Backdrop" help={customBackdrop ? "This colour behind the course; the theme still picks marbles and decorations." : "Unticked = the current theme's palette (Settings → Themes)."}>
+          <label className="row small"><input type="checkbox" checked={customBackdrop} onChange={(e) => setCustomBackdrop(e.target.checked)} /> choose a colour {customBackdrop && <input type="color" value={backdrop} onChange={(e) => setBackdrop(e.target.value)} />}</label>
+        </Field>
+        <Field label="How many" help={seed ? "One — a fixed seed would make the same race again." : "Each is a separate task with its own random race."}>
+          <input type="number" className="w-sm" min={1} max={50} value={seed ? 1 : count} disabled={!!seed} onChange={(e) => setCount(Number(e.target.value))} />
+        </Field>
+      </>}
+      <div className="actions">
+        <button type="submit" className="primary">{isClip ? (n === 1 ? "Queue 1 clip" : `Queue ${n} clips`) : `Queue ${kind}`}</button>
+        <span className="hint" style={{ alignSelf: "center" }}>{spec.builtin ? "the built-in agents can do this, or any agent over MCP" : "needs an agent's judgement — hand it off over MCP"}</span>
       </div>
-      <div className="row"><button type="submit" className="primary">Add to queue</button><span className="hint">{spec.builtin ? "built-in agents can do this" : "needs an external agent's judgement"}</span></div>
     </form>
   );
 }
