@@ -261,6 +261,24 @@ clip's stored description at the time was the seed number. It cannot be
 checked now. Every race rendered from here on records its margin, and the
 title playbook says to use it.
 
+## The console: five screens, named for what you do on them
+
+| screen | what it is for |
+|---|---|
+| **Today** | decide on what is waiting, then upload what you approved — approve, fix the caption, download, "I uploaded it", all on one card |
+| **Clips** | everything ever made, with the file a click away and rejected clips restorable |
+| **Results** | how published clips did, enter the numbers from Studio, retitle with the receipt kept |
+| **Activity** | what ran and what happened inside it — each job is a box with its events, loose events (CLI, an agent over MCP, a keypress) between them |
+| **Settings** | this channel (driver, cadence, allowed modules) and the rules its agents read |
+
+Runs and Logs used to be two screens showing the same afternoon from two
+angles; Activity is the one they should have been.
+
+React 18 with `htm` from a CDN, no build step: the rest of the project is one
+Python venv and the page should not be the thing that needs npm. It needs the
+network for the first load of React itself. Moving to a Vite build later is a
+move, not a rewrite.
+
 ## Disk, and clips that stopped halfway
 
 ```bash

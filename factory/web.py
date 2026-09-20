@@ -23,6 +23,7 @@ from typing import Any, Callable
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from . import analytics, channels, db, generators, logs, pipeline, settings
@@ -139,6 +140,9 @@ def _clip_json(row) -> dict[str, Any]:
         "title_history": json.loads(row["title_history_json"] or "[]"),
         "published_at": row["published_at"],
     }
+
+
+app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
 
 @app.get("/", response_class=HTMLResponse)
