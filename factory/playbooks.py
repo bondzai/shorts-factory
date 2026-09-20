@@ -157,7 +157,9 @@ def directions_text(conn: sqlite3.Connection, channel_id: str) -> str:
     if not filled:
         return ""
     return "\n".join(["", "## Directions from the operator", "",
-                       "Set on the Queue screen; they override anything above that disagrees.", "",
+                       "Set on Settings → Directions. They override anything above that "
+                       "disagrees, except the two rules the server enforces: no winner's "
+                       "name and no result language in a title or caption.", "",
                        *[f"**{label}.** {value}" for label, value in filled], ""])
 
 
