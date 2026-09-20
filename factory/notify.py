@@ -133,7 +133,9 @@ def _deliver(url: str, payload: dict[str, Any], event: str) -> None:
     request = urllib.request.Request(
         url,
         data=json.dumps(payload, default=str).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
+        # Discord sits behind Cloudflare, which answers urllib's default
+        # User-Agent with a 403. Say who is calling.
+        headers={"Content-Type": "application/json", "User-Agent": "shorts-factory/1.0 (+notify)"},
         method="POST",
     )
     try:
