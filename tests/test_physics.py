@@ -194,7 +194,7 @@ def test_opening_mid_action_shifts_every_clock_together():
 def test_a_long_caption_shrinks_to_fit_the_frame(sandbox):
     gen = physics.PhysicsSandbox()
     short = gen._overlay("marble_race", W, H, FPS, text="RED BY 0.4s")
-    long = gen._overlay("marble_race", W, H, FPS, text="FINAL · VIOLET TOOK THE HEAT")
+    long = gen._overlay("marble_race", W, H, FPS, text="FINAL · SAME THREE, NEW COURSE")
     assert long[1].size < short[1].size
     assert long[2] >= 0  # left edge inside the frame
 
@@ -202,3 +202,10 @@ def test_a_long_caption_shrinks_to_fit_the_frame(sandbox):
 def test_a_photo_finish_is_not_written_as_zero_seconds():
     assert physics._seconds(0.04) == "0.04 seconds"
     assert physics._seconds(1.24) == "1.2 seconds"
+
+
+def test_the_final_caption_states_the_structure_not_the_heat_result():
+    from factory.generators.physics import FINAL_CAPTION, _count_word
+    text = FINAL_CAPTION.format(count=_count_word(3))
+    assert text == "FINAL · SAME THREE, NEW COURSE"
+    assert "TOOK" not in text and "{" not in text

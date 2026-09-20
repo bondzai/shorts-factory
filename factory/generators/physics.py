@@ -36,6 +36,11 @@ STALL_SPEED = 12.0  # below this, in sim px/s, nothing is moving any more
 MAX_ATTEMPTS = 4  # a stalled race is retried on a derived seed, not abandoned
 POST_WIN_S = 1.3  # how long the race keeps running after the winner crosses
 CLOSE_RACE_S = 1.0  # a runner-up inside this gets the margin on screen
+FINAL_CAPTION = "FINAL · SAME {count}, NEW COURSE"  # what the second round opens on
+
+
+def _count_word(n: int) -> str:
+    return {2: "TWO", 3: "THREE", 4: "FOUR", 5: "FIVE", 6: "SIX"}.get(n, str(n))
 
 
 class _Stalled(RuntimeError):
@@ -423,13 +428,14 @@ class PhysicsSandbox:
         clip_dir = work_dir
         clip_dir.mkdir(parents=True, exist_ok=True)
 
-        # Captions: the heat states its measured stake; the final says who took the heat.
+        # Captions: the heat states its measured stake; the final restates the
+        # structure, never a result — the viewer just saw the heat, and naming
+        # its winner again is one more word that is not a stake.
         hook_text = (params.get("hook_text") or "").strip() or self._default_hook(variant, rounds[0]["margin_s"])
         overlays = [self._overlay(variant, sim_w, sim_h, fps, text=hook_text)]
         if len(rounds) > 1:
-            w1 = rounds[0]["winner"]
-            overlays.append(self._overlay(variant, sim_w, sim_h, fps,
-                                          text=f"FINAL · {w1.upper()} TOOK THE HEAT" if w1 else "FINAL"))
+            caption = FINAL_CAPTION.format(count=_count_word(len(rounds[0]["balls"])))
+            overlays.append(self._overlay(variant, sim_w, sim_h, fps, text=caption))
 
         impacts: list[audio.Impact] = []
         offset = 0.0
