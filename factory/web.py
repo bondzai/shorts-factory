@@ -107,6 +107,67 @@ JOB = _Job()
 app = FastAPI(title="shorts-factory", docs_url=None, redoc_url=None)
 
 
+# --- a password gate, only when FACTORY_PASSWORD is set ------------------------
+# On this machine the page is bound to 127.0.0.1 and needs nothing. The moment
+# it is reachable from elsewhere — a tablet over Tailscale, a VM on the
+# internet — it needs a door. One shared password, a signed cookie, no
+# accounts: it is one operator's console, not a product.
+
+import hashlib
+import hmac
+import os
+import secrets
+
+from fastapi import Request
+from fastapi.responses import RedirectResponse, Response
+
+COOKIE = "factory_session"
+
+
+def _password() -> str | None:
+    settings.load_env()
+    return os.environ.get("FACTORY_PASSWORD") or None
+
+
+def _token(password: str) -> str:
+    return hmac.new(password.encode(), b"factory-session-v1", hashlib.sha256).hexdigest()
+
+
+LOGIN_PAGE = """<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
+<title>shorts factory</title><style>body{margin:0;background:#12121a;color:#e8e8ef;font:16px system-ui;display:grid;place-items:center;min-height:100vh}
+form{display:grid;gap:12px;width:min(320px,90vw)}input,button{font:inherit;padding:12px;border-radius:10px;border:1px solid #2b2b38;background:#1a1a24;color:inherit}
+button{background:#efa027;color:#412402;border:0;font-weight:600}p{color:#8f8fa3;margin:0}</style>
+<form method=post action=/login><b>shorts factory</b><p>%s</p><input type=password name=password placeholder=password autofocus><button>Open</button></form>"""
+
+
+@app.middleware("http")
+async def _gate(request: Request, call_next):
+    password = _password()
+    if not password or request.url.path in ("/login",) or request.url.path.startswith("/static/"):
+        return await call_next(request)
+    if hmac.compare_digest(request.cookies.get(COOKIE, ""), _token(password)):
+        return await call_next(request)
+    if request.url.path.startswith("/api/"):
+        return Response('{"detail":"sign in first"}', status_code=401, media_type="application/json")
+    return RedirectResponse("/login", status_code=303)
+
+
+@app.get("/login", response_class=HTMLResponse)
+def login_page() -> str:
+    return LOGIN_PAGE % "One password, set as FACTORY_PASSWORD where the server runs."
+
+
+@app.post("/login")
+async def login(request: Request):
+    form = await request.form()
+    password = _password()
+    if password and secrets.compare_digest(str(form.get("password", "")), password):
+        response = RedirectResponse("/", status_code=303)
+        response.set_cookie(COOKIE, _token(password), httponly=True, samesite="lax", max_age=60 * 60 * 24 * 90)
+        return response
+    return HTMLResponse(LOGIN_PAGE % "That is not it.", status_code=401)
+
+
 def _resolve(conn, channel_id: str | None):
     try:
         return channels.resolve(conn, channel_id)

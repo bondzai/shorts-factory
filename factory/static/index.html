@@ -104,6 +104,26 @@
   .prose pre { background: #0d0d14; border: 1px solid var(--line); border-radius: 8px; padding: 12px; overflow: auto; font-size: 12.5px; }
   .prose table { margin: 10px 0; } .prose th, .prose td { font-size: 13px; }
   input[type="color"] { width: 34px; height: 26px; padding: 1px; }
+  .mb { margin-bottom: 10px; }
+  .card.accent { border-color: var(--key); }
+  .toasts { position: fixed; right: 16px; bottom: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 30; max-width: min(420px, calc(100vw - 32px)); }
+  .toast { background: var(--panel2); border: 1px solid var(--line); border-left: 3px solid var(--ok); border-radius: 10px; padding: 10px 14px; font-size: 13.5px; box-shadow: 0 6px 24px rgba(0,0,0,.4); }
+  .toast.error { border-left-color: var(--no); }
+  /* A finger is not a mouse: bigger targets, no keyboard hints. */
+  @media (pointer: coarse) {
+    button, select, input, textarea { min-height: 40px; font-size: 15px; }
+    button.small { min-height: 36px; font-size: 14px; }
+    kbd { display: none; }
+    input[type="checkbox"] { width: 22px; height: 22px; }
+    td { padding: 11px 10px; }
+  }
+  @media (max-width: 820px) {
+    nav { display: flex; flex-wrap: wrap; gap: 2px; padding: 10px 8px; border-right: 0; border-bottom: 1px solid var(--line); }
+    nav .brand { width: 100%; padding-bottom: 6px; }
+    nav a { padding: 8px 12px; } nav a .meaning { display: none; }
+    header { padding: 10px 14px; } main { padding: 14px 14px 60px; }
+    .drawer { width: 100vw; }
+  }
 </style>
 </head>
 <body>

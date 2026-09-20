@@ -236,3 +236,23 @@ def test_the_page_can_hand_out_a_filled_playbook(client):
 def test_state_says_which_brain_is_available(client):
     body = client.get(f"/api/state?channel={CH}").json()
     assert body["agents"]["available"] in (True, False)
+
+
+
+def test_without_a_password_the_page_is_open(client):
+    assert client.get("/").status_code == 200
+
+
+def test_with_a_password_everything_waits_at_the_door(sandbox, monkeypatch):
+    monkeypatch.setenv("FACTORY_PASSWORD", "sesame")
+    web.JOB.name = None; web.JOB.channel_id = None; web.JOB.log = []
+    with db.connect() as conn:
+        channels.create(conn, name="Gravity Lab", channel_id=CH)
+    with TestClient(web.app) as c:
+        assert c.get("/", follow_redirects=False).status_code == 303
+        assert c.get("/api/channels").status_code == 401
+        assert c.get("/static/app.js").status_code == 200  # the login page needs nothing
+        assert c.post("/login", data={"password": "nope"}).status_code == 401
+        r = c.post("/login", data={"password": "sesame"}, follow_redirects=False)
+        assert r.status_code == 303 and "factory_session" in r.headers.get("set-cookie", "")
+        assert c.get("/api/channels").status_code == 200
