@@ -196,16 +196,16 @@ def test_a_held_task_fixes_the_render_parameters(sandbox):
     with db.connect() as conn:
         db.migrate(conn)
         channels.create(conn, name="Main", channel_id="main")
-        tasks.enqueue(conn, "main", "make-clip", {"generator": "physics", "variant": "marble_race", "seed": 7301, "course": "bumpers"})
+        tasks.enqueue(conn, "main", "make-clip", {"generator": "physics", "variant": "marble_race", "seed": 7301, "stage": "bumpers"})
         conn.commit()
         assert tasks.held_params(conn, "main", {"seed": None})[0] is None  # nothing claimed yet
         task = db.claim_task(conn, "test", channel_id="main")
-        task_id, use = tasks.held_params(conn, "main", {"variant": "marble_race", "seed": None, "generator": "physics", "course": None, "background": None})
-        assert task_id == task["id"] and use["seed"] == 7301 and use["course"] == "bumpers"
+        task_id, use = tasks.held_params(conn, "main", {"variant": "marble_race", "seed": None, "generator": "physics", "stage": None, "background": None})
+        assert task_id == task["id"] and use["seed"] == 7301 and use["stage"] == "bumpers"
         with pytest.raises(ValueError, match="asks for seed=7301; you passed 2005185816"):
             tasks.held_params(conn, "main", {"seed": 2005185816})
-        with pytest.raises(ValueError, match="course"):
-            tasks.held_params(conn, "main", {"seed": 7301, "course": "zigzag"})
+        with pytest.raises(ValueError, match="stage"):
+            tasks.held_params(conn, "main", {"seed": 7301, "stage": "zigzag"})
         assert "do not change the seed" in tasks.instructions(conn, task)
 
 

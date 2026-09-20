@@ -141,9 +141,9 @@ def context(conn: sqlite3.Connection, channel_id: str | None = None) -> dict[str
 DIRECTION_FIELDS = [
     ("audience", "Who watches this channel", "e.g. people scrolling Shorts at night; no prior knowledge; mostly outside Thailand"),
     ("title_style", "How titles should sound", "e.g. sentence case, state the stake in the first four words, never a question we don't answer"),
-    ("caption_style", "Opening caption preferences", "e.g. two or three words that make them pick a marble; never the result, never the course's numbers"),
+    ("caption_style", "Opening caption preferences", "e.g. two or three words that make them pick a marble; never the result, never the stage's numbers"),
     ("avoid", "Never do this", "e.g. no emoji, no ALL CAPS titles, no promises the clip does not keep"),
-    ("notes", "Anything else, for now", "e.g. this week we are testing pegboard courses — prefer them"),
+    ("notes", "Anything else, for now", "e.g. this week we are testing pegboard stages — prefer them"),
 ]
 
 

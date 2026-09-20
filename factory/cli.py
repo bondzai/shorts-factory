@@ -297,7 +297,7 @@ def cmd_tasks(args) -> int:
             print(f"cleared {db.clear_finished_tasks(conn, ch.id)} finished task(s) on {ch.id}")
             return 0
         params = {k: v for k, v in (("generator", args.generator), ("variant", args.variant), ("seed", args.seed),
-                                    ("course", args.course), ("background", args.background)) if v is not None}
+                                    ("stage", args.stage), ("background", args.background)) if v is not None}
         ids = tasks.enqueue(conn, ch.id, args.value, params, count=args.count, priority=args.priority)
         print(f"queued {len(ids)} × {args.value} on {ch.id}: #{ids[0]}" + (f"–#{ids[-1]}" if len(ids) > 1 else ""))
     return 0
@@ -741,7 +741,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("action", choices=["add", "list", "cancel", "delete", "clear"])
     p.add_argument("value", nargs="?", help="kind to add, id(s) to cancel/delete (comma-separated), or nothing for clear")
     p.add_argument("--variant"); p.add_argument("--generator"); p.add_argument("--seed", type=int)
-    p.add_argument("--course", help="zigzag, pegboard or bumpers"); p.add_argument("--background", help="hex colour")
+    p.add_argument("--stage", "--course", dest="stage", help="zigzag, pegboard, bumpers, funnels, gauntlet or cascade"); p.add_argument("--background", help="hex colour")
     p.add_argument("--count", type=int, default=1); p.add_argument("--priority", type=int, default=0)
     p.add_argument("--status")
     p.set_defaults(func=cmd_tasks)

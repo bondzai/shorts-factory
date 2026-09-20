@@ -56,10 +56,10 @@ def test_work_is_tasks_and_clips_in_one_list(client):
     kinds = {i["row_kind"] for i in body["items"]}
     assert kinds == {"task", "clip"}
     assert all(i["key"] for i in body["items"]) and len({i["key"] for i in body["items"]}) == 34
-    stages = {s["id"]: s["count"] for s in body["stages"]}
-    assert stages == {"queued": 4, "to_review": 30}
-    queued = client.get(f"/api/work?channel={CH}&stage=queued").json()
-    assert queued["total"] == 4 and all(i["row_kind"] == "task" and i["stage"] == "queued" for i in queued["items"])
+    phases = {s["id"]: s["count"] for s in body["phases"]}
+    assert phases == {"queued": 4, "to_review": 30}
+    queued = client.get(f"/api/work?channel={CH}&phase=queued").json()
+    assert queued["total"] == 4 and all(i["row_kind"] == "task" and i["phase"] == "queued" for i in queued["items"])
     found = client.get(f"/api/work?channel={CH}&q=number 07").json()
     assert found["total"] == 1 and found["items"][0]["row_kind"] == "clip"
     by_title = client.get(f"/api/work?channel={CH}&sort=title&dir=asc&page_size=25").json()

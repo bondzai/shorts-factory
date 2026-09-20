@@ -33,7 +33,7 @@ def test_upload_text_has_every_heading_in_order(sandbox):
         cid = db.insert_clip(conn, channel_id="main", generator="physics", variant="marble_race", seed=7301, params={}, hook="", plan_why="t")
         db.update(conn, cid, status=APPROVED, title="Pick your marble: red, green or blue", description="Three marbles run 31 bumpers. Green wins by 0.3s.",
                   hashtags_json='["#shorts", "#marblerace"]', comment_prompt="Red, green or blue — which did you back?", hook_text="CALL IT NOW", duration_s=12.5,
-                  facts_json='{"course": "bumpers", "theme": "default"}')
+                  facts_json='{"stage": "bumpers", "theme": "default"}')
         out = schedule.upload_text(conn, cid, now=datetime(2026, 9, 21, 4, 0, tzinfo=BKK))
     text = out["text"]
     order = [text.index(h) for h in ("TITLE\n", "DESCRIPTION\n", "HASHTAGS\n", "PINNED COMMENT\n", "SCHEDULE\n", "METADATA\n")]
@@ -41,7 +41,7 @@ def test_upload_text_has_every_heading_in_order(sandbox):
     assert "TITLE\nPick your marble: red, green or blue" in text
     assert "HASHTAGS\n#shorts #marblerace" in text
     assert "SCHEDULE\nMon 2026-09-21 06:00 Asia/Bangkok" in text
-    assert "course bumpers" in text and "seed 7301" in text and "CALL IT NOW" in text
+    assert "stage bumpers" in text and "seed 7301" in text and "CALL IT NOW" in text
     assert out["sections"]["PINNED COMMENT"].startswith("Red, green or blue")
 
 

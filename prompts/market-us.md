@@ -8,7 +8,7 @@ is the publish window). Everything an agent writes is judged by that reader.
   Thai, no transliterated words.
 - **Frame it like sport.** US viewers read a race as a bracket: "heat", "final",
   "upset", "by a nose", "photo finish". Use those words; they are free stakes.
-- **Verbs over adjectives.** "Pick your marble" beats "crazy course"; never
+- **Verbs over adjectives.** "Pick your marble" beats "crazy stage"; never
   "nail-biting", "insane", "epic". The margin is never in the title, and a
   parts list ("3 spinners, 24 bumpers") is not a hook.
 - **Titles**: sentence case, the pick in the first three words ("Pick",

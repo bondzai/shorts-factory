@@ -67,8 +67,8 @@ def test_the_docs_include_a_reference_that_cannot_go_stale(client):
     assert "factory tasks" in reference
 
 
-def test_a_task_can_name_a_course_and_a_bad_one_is_refused(client):
-    r = client.post("/api/tasks", json={"channel": CH, "kind": "make-clip", "params": {"variant": "marble_race", "course": "pegboard"}})
+def test_a_task_can_name_a_stage_and_a_bad_one_is_refused(client):
+    r = client.post("/api/tasks", json={"channel": CH, "kind": "make-clip", "params": {"variant": "marble_race", "stage": "pegboard"}})
     assert r.status_code == 200
-    r = client.post("/api/tasks", json={"channel": CH, "kind": "make-clip", "params": {"variant": "marble_race", "course": "wedges"}})
+    r = client.post("/api/tasks", json={"channel": CH, "kind": "make-clip", "params": {"variant": "marble_race", "stage": "wedges"}})
     assert r.status_code == 400 and "zigzag" in r.json()["detail"]

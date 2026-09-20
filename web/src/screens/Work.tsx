@@ -11,21 +11,21 @@ import { Page, Toolbar, SearchBox, Chips, DataTable, Pagination, Badge, Modal, S
 import type { Route } from "../lib/route";
 import type { Clip, Snap, Task, TaskKind } from "../lib/types";
 
-type Row = (Clip & { row_kind: "clip"; stage: string; key: string }) | (Task & { row_kind: "task"; stage: string; key: string });
-interface WorkPage { items: Row[]; total: number; page: number; page_size: number; stages: { id: string; count: number }[]; modules: Record<string, string[]>; binned: number; kinds: Record<string, TaskKind> }
+type Row = (Clip & { row_kind: "clip"; phase: string; key: string }) | (Task & { row_kind: "task"; phase: string; key: string });
+interface WorkPage { items: Row[]; total: number; page: number; page_size: number; phases: { id: string; count: number }[]; modules: Record<string, string[]>; binned: number; kinds: Record<string, TaskKind>; stages: { id: string; blurb: string }[] }
 
-const STAGE: Record<string, { word: string; tone?: "ok" | "no" | "key" }> = {
+const PHASE: Record<string, { word: string; tone?: "ok" | "no" | "key" }> = {
   queued: { word: "queued" }, rendering: { word: "rendering", tone: "key" }, to_review: { word: "to review", tone: "key" },
   approved: { word: "approved", tone: "ok" }, published: { word: "published", tone: "ok" }, rejected: { word: "rejected", tone: "no" },
   failed: { word: "failed", tone: "no" }, cancelled: { word: "cancelled" }, done: { word: "done" },
 };
-const stageWord = (s: string) => STAGE[s]?.word || s;
+const phaseWord = (s: string) => PHASE[s]?.word || s;
 
 export function Work({ snap, channelId, refresh, onOpen, route, navigate }: {
   snap: Snap; channelId: string; refresh: () => Promise<void>; onOpen: (id: string) => void; route: Route; navigate: (v: string, p?: Record<string, string | number | undefined>) => void;
 }) {
   const query = useQuery(route, navigate);
-  const list = useList<Row>("/api/work", route, { channel: channelId, stage: query.get("stage"), variant: query.get("variant") }, [snap.tasks?.queued, snap.tasks?.claimed, snap.tasks?.done, snap.tasks?.failed, snap.counts?.awaiting_approval, snap.counts?.approved]);
+  const list = useList<Row>("/api/work", route, { channel: channelId, phase: query.get("phase"), variant: query.get("variant") }, [snap.tasks?.queued, snap.tasks?.claimed, snap.tasks?.done, snap.tasks?.failed, snap.counts?.awaiting_approval, snap.counts?.approved]);
   const body = list.data as WorkPage | null;
   const [modal, setModal] = useState<"add" | "handoff" | null>(null);
   const [picked, setPicked] = useState<Set<string | number>>(new Set());
@@ -46,7 +46,7 @@ export function Work({ snap, channelId, refresh, onOpen, route, navigate }: {
         : <><div><b>{r.kind}</b> <span className="dim small">{Object.entries(r.params).map(([k, v]) => `${k}=${v}`).join(" ")}</span></div>
             <div className="hint">#{r.id} · {r.meaning}{r.claimed_by ? ` · ${r.claimed_by}` : ""}{r.error ? <> · <span className="no-text">{r.error.slice(0, 80)}</span></> : r.result?.summary ? ` · ${r.result.summary.slice(0, 80)}` : ""}</div>
             {r.status === "claimed" && <StepStrip steps={r.steps} />}</> },
-    { key: "stage", label: "Stage", sortable: true, render: (r) => <Badge tone={STAGE[r.stage]?.tone}>{stageWord(r.stage)}</Badge> },
+    { key: "phase", label: "Phase", sortable: true, render: (r) => <Badge tone={PHASE[r.phase]?.tone}>{phaseWord(r.phase)}</Badge> },
     { key: "views", label: "Views", sortable: true, align: "right", render: (r) => r.row_kind === "clip" ? num(r.views) : "" },
     { key: "avg_view_pct", label: "Viewed", sortable: true, align: "right", render: (r) => r.row_kind === "clip" ? pct(r.avg_view_pct) : "" },
     { key: "swipe_away_pct", label: "Swiped", sortable: true, align: "right", render: (r) => r.row_kind === "clip" ? pct(r.swipe_away_pct) : "" },
@@ -66,14 +66,14 @@ export function Work({ snap, channelId, refresh, onOpen, route, navigate }: {
     <Page title="Everything this channel is making"
       lead={`One row per piece of work, from queued to published. Tick rows to act on them; binned clips are under Bin${body?.binned ? ` (${body.binned} there now)` : ""}.`}
       action={<div className="row"><button className="primary" onClick={() => setModal("add")}>Add work</button><button onClick={() => setModal("handoff")}>Hand off to an agent</button></div>}>
-      {modal === "add" && body && <Modal title="Add work" onClose={() => setModal(null)}><AddWork snap={snap} channelId={channelId} kinds={body.kinds} after={async () => { setModal(null); await after(); }} /></Modal>}
+      {modal === "add" && body && <Modal title="Add work" onClose={() => setModal(null)}><AddWork snap={snap} channelId={channelId} kinds={body.kinds} stages={body.stages || []} after={async () => { setModal(null); await after(); }} /></Modal>}
       {modal === "handoff" && <Modal title="Hand the queue to an agent" onClose={() => setModal(null)}><HandOff snap={snap} channelId={channelId} refresh={refresh} /></Modal>}
       <Toolbar total={body?.total}>
         <button className="sm" disabled={!pickedClips.length} onClick={() => bulk("/api/clips/bin", { ids: pickedClips })}>Move to bin {pickedClips.length || ""}</button>
         <button className="sm" disabled={!pickedTasks.length} onClick={() => bulk("/api/tasks/delete", { ids: pickedTasks }, `Remove ${pickedTasks.length} task(s) from the queue?`)}>Remove task {pickedTasks.length || ""}</button>
         <button className="sm ghost" onClick={() => bulk("/api/tasks/clear", { channel: channelId }, "Remove every done, failed and cancelled task on this channel?")}>Clear finished tasks</button>
         <SearchBox value={query.get("q")} onChange={(v) => query.set({ q: v, page: 1 })} placeholder="search titles, ids, parameters, who" />
-        <Chips options={(body?.stages || []).map((s) => ({ value: s.id, label: `${stageWord(s.id)} ${s.count}` }))} value={query.get("stage")} onChange={(v) => query.set({ stage: v, page: 1 })} all="any stage" />
+        <Chips options={(body?.phases || []).map((s) => ({ value: s.id, label: `${phaseWord(s.id)} ${s.count}` }))} value={query.get("phase")} onChange={(v) => query.set({ phase: v, page: 1 })} all="any phase" />
         <Chips options={Object.values(body?.modules || {}).flat().map((v) => ({ value: v }))} value={query.get("variant")} onChange={(v) => query.set({ variant: v, page: 1 })} all="any variant" />
       </Toolbar>
       <DataTable columns={columns} rows={rows as (Row & { id: string | number })[]} loading={list.loading} sort={sortKey} dir={dir} onSort={onSort}
@@ -85,17 +85,10 @@ export function Work({ snap, channelId, refresh, onOpen, route, navigate }: {
   );
 }
 
-const COURSES = [
-  { id: "", label: "Any — the seed decides", help: "" },
-  { id: "zigzag", label: "Zigzag — ramps", help: "fast, 6-9 ramps, the classic" },
-  { id: "pegboard", label: "Pegboard — pegs", help: "slow rattle down a field of pegs" },
-  { id: "bumpers", label: "Bumpers — bumpers and spinning bars", help: "the busiest frame" },
-];
-
-function AddWork({ snap, channelId, kinds, after }: { snap: Snap; channelId: string; kinds: Record<string, TaskKind>; after: () => Promise<void> }) {
+function AddWork({ snap, channelId, kinds, stages, after }: { snap: Snap; channelId: string; kinds: Record<string, TaskKind>; stages: { id: string; blurb: string }[]; after: () => Promise<void> }) {
   const [kind, setKind] = useState("make-clip");
   const [variant, setVariant] = useState("");
-  const [course, setCourse] = useState("");
+  const [stage, setStage] = useState("");
   const [seed, setSeed] = useState("");
   const [customBackdrop, setCustomBackdrop] = useState(false);
   const [backdrop, setBackdrop] = useState("#1a1a2a");
@@ -107,7 +100,7 @@ function AddWork({ snap, channelId, kinds, after }: { snap: Snap; channelId: str
   const params: Record<string, string> = {};
   if (isClip) {
     if (variant) { params.variant = variant.split("/")[1]; params.generator = variant.split("/")[0]; }
-    if (course) params.course = course;
+    if (stage) params.stage = stage;
     if (seed) params.seed = seed;
     if (customBackdrop) params.background = backdrop;
   }
@@ -121,13 +114,13 @@ function AddWork({ snap, channelId, kinds, after }: { snap: Snap; channelId: str
         <Field label="Format" help="The generator and its variant. Leave on the channel's default unless you are trying something else.">
           <select value={variant} onChange={(e) => setVariant(e.target.value)}><option value="">Channel default ({variants[0] || "physics/marble_race"})</option>{variants.map((v) => <option key={v} value={v}>{v}</option>)}</select>
         </Field>
-        <Field label="Course" help={COURSES.find((c) => c.id === course)?.help || "Which track the marbles run. Any lets each seed pick, which keeps the channel varied."}>
-          <select value={course} onChange={(e) => setCourse(e.target.value)}>{COURSES.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}</select>
+        <Field label="Stage" help={stages.find((c) => c.id === stage)?.blurb || "Which track the marbles run. Any lets each seed pick, which keeps the channel varied."}>
+          <select value={stage} onChange={(e) => setStage(e.target.value)}><option value="">Any — the seed decides</option>{stages.map((c) => <option key={c.id} value={c.id}>{c.id} — {c.blurb}</option>)}</select>
         </Field>
         <Field label="Seed" help={seed ? "This exact race, every time. Use it to re-make a race you liked with a new caption or backdrop." : "Empty = a fresh random race. Set a number only to reproduce a specific race."}>
           <input className="w-md" inputMode="numeric" pattern="[0-9]*" placeholder="leave empty for a new race" value={seed} onChange={(e) => setSeed(e.target.value.replace(/[^0-9]/g, ""))} />
         </Field>
-        <Field label="Backdrop" help={customBackdrop ? "This colour behind the course; the theme still picks marbles and decorations." : "Unticked = the current theme's palette (Settings → Themes)."}>
+        <Field label="Backdrop" help={customBackdrop ? "This colour behind the stage; the theme still picks marbles and decorations." : "Unticked = the current theme's palette (Settings → Themes)."}>
           <label className="row small"><input type="checkbox" checked={customBackdrop} onChange={(e) => setCustomBackdrop(e.target.checked)} /> choose a colour {customBackdrop && <input type="color" value={backdrop} onChange={(e) => setBackdrop(e.target.value)} />}</label>
         </Field>
         <Field label="How many" help={seed ? "One — a fixed seed would make the same race again." : "Each is a separate task with its own random race."}>

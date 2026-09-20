@@ -561,7 +561,7 @@ finished race, 50 on the first attempt and 10 on the second, 12.4s to 19.4s with
 a median of 16.1s, and all four colours win a fair share. `funnel_drop` runs
 about 12-13s and drains completely.
 
-About one race course in six still wedges a marble. That is caught by a stall
+About one race stage in six still wedges a marble. That is caught by a stall
 check and retried on a seed derived from the original, so the run stays
 reproducible from `seed` alone.
 
@@ -572,20 +572,20 @@ those numbers. Both were right — every seed differed only in ramp slope and
 finishing order, and neither shows in a still frame.
 
 What varies now is what a viewer can see before anything moves: the backdrop
-(six palettes), ramp count, which side the course starts from, ramp thickness,
+(six palettes), ramp count, which side the stage starts from, ramp thickness,
 marble count and marble size. Slope is held near 0.4 throughout, because that is
 the number that decides whether the marbles move at all.
 
 Ramp count and span move together on purpose: span is derived from the slope
 rather than chosen, so more ramps means shorter ones and the total path length —
 and the clip's duration — stays where QC wants it. Marble count is capped by how
-long the first ramp is, since a nine-ramp course would otherwise start five
+long the first ramp is, since a nine-ramp stage would otherwise start five
 marbles stacked on each other.
 
 Measured over 40 seeds after the change: every seed produces a finished race,
 33 on the first attempt, durations 10.2s to 18.9s with none under the QC floor,
 and across 28 pairs of clips the highest similarity is 0.867 — no pair now
-reaches the reject line. Five-ramp courses were dropped from the options after a
+reaches the reject line. Five-ramp stages were dropped from the options after a
 forced test stalled 12 times out of 12.
 
 **Loudness.** The first clip ever rendered measured -26 LUFS integrated while

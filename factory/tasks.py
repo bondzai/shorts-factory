@@ -22,7 +22,7 @@ KINDS: dict[str, dict[str, Any]] = {
     "make-clip": {
         "meaning": "render one clip, look at it, title it, QC it",
         "playbook": "make-clip",
-        "params": {"generator": "physics", "variant": "marble_race", "course": None, "background": None, "seed": None},
+        "params": {"generator": "physics", "variant": "marble_race", "stage": None, "background": None, "seed": None},
         "builtin": True,
     },
     "plan-week": {
@@ -55,7 +55,10 @@ def enqueue(
     if not 1 <= count <= 50:
         raise ValueError("count must be between 1 and 50")
     allowed = set(KINDS[kind]["params"])
-    params = {k: v for k, v in (params or {}).items() if k in allowed and v not in (None, "")}
+    params = dict(params or {})
+    if params.get("course"):  # the old name for a stage
+        params["stage"] = params.pop("course")
+    params = {k: v for k, v in params.items() if k in allowed and v not in (None, "")}
     if kind == "make-clip":
         ch = channels.get(conn, channel_id)
         generator = params.get("generator", "physics")
@@ -65,8 +68,8 @@ def enqueue(
         if count > 1 and "seed" in params:
             raise ValueError("a fixed seed makes one clip; drop the seed to make several")
         from .generators import physics
-        if params.get("course") and params["course"] not in physics.COURSES:
-            raise ValueError(f"no course {params['course']!r}; have {sorted(physics.COURSES)}")
+        if params.get("stage") and params["stage"] not in physics.STAGES:
+            raise ValueError(f"no stage {params['stage']!r}; have {sorted(physics.STAGES)}")
         if params.get("background"):
             physics.parse_hex(params["background"])  # raises with the reason
     ids = [db.enqueue_task(conn, channel_id, kind, params, by=by, priority=priority) for _ in range(count)]
@@ -87,6 +90,8 @@ def held_params(conn: sqlite3.Connection, channel_id: str, given: dict) -> tuple
     if task is None:
         return None, given
     wanted = json.loads(task["params_json"] or "{}")
+    if "course" in wanted:  # the old name for a stage, on tasks queued before the rename
+        wanted["stage"] = wanted.pop("course")
     merged = dict(given)
     for key, value in wanted.items():
         have = given.get(key)
@@ -187,7 +192,7 @@ def run_builtin(conn: sqlite3.Connection, row: sqlite3.Row) -> dict[str, Any]:
         clip_id = db.insert_clip(
             conn, channel_id=row["channel_id"], generator=params.get("generator", "physics"),
             variant=params.get("variant", "marble_race"), seed=int(seed),
-            params={k: params[k] for k in ("course", "background") if params.get(k)},
+            params={k: params[k] for k in ("stage", "background") if params.get(k)},
             hook="", plan_why=f"task #{row['id']}",
         )
         outcome = pipeline.build(conn, clip_id)

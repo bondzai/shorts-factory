@@ -69,8 +69,8 @@ def upload_text(conn: sqlite3.Connection, clip_id: str, now: datetime | None = N
     hashtags = json.loads(row["hashtags_json"] or "[]")
     slot = next_slot(now)
     meta = [f"clip {row['id']}", f"{row['generator']}/{row['variant']}", f"seed {row['seed']}"]
-    if facts.get("course"):
-        meta.append(f"course {facts['course']}")
+    if facts.get("stage") or facts.get("course"):
+        meta.append(f"stage {facts.get('stage') or facts.get('course')}")
     if row["duration_s"]:
         meta.append(f"{row['duration_s']:.1f} s")
     if row["hook_text"]:

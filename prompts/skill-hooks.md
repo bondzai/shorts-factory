@@ -71,7 +71,7 @@ it never needs editing. Every clip gets one.
 ## The description
 
 First sentence: the pick, in plain words (it is checked like a title). After
-that, the facts are welcome — the course, the number of rounds, and yes, the
+that, the facts are welcome — the stage, the number of rounds, and yes, the
 margin — for the viewer who has already watched and wants to know how close
 it was.
 

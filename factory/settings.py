@@ -50,7 +50,7 @@ SCHEMA: list[dict[str, Any]] = [
     {"section": "render", "key": "max_seconds", "type": "number", "min": 10, "max": 120, "step": 1,
      "label": "Simulation cap (s)"},
     {"section": "render", "key": "rounds", "type": "select", "options": [1, 2],
-     "label": "Rounds per race clip", "help": "2 = a heat and a final with the same marbles on a different course (about 30 s)."},
+     "label": "Rounds per race clip", "help": "2 = a heat and a final with the same marbles on a different stage (about 30 s)."},
     {"section": "render", "key": "skip_start_s", "type": "number", "min": 0, "max": 3, "step": 0.1,
      "label": "Open mid-action (s dropped from the start)",
      "help": "The swipe decision is made in the first two seconds; marbles leaving the gate are the dullest part."},

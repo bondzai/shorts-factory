@@ -2,7 +2,7 @@
 
 Two variants, both fully determined by the seed:
 
-  marble_race  four marbles race a zigzag course, first to the bottom wins
+  marble_race  four marbles race a zigzag stage, first to the bottom wins
   funnel_drop  a stream of small balls pours through a funnel
 
 Impacts are detected from per-frame velocity changes rather than pymunk's
@@ -26,14 +26,15 @@ from .base import GeneratedClip, register
 
 SUBSTEPS = 4
 # Gravity is a dial, not a physical constant. The race runs slowly on purpose:
-# at earth-like gravity the marbles finish a 960px course in under three
+# at earth-like gravity the marbles finish a 960px stage in under three
 # seconds, which is too short to publish and too fast to be pleasant.
 RACE_GRAVITY = -600.0
 FUNNEL_GRAVITY = -260.0
 IMPACT_DV = 22.0  # velocity change that counts as a hit, in sim px/s
 MAX_IMPACTS_PER_FRAME = 2  # 54 balls landing at once is a wash, not a sound
 STALL_SPEED = 12.0  # below this, in sim px/s, nothing is moving any more
-MAX_ATTEMPTS = 4  # a stalled race is retried on a derived seed, not abandoned
+MAX_ATTEMPTS = 5  # a stalled race is retried on a derived seed, not abandoned
+PACE_SLOWER, PACE_QUICKER = 0.72, 1.18  # gravity factors the retry loop leans by
 POST_WIN_S = 1.3  # how long the race keeps running after the winner crosses
 CLOSE_RACE_S = 1.0  # a runner-up inside this gets the margin on screen
 FINAL_CAPTION = "FINAL · RUN IT BACK"  # what the second round opens on: a rematch, no arithmetic
@@ -69,20 +70,35 @@ PALETTES = [
 ]
 
 
-# Courses: the shape of the descent. Each is a different picture to the
+# Stages: the shape of the descent. Each is a different picture to the
 # perceptual hash, which is what a variant's capacity is made of, and a
 # different question to the viewer. Weights are how often a random seed lands
 # on each; a task can name one.
-# A fourth course, wedges (chevrons staggered like pegs), was built and cut:
+# A fourth stage, wedges (chevrons staggered like pegs), was built and cut:
 # marbles balanced on an apex, wedged between an arm and the next row's wall
 # lip, or sat in a wall corner — three traps, and fixing one opened another.
 # Measured 7 finishes in 24 at best. The three below each finish 19 of 24
 # inside the QC window with no seed stuck.
-COURSES = {"zigzag": 0.45, "pegboard": 0.30, "bumpers": 0.25}
-# Pace is gravity, not geometry: each course was measured over 24 seeds and
+STAGES = {"zigzag": 0.22, "pegboard": 0.18, "bumpers": 0.20, "funnels": 0.14, "gauntlet": 0.14, "cascade": 0.12}
+# Pace is gravity, not geometry: each stage was measured over 24 seeds and
 # its gravity set so the median finish lands mid-window (see README).
-COURSE_GRAVITY = {"zigzag": -600.0, "pegboard": -110.0, "bumpers": -95.0}
-COURSE_NOUN = {"zigzag": "ramps", "pegboard": "pegs", "bumpers": "bumpers"}
+STAGE_GRAVITY = {"zigzag": -600.0, "pegboard": -110.0, "bumpers": -95.0,
+                 "funnels": -45.0, "gauntlet": -55.0, "cascade": -200.0}
+STAGE_NOUN = {"zigzag": "ramps", "pegboard": "pegs", "bumpers": "bumpers",
+              "funnels": "funnels", "gauntlet": "spinners", "cascade": "chutes"}
+# Which stages get rotating bars, and how many. Measured: on the zigzag a bar
+# knocked marbles back up the ramp until 10 seeds in 24 never finished; among
+# pegs it reads as a glitch. In an open field it is one more thing to bounce
+# off. The gauntlet is nothing but bars.
+SPINNER_STAGES = {"bumpers": (3, 4), "gauntlet": (5, 6)}
+STAGE_BLURB = {
+    "zigzag": "ramps — fast, the classic",
+    "pegboard": "pegs — a slow rattle down a Galton board",
+    "bumpers": "bumpers and spinning bars — the busiest frame",
+    "funnels": "stacked funnels — every throat is a bottleneck",
+    "gauntlet": "a lane of spinning bars — nothing else in the way",
+    "cascade": "chutes that split and rejoin — the marbles keep swapping sides",
+}
 
 
 @dataclass
@@ -93,12 +109,13 @@ class _Style:
     structure: tuple[int, int, int] = STRUCTURE
     thickness: int = 12
     circles: list[tuple[float, float, float]] = field(default_factory=list)  # pegs, bumpers
-    course: str = "zigzag"
+    stage: str = "zigzag"
     theme: str = "default"
     decoration: str = "none"
     caption: tuple[int, int, int] = (255, 255, 255)
     seed: int = 0
     spinners: list[tuple[float, float, float, float, float]] = field(default_factory=list)  # x, y, half-length, rad/s, phase
+    lane: list[tuple[tuple[float, float], tuple[float, float]]] = field(default_factory=list)  # the gauntlet's two verticals
 
 
 @dataclass
@@ -153,7 +170,7 @@ def _peg(space: pymunk.Space, x: float, y: float, r: float, elasticity: float = 
     space.add(shape)
 
 
-def _course_zigzag(space, w, h, rng, style):
+def _stage_zigzag(space, w, h, rng, style):
     """Zigzag ramps steep enough that the marbles never come to rest.
 
     A shallow ramp looks fine in a screenshot and stalls in the solver — at a
@@ -181,7 +198,7 @@ def _course_zigzag(space, w, h, rng, style):
     return segments, runway, lanes
 
 
-def _course_pegboard(space, w, h, rng, style):
+def _stage_pegboard(space, w, h, rng, style):
     """A Galton board: rows of pegs, offset row to row, nothing to rest on.
 
     Nothing here can stall — a peg is a point, not a ledge — so the only tuning
@@ -203,7 +220,7 @@ def _course_pegboard(space, w, h, rng, style):
     return [], w * 0.6, lambda count: [w * 0.2 + (w * 0.6) * i / max(count - 1, 1) for i in range(count)]
 
 
-def _course_bumpers(space, w, h, rng, style):
+def _stage_bumpers(space, w, h, rng, style):
     """Pinball: big elastic bumpers in a staggered lattice, two guides at the bottom.
 
     Dense enough that no marble falls straight through; the first version had
@@ -228,7 +245,88 @@ def _course_bumpers(space, w, h, rng, style):
     return segments, w * 0.6, lambda count: [w * 0.2 + (w * 0.6) * i / max(count - 1, 1) for i in range(count)]
 
 
-_COURSES = {"zigzag": _course_zigzag, "pegboard": _course_pegboard, "bumpers": _course_bumpers}
+def _stage_funnels(space, w, h, rng, style):
+    """Three or four funnels in series, throats offset left and right.
+
+    Each funnel is two ramps meeting at a gap; the marbles converge, jostle for
+    the throat, and spill out in a new order. The throat is measured in
+    marble radii, because an arch of marbles across a narrow throat is the one
+    thing that stalls a funnel: below about three radii it happens.
+    """
+    funnels = rng.choice([3, 4])
+    top, bottom = h * 0.82, h * 0.16
+    step = (top - bottom) / funnels
+    segments = []
+    for i in range(funnels):
+        y_top = top - i * step
+        y_throat = y_top - step * 0.62
+        cx = w * rng.choice([0.34, 0.5, 0.66]) if i else w * 0.5
+        gap = w * rng.uniform(0.17, 0.21)  # about 3.5-4 radii of the largest marble
+        left = ((14.0, y_top), (cx - gap / 2, y_throat))
+        right = ((w - 14.0, y_top), (cx + gap / 2, y_throat))
+        for a, b in (left, right):
+            _wall(space, a, b, thickness=style.thickness / 2)
+            segments.append((a, b))
+    return segments, w * 0.7, lambda count: [w * 0.15 + (w * 0.7) * i / max(count - 1, 1) for i in range(count)]
+
+
+def _stage_gauntlet(space, w, h, rng, style):
+    """A lane that narrows to two thirds of the frame with nothing in it but
+    spinning bars, stacked. The bars are added by _add_spinners; here only the
+    lane, so a marble knocked sideways comes back to the bars instead of
+    dropping past them along the wall.
+    """
+    inset = w * rng.uniform(0.12, 0.17)
+    segments = [((6.0, h * 0.86), (inset, h * 0.74)), ((w - 6.0, h * 0.86), (w - inset, h * 0.74)),
+                ((inset, h * 0.74), (inset, h * 0.12)), ((w - inset, h * 0.74), (w - inset, h * 0.12))]
+    for a, b in segments:
+        _wall(space, a, b, thickness=style.thickness / 2)
+    style.lane = segments[2:]
+    # A few pegs between the bars, alternating sides, so a marble the bars
+    # miss is still slowed.
+    for i, frac in enumerate((0.16, 0.25, 0.35, 0.45, 0.55, 0.65)):
+        for side in (0.28, 0.72) if i % 2 else (0.5,):
+            x = inset + (w - 2 * inset) * side + rng.uniform(-12, 12)
+            r = rng.uniform(9.0, 12.0)
+            _peg(space, x, h * frac, r, elasticity=0.75)
+            style.circles.append((x, h * frac, r))
+    lane = w - 2 * inset
+    return segments, lane * 0.8, lambda count: [inset + lane * 0.1 + lane * 0.8 * i / max(count - 1, 1) for i in range(count)]
+
+
+def _stage_cascade(space, w, h, rng, style):
+    """Chutes that split and rejoin: a row of ramps meeting in the middle (a
+    V, one gap), then a row parting from the middle (a peak, two gaps), and
+    so on down. A marble picks a side at every peak and meets the others
+    again at every V, so the order keeps changing. The peak is a short flat
+    cap, not a point, so nothing balances on it.
+    """
+    rows = rng.choice([5, 6])
+    top, bottom = h * 0.84, h * 0.14
+    step = (top - bottom) / rows
+    drop = step * 0.55
+    gap = w * rng.uniform(0.16, 0.20)
+    segments = []
+    for i in range(rows):
+        y = top - i * step
+        if i % 2 == 0:  # V: walls in, gap in the middle
+            pairs = [((14.0, y), (w / 2 - gap / 2, y - drop)), ((w - 14.0, y), (w / 2 + gap / 2, y - drop))]
+        else:  # peak: from the middle out, a whole gap left at each wall
+            # The cap is a short ramp, not a shelf: a flat cap is a ledge a
+            # marble rests on, a point is an apex it balances on (measured,
+            # both). Tilted, it sheds whatever lands on it.
+            cap = w * 0.06
+            tilt = 1 if rng.random() < 0.5 else -1
+            cap_a, cap_b = (w / 2 - cap, y + tilt * cap * 0.4), (w / 2 + cap, y - tilt * cap * 0.4)
+            pairs = [(cap_a, (gap + 14.0, y - drop)), (cap_b, (w - gap - 14.0, y - drop)), (cap_a, cap_b)]
+        for a, b in pairs:
+            _wall(space, a, b, thickness=style.thickness / 2)
+            segments.append((a, b))
+    return segments, w * 0.7, lambda count: [w * 0.15 + (w * 0.7) * i / max(count - 1, 1) for i in range(count)]
+
+
+_STAGES = {"zigzag": _stage_zigzag, "pegboard": _stage_pegboard, "bumpers": _stage_bumpers,
+           "funnels": _stage_funnels, "gauntlet": _stage_gauntlet, "cascade": _stage_cascade}
 
 
 def parse_hex(value: str) -> tuple[int, int, int]:
@@ -257,12 +355,11 @@ def _spinner(space: pymunk.Space, x: float, y: float, half: float, omega: float,
     space.add(body, shape)
 
 
-SPINNERS = (3, 4)  # how many rotating bars a bumpers course gets (min, max)
-SPINNER_ROWS = (0.26, 0.40, 0.54, 0.68)  # heights, as a fraction of the frame
+SPINNER_ROWS = {"bumpers": (0.26, 0.40, 0.54, 0.68), "gauntlet": (0.20, 0.30, 0.40, 0.50, 0.60, 0.70)}  # heights, frame fractions
 
 
 def _add_spinners(space, w, h, rng, style):
-    """Rotating bars stacked down the open middle of the course.
+    """Rotating bars stacked down the open middle of the stage.
 
     A still frame of ramps is a diagram; a bar turning through the marbles is
     a thing happening, and several of them make every frame busy. They are
@@ -271,30 +368,38 @@ def _add_spinners(space, w, h, rng, style):
     rather than meet a wall of bars. Not on the pegboard: a bar sweeping
     through a field of pegs reads as a glitch, not a mechanism.
     """
-    if style.course != "bumpers":
-        # Measured: on the zigzag a bar across the lane knocked marbles back
-        # up the ramp until 10 seeds in 24 never finished; among pegs it reads
-        # as a glitch. In the bumper field it is one more thing to bounce off.
+    if style.stage not in SPINNER_STAGES:
         return
-    count = rng.randint(*SPINNERS)
-    rows = sorted(rng.sample(SPINNER_ROWS, min(count, len(SPINNER_ROWS))))
+    count = rng.randint(*SPINNER_STAGES[style.stage])
+    rows_all = SPINNER_ROWS[style.stage]
+    rows = sorted(rng.sample(rows_all, min(count, len(rows_all))))
     side = rng.choice([-1, 1])
     for row in rows:
         y = h * row + rng.uniform(-h * 0.02, h * 0.02)
-        x = w * (0.5 + side * rng.uniform(0.04, 0.12))
-        half = w * rng.uniform(0.09, 0.13)
-        omega = rng.choice([-1, 1]) * rng.uniform(1.4, 2.4)
+        if style.stage == "gauntlet":
+            # Gates, not obstacles: each bar spans most of the lane, so a
+            # marble has to wait for the bar to turn before it can drop
+            # through. With short bars every seed fell straight past them.
+            lane_l = min(a[0] for a, b in style.lane) if style.lane else 0.0
+            lane_r = max(a[0] for a, b in style.lane) if style.lane else w
+            x = (lane_l + lane_r) / 2 + rng.uniform(-w * 0.02, w * 0.02)
+            half = (lane_r - lane_l) * rng.uniform(0.36, 0.42)
+            omega = rng.choice([-1, 1]) * rng.uniform(0.9, 1.5)
+        else:
+            x = w * (0.5 + side * rng.uniform(0.04, 0.12))
+            half = w * rng.uniform(0.09, 0.13)
+            omega = rng.choice([-1, 1]) * rng.uniform(1.4, 2.4)
         phase = rng.uniform(0, 3.14)
         _spinner(space, x, y, half, omega, phase, style.thickness / 2)
         style.spinners.append((x, y, half, omega, phase))
         side = -side
 
 
-def _build_race(space: pymunk.Space, w: int, h: int, rng: random.Random, course: str | None = None,
+def _build_race(space: pymunk.Space, w: int, h: int, rng: random.Random, stage: str | None = None,
                 background: str | None = None, lineup: list | None = None):
-    """A course from the registry, dressed by the active theme.
+    """A stage from the registry, dressed by the active theme.
 
-    Everything a viewer can see in a single frame is varied: which course, the
+    Everything a viewer can see in a single frame is varied: which stage, the
     backdrop, how thick the structure is, how many marbles and how big. What
     stays fixed is what keeps the solver honest — slopes, throat widths, pace.
     """
@@ -308,16 +413,16 @@ def _build_race(space: pymunk.Space, w: int, h: int, rng: random.Random, course:
         style.structure = _structure_for(style.background)
     style.thickness = rng.randint(8, 15)
     style.theme, style.decoration, style.caption = theme.id, theme.decoration, theme.caption
-    style.course = course or _pick(rng, COURSES)
-    if style.course not in _COURSES:
-        raise ValueError(f"no course {style.course!r}; have {sorted(_COURSES)}")
-    space.gravity = (0.0, COURSE_GRAVITY[style.course])
+    style.stage = stage or _pick(rng, STAGES)
+    if style.stage not in _STAGES:
+        raise ValueError(f"no stage {style.stage!r}; have {sorted(_STAGES)}")
+    space.gravity = (0.0, STAGE_GRAVITY[style.stage])
 
     _wall(space, (4, 0), (4, h))
     _wall(space, (w - 4, 0), (w - 4, h))
     _wall(space, (4, 6), (w - 4, 6))
 
-    segments, runway, lanes_for = _COURSES[style.course](space, w, h, rng, style)
+    segments, runway, lanes_for = _STAGES[style.stage](space, w, h, rng, style)
     _add_spinners(space, w, h, rng, style)
 
     # Identical marbles keep their starting order for the whole run, which kills
@@ -404,7 +509,7 @@ class PhysicsSandbox:
     ready = True
     blurb = (
         "Deterministic 2D physics. marble_race: four coloured marbles race a "
-        "zigzag ramp course, one wins. funnel_drop: dozens of small balls pour "
+        "zigzag ramp stage, one wins. funnel_drop: dozens of small balls pour "
         "through a funnel. No prior knowledge needed, holds attention to the end."
     )
 
@@ -422,13 +527,13 @@ class PhysicsSandbox:
         rounds_wanted = int(params.get("rounds", cfg.get("rounds", 1))) if variant == "marble_race" else 1
         rounds = [self._round(seed, variant, params, cfg, sim_w, sim_h, fps)]
         if rounds_wanted >= 2:
-            # The final: same marbles, a different course, a seed derived from
+            # The final: same marbles, a different stage, a seed derived from
             # this one so the whole clip is still one number.
             heat = rounds[0]
             lineup = [(b.name, b.color) for b in heat["balls"]]
-            other = [c for c in COURSES if c != heat["style"].course] or list(COURSES)
-            final_course = params.get("final_course") or random.Random(seed ^ 0x5F3759DF).choice(other)
-            rounds.append(self._round(seed + 104729, variant, {**params, "course": final_course},
+            other = [c for c in STAGES if c != heat["style"].stage] or list(STAGES)
+            final_stage = params.get("final_stage") or random.Random(seed ^ 0x5F3759DF).choice(other)
+            rounds.append(self._round(seed + 104729, variant, {**params, "stage": final_stage},
                                       cfg, sim_w, sim_h, fps, lineup=lineup))
 
         clip_dir = work_dir
@@ -471,9 +576,9 @@ class PhysicsSandbox:
             for i, r in enumerate(rounds):
                 label = ("The heat" if i == 0 else "The final") if len(rounds) > 1 else f"{len(r['balls'])} marbles ({names}) race"
                 if len(rounds) > 1:
-                    label += f" runs down {self._course_text(r)}"
+                    label += f" runs down {self._stage_text(r)}"
                 else:
-                    label += f" down {self._course_text(r)}"
+                    label += f" down {self._stage_text(r)}"
                 if r["winner"]:
                     gap = (f", {_seconds(r['margin_s'])} ahead of {r['runner_up']}" if r["runner_up"]
                            else f"; no other marble crosses in the next {POST_WIN_S} seconds")
@@ -497,7 +602,7 @@ class PhysicsSandbox:
                 "variant": variant,
                 "seed": seed,
                 "rounds": [
-                    {"course": r["style"].course, "winner": r["winner"], "margin_s": r["margin_s"],
+                    {"stage": r["style"].stage, "winner": r["winner"], "margin_s": r["margin_s"],
                      "runner_up": r["runner_up"], "finishes": r["finish_s"], "seconds": round(r["duration_s"], 2),
                      "obstacles": len(r["style"].circles) or len(r["segments"]), "spinners": len(r["style"].spinners)}
                     for r in rounds
@@ -506,7 +611,7 @@ class PhysicsSandbox:
                 "impacts": len(impacts),
                 "objects": len(balls),
                 "ramps": len(last["segments"]),
-                "course": style.course,
+                "stage": style.stage,
                 "obstacles": len(style.circles) or len(last["segments"]),
                 "theme": style.theme,
                 "palette": style.background,
@@ -519,14 +624,17 @@ class PhysicsSandbox:
             },
         )
 
-    def _course_text(self, r) -> str:
+    def _stage_text(self, r) -> str:
         style, segments = r["style"], r["segments"]
         obstacles = len(style.circles) or len(segments)
         base = {
-            "zigzag": f"a {obstacles}-ramp zigzag course",
+            "zigzag": f"a {obstacles}-ramp zigzag stage",
             "pegboard": f"a pegboard of {obstacles} pegs",
             "bumpers": f"a field of {obstacles} bumpers",
-        }[style.course]
+            "funnels": f"{obstacles // 2} stacked funnels",
+            "gauntlet": "a narrow gauntlet",
+            "cascade": f"a cascade of {obstacles} chutes",
+        }[style.stage]
         if style.spinners:
             base += f" with {len(style.spinners)} spinning bar{'s' if len(style.spinners) > 1 else ''}"
         return base
@@ -534,15 +642,21 @@ class PhysicsSandbox:
     def _round(self, seed, variant, params, cfg, sim_w, sim_h, fps, lineup=None) -> dict:
         """One simulated race, opened mid-action, with its finish arithmetic."""
         max_frames = int(float(params.get("max_seconds", cfg["max_seconds"])) * fps)
-        # About one race seed in six wedges a marble and never finishes. Rather
-        # than burn the seed, derive the next course from it: still fully
-        # determined by `seed`, just not by its first attempt.
+        skip = int(float(params.get("skip_start_s", cfg.get("skip_start_s", 0))) * fps)
+        # The QC floor applies to what ships, which is after the skip.
+        min_frames = int(float(settings.load().qc["min_seconds"]) * fps) + skip
+        # About one race seed in six wedges a marble or finishes under the
+        # floor. Rather than burn the seed, derive the next attempt from it —
+        # still fully determined by `seed` — and lean gravity the way the
+        # failure points: slower after a too-fast finish, quicker after a
+        # stall. Pace is what each stage's gravity was tuned by anyway.
+        pace = 1.0
         for attempt in range(MAX_ATTEMPTS):
             try:
                 sim = self._simulate(
                     seed=seed + attempt * 7919, variant=variant, sim_w=sim_w, sim_h=sim_h,
-                    fps=fps, max_frames=max_frames, course=params.get("course"),
-                    background=params.get("background"), lineup=lineup,
+                    fps=fps, max_frames=max_frames, stage=params.get("stage") or params.get("course"),
+                    background=params.get("background"), lineup=lineup, pace=pace, min_frames=min_frames,
                 )
                 if variant == "marble_race" and sim[4] is None:
                     # Ran out of frames with nobody across the line. A marble
@@ -558,9 +672,9 @@ class PhysicsSandbox:
                     raise RuntimeError(
                         f"{variant} seed {seed} stalled on every one of {MAX_ATTEMPTS} attempts ({exc})"
                     ) from None
+                pace *= PACE_SLOWER if "under the" in str(exc) else PACE_QUICKER
         states, impacts, balls, segments, winner, winner_frame, style, finishes = sim
         # Open mid-action: drop the gate. Everything time-based shifts with it.
-        skip = int(float(params.get("skip_start_s", cfg.get("skip_start_s", 0))) * fps)
         skip = max(0, min(skip, max(0, len(states) - fps * 2)))
         if skip:
             states = states[skip:]
@@ -581,14 +695,17 @@ class PhysicsSandbox:
 
     def _simulate(
         self, *, seed: int, variant: str, sim_w: int, sim_h: int, fps: int, max_frames: int,
-        course: str | None = None, background: str | None = None, lineup: list | None = None,
+        stage: str | None = None, background: str | None = None, lineup: list | None = None,
+        pace: float = 1.0, min_frames: int | None = None,
     ):
-        """Run the physics only. Raises _Stalled when a race goes nowhere."""
+        """Run the physics only. Raises _Stalled when a race goes nowhere, or
+        finishes before min_frames (the QC floor, by default)."""
         rng = random.Random(seed)
         space = pymunk.Space()
         if variant == "marble_race":
             space.gravity = (0.0, RACE_GRAVITY)
-            balls, segments, style = _build_race(space, sim_w, sim_h, rng, course, background, lineup)
+            balls, segments, style = _build_race(space, sim_w, sim_h, rng, stage, background, lineup)
+            space.gravity = (0.0, space.gravity.y * pace)
             style.seed = seed
             finish_y: float | None = 110.0
         else:
@@ -650,25 +767,25 @@ class PhysicsSandbox:
             if winner_frame is not None and frame >= winner_frame + int(fps * POST_WIN_S):
                 break
 
-        # Varying the course changed the duration spread as well as the look,
-        # and a short course can now finish under the QC floor. The generator
+        # Varying the stage changed the duration spread as well as the look,
+        # and a short stage can now finish under the QC floor. The generator
         # knows that floor, so it burns the seed here rather than handing QC a
         # clip it is certain to reject.
         # Only judge a race that actually finished: a run cut off by max_frames
         # has no meaningful duration yet, and short runs are exactly what the
         # tests use.
         if finish_y is not None and winner_frame is not None:
-            floor = float(settings.load().qc["min_seconds"])
-            if len(states) / fps < floor:
+            need = min_frames if min_frames is not None else int(float(settings.load().qc["min_seconds"]) * fps)
+            if len(states) < need:
                 raise _Stalled(
-                    f"finished in {len(states) / fps:.1f}s, under the {floor}s floor"
+                    f"finished in {len(states) / fps:.1f}s, under the {need / fps:.1f}s floor"
                 )
 
         return states, impacts, balls, segments, winner, winner_frame, style, finishes
 
     def _default_hook(self, variant: str, round_: dict | None) -> str:
         """The opening caption: two or three words that make the viewer pick a
-        marble. Not the result, and not the course's spec sheet either —
+        marble. Not the result, and not the stage's spec sheet either —
         "PICK ONE · 4 SPINNERS" made a viewer read arithmetic in the one
         second they give us. The pick is the whole job: a viewer who has
         chosen a side stays to see it lose or win.
@@ -722,7 +839,7 @@ class PhysicsSandbox:
         winner_frame=None, winner=None,
     ) -> Iterator[bytes]:
         style = style or _Style()
-        finish_line = style.course in COURSES  # races have one; the funnel does not
+        finish_line = style.stage in STAGES  # races have one; the funnel does not
         winner_index = next((i for i, b in enumerate(balls) if b.name == winner), None)
         burst_rng = random.Random(style.seed * 17 + 3)
         burst = [(burst_rng.uniform(-1, 1), burst_rng.uniform(0.2, 1.0), burst_rng.uniform(0, 6.283),

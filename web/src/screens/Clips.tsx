@@ -106,7 +106,7 @@ export function ClipDrawer({ id, close, refresh, sound }: { id: string; close: (
           <dl className="facts">
             <dt>shows</dt><dd>{c.render_desc || "—"}</dd>
             <dt>length</dt><dd>{fmt(c.duration_s)}s · {fmt(c.loudness_lufs)} LUFS · sameness {fmt(c.sameness, 3)}</dd>
-            {rounds.map((r, i) => <span key={i} style={{ display: "contents" }}><dt>round {i + 1}</dt><dd>{String(r.course)} · {String(r.winner)} wins{r.margin_s != null ? ` by ${r.margin_s}s` : ""} · {String(r.seconds)}s{Number(r.spinners) ? ` · ${r.spinners} spinner` : ""}</dd></span>)}
+            {rounds.map((r, i) => <span key={i} style={{ display: "contents" }}><dt>round {i + 1}</dt><dd>{String(r.stage)} · {String(r.winner)} wins{r.margin_s != null ? ` by ${r.margin_s}s` : ""} · {String(r.seconds)}s{Number(r.spinners) ? ` · ${r.spinners} spinner` : ""}</dd></span>)}
             {facts.map(([k, v]) => <span key={k} style={{ display: "contents" }}><dt>{k}</dt><dd>{typeof v === "object" ? JSON.stringify(v) : String(v)}</dd></span>)}
             {c.file.path && <><dt>file</dt><dd>{c.file.path}{c.file.exists ? "" : " (gone)"}</dd></>}
           </dl>

@@ -7,12 +7,12 @@ from factory.generators import physics
 W, H, FPS = 540, 960, 30
 
 
-def simulate(seed, variant="marble_race", frames=90, course="zigzag"):
-    # Pinned to the zigzag course: these tests are about ramps. The other
-    # courses have their own tests below.
+def simulate(seed, variant="marble_race", frames=90, stage="zigzag"):
+    # Pinned to the zigzag stage: these tests are about ramps. The other
+    # stages have their own tests below.
     return physics.PhysicsSandbox()._simulate(
         seed=seed, variant=variant, sim_w=W, sim_h=H, fps=FPS, max_frames=frames,
-        course=course if variant == "marble_race" else None,
+        stage=stage if variant == "marble_race" else None,
     )
 
 
@@ -34,7 +34,7 @@ def test_marbles_are_moving_on_the_first_frame():
 def test_impacts_stay_inside_the_clip():
     states, impacts, *_ = simulate(4242)
     duration = len(states) / FPS
-    assert impacts, "a marble course with no impacts would be silent"
+    assert impacts, "a marble stage with no impacts would be silent"
     assert all(0 <= impact.t < duration for impact in impacts)
 
 
@@ -91,7 +91,7 @@ def test_the_look_is_still_fixed_by_the_seed():
 
 
 def test_marble_count_fits_the_runway():
-    """A nine-ramp course has short ramps; five marbles would start stacked."""
+    """A nine-ramp stage has short ramps; five marbles would start stacked."""
     for seed in (4100, 4211, 4322, 13, 7932, 23770, 991, 1234):
         look = _look(seed)
         assert 3 <= look["marbles"] <= 5
@@ -105,7 +105,7 @@ def test_five_ramp_courses_are_not_offered():
     assert all(r in (6, 7, 8, 9) for r in looks)
 
 
-def test_a_course_finishing_under_the_qc_floor_is_refused(monkeypatch):
+def test_a_stage_finishing_under_the_qc_floor_is_refused(monkeypatch):
     from factory import settings
 
     raw = settings.load().raw
@@ -114,37 +114,37 @@ def test_a_course_finishing_under_the_qc_floor_is_refused(monkeypatch):
         simulate(4242, frames=600)
 
 
-# --- courses ------------------------------------------------------------------
-# Each course was measured over 24 seeds before it was allowed in; these pin
+# --- stages ------------------------------------------------------------------
+# Each stage was measured over 24 seeds before it was allowed in; these pin
 # the shape, not the numbers — the numbers live in the README.
 
-def test_every_offered_course_builds_and_moves():
-    for course in physics.COURSES:
-        states, impacts, balls, segments, *_ , style, _ = simulate(4242, frames=60, course=course)
-        assert style.course == course
-        assert states[0] != states[1], f"{course}: nothing moved on frame one"
-        assert impacts, f"{course}: silent"
+def test_every_offered_stage_builds_and_moves():
+    for stage in physics.STAGES:
+        states, impacts, balls, segments, *_ , style, _ = simulate(4242, frames=60, stage=stage)
+        assert style.stage == stage
+        assert states[0] != states[1], f"{stage}: nothing moved on frame one"
+        assert impacts, f"{stage}: silent"
 
 
 def test_pegboard_and_bumpers_are_circles_not_ramps():
-    *_, style, _ = simulate(4242, frames=5, course="pegboard")
+    *_, style, _ = simulate(4242, frames=5, stage="pegboard")
     assert style.circles and len(style.circles) >= 30
-    *_, style, _ = simulate(4242, frames=5, course="bumpers")
+    *_, style, _ = simulate(4242, frames=5, stage="bumpers")
     assert style.circles and 20 <= len(style.circles) <= 40
 
 
-def test_an_unknown_course_names_the_known_ones():
+def test_an_unknown_stage_names_the_known_ones():
     with pytest.raises(ValueError, match="zigzag"):
-        simulate(1, frames=5, course="wedges")
+        simulate(1, frames=5, stage="wedges")
 
 
-def test_the_seed_picks_the_course_when_none_is_given():
+def test_the_seed_picks_the_stage_when_none_is_given():
     seen = set()
     for seed in range(40):
         *_, style, _ = physics.PhysicsSandbox()._simulate(
             seed=seed, variant="marble_race", sim_w=W, sim_h=H, fps=FPS, max_frames=3)
-        seen.add(style.course)
-    assert seen == set(physics.COURSES)
+        seen.add(style.stage)
+    assert seen == set(physics.STAGES)
 
 
 def test_the_theme_dresses_the_race(monkeypatch):
@@ -165,18 +165,18 @@ def test_the_final_is_run_by_the_marbles_that_ran_the_heat():
     gen = physics.PhysicsSandbox(); cfg = settings.load().render
     heat = gen._round(7100, "marble_race", {}, cfg, W, H, FPS)
     lineup = [(b.name, b.color) for b in heat["balls"]]
-    other = [c for c in physics.COURSES if c != heat["style"].course][0]
-    final = gen._round(7100 + 104729, "marble_race", {"course": other}, cfg, W, H, FPS, lineup=lineup)
+    other = [c for c in physics.STAGES if c != heat["style"].stage][0]
+    final = gen._round(7100 + 104729, "marble_race", {"stage": other}, cfg, W, H, FPS, lineup=lineup)
     assert [b.name for b in final["balls"]] == [b.name for b in heat["balls"]]
-    assert final["style"].course != heat["style"].course
+    assert final["style"].stage != heat["style"].stage
 
 
 def test_spinners_live_only_in_the_bumper_field():
     """On the zigzag a bar knocked marbles back up the ramp until 10 seeds in
     24 never finished; among pegs it reads as a glitch. Measured, then pinned."""
-    for course in physics.COURSES:
-        *_, style, _ = simulate(4242, frames=3, course=course)
-        assert bool(style.spinners) == (course == "bumpers"), course
+    for stage in physics.STAGES:
+        *_, style, _ = simulate(4242, frames=3, stage=stage)
+        assert bool(style.spinners) == (stage in physics.SPINNER_STAGES), stage
 
 
 def test_opening_mid_action_shifts_every_clock_together():
@@ -217,4 +217,4 @@ def test_running_out_of_frames_with_no_winner_is_a_stall_not_a_clip(sandbox):
     from factory import settings
     cfg = settings.load().render
     with pytest.raises(RuntimeError, match="no winner"):
-        physics.PhysicsSandbox()._round(4242, "marble_race", {"course": "bumpers", "max_seconds": 0.5}, cfg, W, H, FPS)
+        physics.PhysicsSandbox()._round(4242, "marble_race", {"stage": "bumpers", "max_seconds": 0.5}, cfg, W, H, FPS)

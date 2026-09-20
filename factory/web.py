@@ -29,6 +29,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from . import analytics, channels, db, generators, llm, logs, pipeline, playbooks, settings, tasks, themes
+from .generators import physics
 from .agents import analyst
 from .models import APPROVED, AWAITING_APPROVAL, PLANNED, PUBLISHED
 
@@ -185,6 +186,12 @@ def _resolve(conn, channel_id: str | None):
         raise HTTPException(404, str(exc)) from None
 
 
+def _facts_for_page(facts: dict[str, Any]) -> dict[str, Any]:
+    if "stage" not in facts and "course" in facts:  # clips rendered before the rename
+        facts = {**facts, "stage": facts["course"]}
+    return {k: v for k, v in facts.items() if k in ("stage", "theme", "backdrop", "margin_s", "winner")}
+
+
 def _clip_json(row) -> dict[str, Any]:
     return {
         "id": row["id"],
@@ -210,7 +217,7 @@ def _clip_json(row) -> dict[str, Any]:
         "comment_prompt": row["comment_prompt"],
         "title_history": json.loads(row["title_history_json"] or "[]"),
         "published_at": row["published_at"],
-        "facts": {k: v for k, v in json.loads(row["facts_json"] or "{}").items() if k in ("course", "theme", "backdrop", "margin_s", "winner")},
+        "facts": _facts_for_page(json.loads(row["facts_json"] or "{}")),
     }
 
 
@@ -642,9 +649,9 @@ def _reference() -> str:
     lines += ["", "## Task kinds", "", "| kind | meaning | parameters | built-in agents can do it |", "|---|---|---|---|"]
     for k, v in tasks.KINDS.items():
         lines.append(f"| `{k}` | {v['meaning']} | {', '.join(v['params']) or '—'} | {'yes' if v['builtin'] else 'no'} |")
-    lines += ["", "## Courses", "", "| course | weight | gravity |", "|---|---|---|"]
-    for c, w in physics.COURSES.items():
-        lines.append(f"| `{c}` | {w} | {physics.COURSE_GRAVITY[c]} |")
+    lines += ["", "## Stages", "", "| stage | what it is | weight | gravity |", "|---|---|---|---|"]
+    for c, w in physics.STAGES.items():
+        lines.append(f"| `{c}` | {physics.STAGE_BLURB[c]} | {w} | {physics.STAGE_GRAVITY[c]} |")
     lines += ["", "## Themes", "", "| id | window | decoration | marbles |", "|---|---|---|---|"]
     for t in themes.themes():
         lines.append(f"| `{t.id}` | {'–'.join(t.window) if t.window else 'default'} | {t.decoration} | {', '.join(n for n, _ in t.marbles)} |")
@@ -759,15 +766,15 @@ def destroy_clips(body: IdsBody) -> dict[str, Any]:
 
 @app.get("/api/work")
 def work(
-    channel: str | None = None, stage: str | None = None, variant: str | None = None, q: str | None = None,
+    channel: str | None = None, phase: str | None = None, variant: str | None = None, q: str | None = None,
     sort: str | None = None, dir: str | None = None, page: int = 1, page_size: int = 25,
 ) -> dict[str, Any]:
     """Tasks and clips as one list. Each item says which it is (row_kind) and
-    where it is (stage); a task item is tasks.as_dict, a clip item is the
+    where it is (phase); a task item is tasks.as_dict, a clip item is the
     same shape /api/clips gives, so the page needs no third kind of row."""
     with db.connect() as conn:
         ch = _resolve(conn, channel)
-        rows, total, counts = db.work(conn, ch.id, stage=stage, variant=variant, query=q,
+        rows, total, counts = db.work(conn, ch.id, phase=phase, variant=variant, query=q,
                                       sort=sort, direction=dir, page=page, page_size=page_size)
         items = []
         for w in rows:
@@ -775,13 +782,13 @@ def work(
                 t = db.get_task(conn, int(w["task_id"]))
                 if t is None:
                     continue
-                items.append({**tasks.as_dict(t), "row_kind": "task", "stage": w["stage"], "key": w["id"]})
+                items.append({**tasks.as_dict(t), "row_kind": "task", "phase": w["phase"], "key": w["id"]})
             else:
                 row = db.get(conn, w["clip_id"])
                 if row is None:
                     continue
                 items.append({
-                    **_clip_json(row), "row_kind": "clip", "stage": w["stage"], "key": w["id"],
+                    **_clip_json(row), "row_kind": "clip", "phase": w["phase"], "key": w["id"],
                     "created_at": row["created_at"], "views": row["views"],
                     "avg_view_pct": row["avg_view_pct"], "swipe_away_pct": row["swipe_away_pct"],
                 })
@@ -792,8 +799,9 @@ def work(
     p, size = db.page_args(page, page_size)
     return {
         "items": items, "total": total, "page": p, "page_size": size,
-        "stages": [{"id": s, "count": counts.get(s, 0)} for s in db.STAGES if counts.get(s)],
+        "phases": [{"id": s, "count": counts.get(s, 0)} for s in db.PHASES if counts.get(s)],
         "modules": modules, "binned": binned,
+        "stages": [{"id": k, "blurb": v} for k, v in physics.STAGE_BLURB.items()],
         "kinds": {k: {"meaning": v["meaning"], "params": v["params"], "builtin": v["builtin"]} for k, v in tasks.KINDS.items()},
     }
 

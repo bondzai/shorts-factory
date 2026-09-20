@@ -144,7 +144,7 @@ def fake_generate(monkeypatch, tmp_path, seen):
         # A race has to finish to be a clip now, so the shortest real one:
         # seed 33 on bumpers crosses at 9.7s.
         return original(seed=seed, variant=variant,
-                        params={**params, "max_seconds": 12, "course": "bumpers"}, work_dir=work_dir)
+                        params={**params, "max_seconds": 12, "stage": "bumpers"}, work_dir=work_dir)
 
     monkeypatch.setattr(real, "generate", generate)
 
@@ -408,7 +408,7 @@ def test_a_chosen_backdrop_wins_over_the_theme_and_is_recorded():
 
     *_, style, _ = physics.PhysicsSandbox()._simulate(
         seed=4242, variant="marble_race", sim_w=540, sim_h=960, fps=30, max_frames=3,
-        course="zigzag", background="#102030")
+        stage="zigzag", background="#102030")
     assert style.background == (16, 32, 48)
     assert style.structure != style.background
     with pytest.raises(ValueError, match="hex"):

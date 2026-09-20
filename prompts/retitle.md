@@ -18,7 +18,7 @@ Propose a retitle only where the numbers make a case. For each:
 
 - the clip id and the new title (20-90 characters, English, sentence case)
 - what specific thing the new title states that the old one did not — a
-  course number from the clip's facts (spinners, pegs, marbles) beats a
+  stage number from the clip's facts (spinners, pegs, marbles) beats a
   question; the winner and the margin are never in a title
 - what you would expect to move, and by roughly how much, so the next pull can
   say whether it did

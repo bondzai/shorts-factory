@@ -14,14 +14,14 @@ max_seconds = 22
 # the first two seconds; the gate is the least interesting thing in the clip.
 skip_start_s = 0.6
 # Races per clip. Two — a heat and a final with the same marbles on a different
-# course — lands the clip in the 30-45 s band where Shorts reach is, and gives
+# stage — lands the clip in the 30-45 s band where Shorts reach is, and gives
 # the viewer a marble to follow.
 rounds = 2
 
 [overlay]
 # On-screen text for the opening seconds. Its one job is to make the viewer
 # pick a marble: a viewer who has chosen a side stays to see it win or lose.
-# Two or three words, second person, never the result and never the course's
+# Two or three words, second person, never the result and never the stage's
 # numbers. Several captions separated by "|"; one is chosen per seed so
 # consecutive clips do not open on the same words. The funnel sells texture
 # and sound and is left clean.

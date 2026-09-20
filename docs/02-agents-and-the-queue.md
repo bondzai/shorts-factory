@@ -25,7 +25,7 @@ provider that cannot see images.
 ## The queue
 
 A task is a kind plus parameters — `make-clip` with a variant and maybe a
-course, or `plan-week`, `review`, `retitle`. An agent claims the oldest task
+stage, or `plan-week`, `review`, `retitle`. An agent claims the oldest task
 (highest priority first), gets that kind's playbook with the task's parameters
 on top, does it, and reports done or not-doable with a reason. A claim expires
 after 45 minutes so a vanished agent does not hold work forever.

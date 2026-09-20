@@ -322,7 +322,7 @@ async def test_render_gives_the_agent_something_to_compare_against(sandbox):
             )
             db.update(
                 conn, clip_id, status="published", title=f"Title {seed}",
-                render_desc=f"{seed} marbles race down a course",
+                render_desc=f"{seed} marbles race down a stage",
             )
     import json as _json
 

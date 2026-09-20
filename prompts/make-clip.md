@@ -70,7 +70,7 @@ are lost, and the benchmark channels aim for is three of four *kept*:
 
 - The clip already opens mid-action (the gate is cut). Your caption is the
   only other thing on screen, and its one job is to **make them pick a
-  marble**: `PICK ONE`, `CALL IT NOW`. Not the course's numbers, and never
+  marble**: `PICK ONE`, `CALL IT NOW`. Not the stage's numbers, and never
   anything about the ending — `RED BY 0.8s` and `DECIDED BY 0.8s` both tell
   them how it ends, and they swipe.
 - The title is the same hook written for the feed: lead with the pick and
@@ -88,7 +88,7 @@ Two rules that follow from that, and one that does not:
 
 - Put the stake in the first four words. It is what shows in the feed.
 - Prefer a number the clip actually produced — the server put it in `facts` —
-  as long as it describes the course, not the ending.
+  as long as it describes the stage, not the ending.
 - Do **not** write a question you have not measured the answer to. A title that
   promises something the clip does not show is the one mistake that costs more
   than a bad clip: it teaches the audience not to trust the next one.

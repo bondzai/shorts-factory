@@ -221,11 +221,13 @@ def build_server():
         hook: str = "",
         channel: str | None = None,
         generator: str = "physics",
-        course: str | None = None,
+        stage: str | None = None,
         background: str | None = None,
+        course: str | None = None,
     ) -> list[Any]:
-        """course: for physics/marble_race, one of zigzag, pegboard, bumpers; omit
-        to let the seed choose. background: a hex colour for the backdrop, e.g.
+        """stage: for physics/marble_race, one of zigzag, pegboard, bumpers,
+        funnels, gauntlet, cascade; omit to let the seed choose (course is the
+        old name and still accepted). background: a hex colour for the backdrop, e.g.
         #102030; omit for the theme's palette. A task's instructions say when
         to pass either."""
         from mcp.server.mcpserver.utilities.types import Image
@@ -239,12 +241,12 @@ def build_server():
                 # changed ones are refused (see tasks.held_params).
                 _, use = task_queue.held_params(conn, channel_id, {
                     "variant": variant, "seed": seed, "generator": generator,
-                    "course": course, "background": background,
+                    "stage": stage or course, "background": background,
                 })
                 clip_id, frames, facts = pipeline.create_and_render(
                     conn, channel, variant=use["variant"], generator=use["generator"] or "physics",
                     seed=use["seed"], hook=hook,
-                    params={k: v for k, v in (("course", use.get("course")), ("background", use.get("background"))) if v} or None,
+                    params={k: v for k, v in (("stage", use.get("stage")), ("background", use.get("background"))) if v} or None,
                 )
                 task_id = db.attach_clip_to_claimed_task(conn, resolve_channel_id(conn, channel), clip_id)
                 if task_id:

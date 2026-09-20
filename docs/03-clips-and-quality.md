@@ -12,15 +12,15 @@ rejected in code and never reaches a reviewer.
   reject. Rejected and binned clips do not count; published ones always do,
   even from the bin, because YouTube has them whether this page shows them
   or not.
-- **A finished race**: a course that stalls, or finishes under the shortest
+- **A finished race**: a stage that stalls, or finishes under the shortest
   allowed length, is retried on a derived seed before it costs anything.
 
 ## Why similarity is the one that bites
 
 A variant has a capacity: the number of clips it can make before new ones
 start looking like old ones to the hash. Measured over 25 seeds, a zigzag race
-alone accepts about 15; with the three courses mixed, 18. That is why there
-are several courses and several variants, and why a fixed seed makes one clip
+alone accepts about 15; with the three stages mixed, 18. That is why there
+are several stages and several variants, and why a fixed seed makes one clip
 and not three.
 
 ## Captions and titles
@@ -34,7 +34,7 @@ here; the full brief agents get is `prompts/skill-hooks.md`.
 ONE`, `CALL IT NOW`, `BET ON ONE`. The render picks one per seed from the bank
 under Settings → Factory → opening captions (separated by `|`), so consecutive
 clips do not open on the same words. It is never the result and never the
-course's numbers: `DECIDED BY 0.4s` pays the bet out before it is placed, and
+stage's numbers: `DECIDED BY 0.4s` pays the bet out before it is placed, and
 `PICK ONE · 4 SPINNERS` asks for arithmetic in the second we have. The second
 round of a two-round clip opens on `FINAL · RUN IT BACK`.
 
