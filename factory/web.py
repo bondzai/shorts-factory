@@ -112,9 +112,15 @@ app = FastAPI(title="shorts-factory", docs_url=None, redoc_url=None)
 
 @app.on_event("startup")
 def _start_daily_reminder() -> None:
-    from . import notify
+    from . import notify, telegram, workers
     if not os.environ.get("FACTORY_NO_SCHEDULER"):
         notify.start_scheduler()
+        telegram.start_polling()
+        try:
+            workers.MANAGER.restore()
+            workers.MANAGER.start_loop_if_needed()
+        except Exception:  # a worker that cannot come back must not stop the server
+            pass
 
 
 # --- a password gate, only when FACTORY_PASSWORD is set ------------------------
@@ -329,6 +335,83 @@ def state(channel: str | None = None) -> dict[str, Any]:
             "agents": {"available": llm.has_credentials()},
             "tasks": db.task_counts(conn, ch.id),
         }
+
+
+# --- workers: the console runs the agent ---------------------------------------------
+
+class WorkerBody(BaseModel):
+    channel: str | None = None
+    agent: str = "claude"
+    auto: bool = False
+
+
+def _workers_view(channel_id: str) -> dict[str, Any]:
+    from . import workers
+    return {
+        "workers": workers.MANAGER.status(),
+        "agents": sorted(workers.COMMANDS),
+        "available": workers.available(),
+        "in_container": bool(os.environ.get("FACTORY_ROOT")) and not any(workers.available().values()),
+        "integration": workers.integration(channel_id),
+    }
+
+
+@app.get("/api/workers")
+def get_workers(channel: str | None = None) -> dict[str, Any]:
+    with db.connect() as conn:
+        ch = _resolve(conn, channel)
+    return _workers_view(ch.id)
+
+
+@app.post("/api/workers/start")
+def start_worker(body: WorkerBody) -> dict[str, Any]:
+    from . import workers
+    with db.connect() as conn:
+        ch = _resolve(conn, body.channel)
+    try:
+        worker = workers.MANAGER.start(ch.id, agent=body.agent, auto=body.auto)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from None
+    return {"worker": worker.as_dict(), **_workers_view(ch.id)}
+
+
+@app.post("/api/workers/stop")
+def stop_worker(body: WorkerBody) -> dict[str, Any]:
+    from . import workers
+    with db.connect() as conn:
+        ch = _resolve(conn, body.channel)
+    workers.MANAGER.stop(ch.id)
+    return _workers_view(ch.id)
+
+
+@app.get("/api/workers/{channel_id}/log")
+def worker_log(channel_id: str, lines: int = 120) -> dict[str, Any]:
+    from . import workers
+    return {"channel": channel_id, "lines": workers.MANAGER.log(channel_id, lines)}
+
+
+@app.get("/api/team")
+def team_overview() -> dict[str, Any]:
+    """Every agent, what it holds, what it did today, across all channels."""
+    from . import team
+    with db.connect() as conn:
+        return team.overview(conn)
+
+
+@app.get("/api/notify")
+def notify_view() -> dict[str, Any]:
+    from . import notify
+    cfg = settings.load().raw.get("notify", {})
+    return {"sinks": notify.sinks(), "daily_at": cfg.get("daily_at") or "", "on": cfg.get("on") or []}
+
+
+@app.post("/api/notify/test")
+def notify_test() -> dict[str, Any]:
+    from . import notify
+    if not notify.sinks():
+        raise HTTPException(400, "nothing is configured: FACTORY_WEBHOOK_URL or FACTORY_TELEGRAM_TOKEN in .env")
+    sent = notify.post("notify.test", "[test] shorts-factory can reach this endpoint", channel="test", kind="test", status="ok")
+    return {"sent": sent, "sinks": notify.sinks()}
 
 
 @app.get("/api/playbooks")
@@ -649,9 +732,11 @@ def _reference() -> str:
     lines += ["", "## Task kinds", "", "| kind | meaning | parameters | built-in agents can do it |", "|---|---|---|---|"]
     for k, v in tasks.KINDS.items():
         lines.append(f"| `{k}` | {v['meaning']} | {', '.join(v['params']) or '—'} | {'yes' if v['builtin'] else 'no'} |")
-    lines += ["", "## Stages", "", "| stage | what it is | weight | gravity |", "|---|---|---|---|"]
-    for c, w in physics.STAGES.items():
-        lines.append(f"| `{c}` | {physics.STAGE_BLURB[c]} | {w} | {physics.STAGE_GRAVITY[c]} |")
+    lines += ["", "## Stages", "", "| stage | what it is | built from | weight | gravity |", "|---|---|---|---|---|"]
+    for st in physics.STAGE_SPECS:
+        built = " → ".join(name for name, _ in st.parts) if st.parts else "hand-built"
+        weight = f"{physics.STAGES[st.id]:.3f}" if st.live else "trial"
+        lines.append(f"| `{st.id}` | {st.blurb} | {built} | {weight} | {st.gravity} |")
     lines += ["", "## Themes", "", "| id | window | decoration | marbles |", "|---|---|---|---|"]
     for t in themes.themes():
         lines.append(f"| `{t.id}` | {'–'.join(t.window) if t.window else 'default'} | {t.decoration} | {', '.join(n for n, _ in t.marbles)} |")
@@ -801,7 +886,11 @@ def work(
         "items": items, "total": total, "page": p, "page_size": size,
         "phases": [{"id": s, "count": counts.get(s, 0)} for s in db.PHASES if counts.get(s)],
         "modules": modules, "binned": binned,
-        "stages": [{"id": k, "blurb": v} for k, v in physics.STAGE_BLURB.items()],
+        # Live stages first; a trial stage renders when named but is never
+        # picked at random, and the form says so.
+        "stages": [{"id": st.id, "blurb": st.blurb + ("" if st.live else " (trial — not yet through stage QA)"),
+                    "live": st.live, "parts": [name for name, _ in st.parts]}
+                   for st in sorted(physics.STAGE_SPECS, key=lambda st: not st.live)],
         "kinds": {k: {"meaning": v["meaning"], "params": v["params"], "builtin": v["builtin"]} for k, v in tasks.KINDS.items()},
     }
 

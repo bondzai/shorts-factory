@@ -140,7 +140,7 @@ def migrate(conn: sqlite3.Connection) -> list[str]:
     if not has_channel and (clips_exist or orphans):
         driver = settings.load().raw["publish"]["driver"]
         conn.execute(
-            """INSERT INTO channels
+            """INSERT OR IGNORE INTO channels
                (id, created_at, name, handle, platform, driver, variants_json, cadence, active, note)
                VALUES (?, ?, 'Main channel', NULL, 'youtube', ?, '[]', 1, 1,
                        'created by migration from a single-channel database')""",

@@ -7,7 +7,9 @@ while an agent builds clips at three in the morning.
 
 So this posts to a URL you choose: Slack, Discord, ntfy, a webhook of your own.
 The payload carries a plain `text` line, which is what those three read, plus
-the structured fields underneath for anything that wants them.
+the structured fields underneath for anything that wants them. A Telegram bot
+is a second sink (see telegram.py): the same lines, and a clip that passes QC
+arrives there as the video with Approve and Reject under it.
 
 Hooked into `db.finish_run`, which every surface already calls, so a run started
 from Codex, from cron and from the web all notify the same way.
@@ -50,6 +52,8 @@ atexit.register(flush)
 
 
 def _config() -> dict[str, Any]:
+    from . import telegram
+
     cfg = dict(settings.load().raw.get("notify", {}))
     # The URL is a secret (anyone holding it can post as you), so it lives in
     # .env, not in config.toml where it would be committed.
@@ -57,7 +61,25 @@ def _config() -> dict[str, Any]:
     env_url = os.environ.get("FACTORY_WEBHOOK_URL")
     if env_url:
         cfg["webhook_url"] = env_url
+    cfg["telegram"] = telegram.configured()
     return cfg
+
+
+def sinks() -> list[dict[str, str]]:
+    """Where notifications go, for the Settings page and the CLI. Hosts only —
+    the paths and ids are the secrets."""
+    from urllib.parse import urlsplit
+    from . import telegram
+
+    cfg = _config()
+    out = []
+    if cfg.get("webhook_url"):
+        out.append({"kind": "webhook", "where": urlsplit(cfg["webhook_url"]).netloc})
+    tg = telegram.config()
+    if tg["token"]:
+        chat = tg["chat_id"]
+        out.append({"kind": "telegram", "where": f"chat …{chat[-3:]}" if chat else "not paired — send the bot /start"})
+    return out
 
 
 # What is worth waking you for, and how to say it in one line. Anything not
@@ -101,7 +123,7 @@ def from_log(name: str, fields: dict[str, Any]) -> bool:
 
 def enabled_for(event: str) -> bool:
     cfg = _config()
-    if not cfg.get("webhook_url"):
+    if not cfg.get("webhook_url") and not cfg.get("telegram"):
         return False
     if event in ("notify.test", "notify.daily"):
         return True
@@ -113,7 +135,7 @@ def post(event: str, text: str, **fields: Any) -> bool:
     """Send one notification. Returns whether it was attempted, not whether it landed."""
     if not enabled_for(event):
         return False
-    url = _config()["webhook_url"]
+    cfg = _config()
     payload = {
         # Slack, Discord and ntfy all read a top-level text/content field; send
         # both names so one config works for the common three.
@@ -122,10 +144,18 @@ def post(event: str, text: str, **fields: Any) -> bool:
         "event": event,
         **fields,
     }
-    thread = threading.Thread(target=_deliver, args=(url, payload, event), daemon=True)
-    _IN_FLIGHT.append(thread)
-    thread.start()
-    return True
+    started = False
+    if cfg.get("webhook_url"):
+        thread = threading.Thread(target=_deliver, args=(cfg["webhook_url"], payload, event), daemon=True)
+        _IN_FLIGHT.append(thread)
+        thread.start()
+        started = True
+    if cfg.get("telegram"):
+        thread = threading.Thread(target=_deliver_telegram, args=(text, event, fields), daemon=True)
+        _IN_FLIGHT.append(thread)
+        thread.start()
+        started = True
+    return started
 
 
 def _deliver(url: str, payload: dict[str, Any], event: str) -> None:
@@ -146,6 +176,21 @@ def _deliver(url: str, payload: dict[str, Any], event: str) -> None:
         logs.event("notify.failed", level="warn", event_name=event, status=exc.code)
     except Exception as exc:
         logs.event("notify.failed", level="warn", event_name=event, error=str(exc))
+
+
+def _deliver_telegram(text: str, event: str, fields: dict[str, Any]) -> None:
+    """A clip that just passed QC goes as the video with the two buttons;
+    everything else as the line."""
+    from . import logs, telegram
+
+    try:
+        if event == "clip.qc" and fields.get("clip") and "rejected" not in text:
+            telegram.send_clip(fields["clip"])
+        else:
+            telegram.send_text(text)
+        logs.event("notify.sent", event_name=event, sink="telegram")
+    except Exception as exc:
+        logs.event("notify.failed", level="warn", event_name=event, sink="telegram", error=str(exc)[:200])
 
 
 def daily_text(conn) -> str | None:

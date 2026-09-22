@@ -22,7 +22,9 @@ import pymunk
 from PIL import Image, ImageDraw
 
 from .. import audio, render, settings, themes
+from . import stagekit
 from .base import GeneratedClip, register
+from .stagekit import _peg, _rocker, _spinner, _wall  # noqa: F401  (re-exported: tests and older code import them from here)
 
 SUBSTEPS = 4
 # Gravity is a dial, not a physical constant. The race runs slowly on purpose:
@@ -35,7 +37,12 @@ MAX_IMPACTS_PER_FRAME = 2  # 54 balls landing at once is a wash, not a sound
 STALL_SPEED = 12.0  # below this, in sim px/s, nothing is moving any more
 MAX_ATTEMPTS = 5  # a stalled race is retried on a derived seed, not abandoned
 PACE_SLOWER, PACE_QUICKER = 0.72, 1.18  # gravity factors the retry loop leans by
-POST_WIN_S = 1.3  # how long the race keeps running after the winner crosses
+POST_WIN_S = 0.8  # how long the race keeps running after the runner-up crosses
+# The longest it waits for a runner-up after the winner. Cutting 1.3 s after
+# the winner left three of four viewers — the ones who backed another marble —
+# with no result at all, and QC rejected the clip as a runaway. The pay-off
+# for a bet is seeing your marble arrive, even second.
+POST_WIN_MAX_S = 2.8
 CLOSE_RACE_S = 1.0  # a runner-up inside this gets the margin on screen
 FINAL_CAPTION = "FINAL · RUN IT BACK"  # what the second round opens on: a rematch, no arithmetic
 
@@ -85,40 +92,23 @@ PALETTES = [
 # point in only 6% of runs. Marbles pick a side at the first peak and mostly
 # keep it. It still ships, at a low weight, because it looks unlike anything
 # else on the channel — but it wants redesigning, not reweighting.
-STAGES = {"zigzag": 0.16, "pegboard": 0.12, "bumpers": 0.14, "funnels": 0.09, "gauntlet": 0.09, "cascade": 0.03,
-          "pinwheel": 0.09, "sieve": 0.09, "pachinko": 0.07, "rockers": 0.06, "drums": 0.06}
 # Pace is gravity, not geometry: each stage was measured over 24 seeds and
 # its gravity set so the median finish lands mid-window (see README).
-STAGE_GRAVITY = {"zigzag": -600.0, "pegboard": -110.0, "bumpers": -95.0,
-                 "funnels": -45.0, "gauntlet": -55.0, "cascade": -200.0,
-                 "pinwheel": -40.0, "sieve": -60.0, "pachinko": -70.0, "rockers": -150.0, "drums": -40.0}
-STAGE_NOUN = {"zigzag": "ramps", "pegboard": "pegs", "bumpers": "bumpers",
-              "funnels": "funnels", "gauntlet": "spinners", "cascade": "chutes",
-              "pinwheel": "arms", "sieve": "bars", "pachinko": "pegs", "rockers": "planks", "drums": "drums"}
+# Weights, gravity, nouns and blurbs now live on each Stage in STAGE_SPECS.
 # Which stages get rotating bars, and how many. Measured: on the zigzag a bar
 # knocked marbles back up the ramp until 10 seeds in 24 never finished; among
 # pegs it reads as a glitch. In an open field it is one more thing to bounce
 # off. The gauntlet is nothing but bars.
-SPINNER_STAGES = {"bumpers": (3, 4), "gauntlet": (5, 6)}
 # Stages whose builder places its own turning bars (the pinwheel's two
-# crossed arms), so _add_spinners leaves them alone and the tests know how
-# many to expect.
-WHEEL_STAGES = {"pinwheel": 2}
+# crossed arms) say so with Stage.wheel, so _add_spinners leaves them alone
+# and the tests know how many to expect.
 ROCK_AMPLITUDE = 0.42  # radians, either way
+# Fastest a marble may move, in sim px/s. Free fall down the whole frame
+# reaches about 1600; anything past this came from a kinematic bar pinching
+# a marble against a wall, which is not a hit, it is a glitch.
+MAX_SPEED = 1900.0
 TIP_GAP = 0.15  # of the width between the tips of neighbouring sieve bars: past the biggest marble, with air
-STAGE_BLURB = {
-    "zigzag": "ramps — fast, the classic",
-    "pegboard": "pegs — a slow rattle down a Galton board",
-    "bumpers": "bumpers and spinning bars — the busiest frame",
-    "funnels": "stacked funnels — every throat is a bottleneck",
-    "gauntlet": "a lane of spinning bars — nothing else in the way",
-    "cascade": "chutes that split and rejoin — the marbles keep swapping sides",
-    "pinwheel": "one big four-armed wheel in the middle, pegs around it",
-    "sieve": "rows of short tilted bars with gaps — a sieve the marbles fall through",
-    "pachinko": "pegs on arcs around a central bumper, like a pachinko board",
-    "rockers": "planks that rock on a pivot — tip one way, then the other",
-    "drums": "big spinning drums that carry a marble sideways before it drops",
-}
+
 
 
 @dataclass
@@ -140,6 +130,8 @@ class _Style:
     drums: list[tuple[float, float, float, float]] = field(default_factory=list)  # x, y, r, rad/s
     kinematics: list = field(default_factory=list)  # (kind, body, params) driven per frame
     lane: list[tuple[tuple[float, float], tuple[float, float]]] = field(default_factory=list)  # the gauntlet's two verticals
+    lane_wedges: list[tuple[tuple[float, float], tuple[float, float]]] = field(default_factory=list)  # gauntlet wall wedges beside each bar
+    belts: list[tuple[tuple[float, float], tuple[float, float], float]] = field(default_factory=list)  # a, b, px/s along a→b
 
 
 @dataclass
@@ -148,13 +140,6 @@ class _Ball:
     radius: float
     color: tuple[int, int, int]
     name: str
-
-
-def _wall(space: pymunk.Space, a, b, thickness=6.0, friction=0.30) -> None:
-    seg = pymunk.Segment(space.static_body, a, b, thickness)
-    seg.elasticity = 0.46
-    seg.friction = friction
-    space.add(seg)
 
 
 def _ball(space: pymunk.Space, pos, radius, color, name, friction=0.22) -> _Ball:
@@ -185,13 +170,6 @@ def _pick(rng: random.Random, weights: dict[str, float]) -> str:
         if roll <= 0:
             return name
     return next(iter(weights))
-
-
-def _peg(space: pymunk.Space, x: float, y: float, r: float, elasticity: float = 0.62) -> None:
-    shape = pymunk.Circle(space.static_body, r, offset=(x, y))
-    shape.elasticity = elasticity
-    shape.friction = 0.12
-    space.add(shape)
 
 
 def _stage_zigzag(space, w, h, rng, style):
@@ -308,12 +286,13 @@ def _stage_gauntlet(space, w, h, rng, style):
     style.lane = segments[2:]
     # A few pegs between the bars, alternating sides, so a marble the bars
     # miss is still slowed.
-    for i, frac in enumerate((0.16, 0.25, 0.35, 0.45, 0.55, 0.65)):
-        for side in (0.28, 0.72) if i % 2 else (0.5,):
-            x = inset + (w - 2 * inset) * side + rng.uniform(-12, 12)
-            r = rng.uniform(9.0, 12.0)
-            _peg(space, x, h * frac, r, elasticity=0.75)
-            style.circles.append((x, h * frac, r))
+    # Centre only: the pegs that sat at 0.28/0.72 of the lane were under the
+    # bar tips, and a marble wedged between peg and tip stayed there.
+    for frac in (0.16, 0.25, 0.35, 0.45, 0.55, 0.65):
+        x = inset + (w - 2 * inset) * 0.5 + rng.uniform(-12, 12)
+        r = rng.uniform(9.0, 12.0)
+        _peg(space, x, h * frac, r, elasticity=0.75)
+        style.circles.append((x, h * frac, r))
     lane = w - 2 * inset
     return segments, lane * 0.8, lambda count: [inset + lane * 0.1 + lane * 0.8 * i / max(count - 1, 1) for i in range(count)]
 
@@ -450,34 +429,39 @@ def _stage_pachinko(space, w, h, rng, style):
     return [], w * 0.6, lambda count: [w * 0.2 + (w * 0.6) * i / max(count - 1, 1) for i in range(count)]
 
 
-def _rocker(space, x, y, half, omega, phase, thickness):
-    body = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
-    body.position = (x, y)
-    shape = pymunk.Segment(body, (-half, 0), (half, 0), thickness)
-    shape.elasticity = 0.40
-    shape.friction = 0.30
-    space.add(body, shape)
-    return body
-
-
 def _stage_rockers(space, w, h, rng, style):
     """Planks that rock on a pivot, tipping one way and then the other, in
     staggered rows. A marble that lands on a plank rides it down and is
     thrown off the low end — which end that is depends on when it arrived."""
     rows = rng.randint(4, 5)
     top, bottom = h * 0.80, h * 0.26
+    clear = w * 0.12  # a plank tip never comes closer to a wall than this: a marble and air
+    segments = []
     for i in range(rows):
         y = top - (top - bottom) * i / max(rows - 1, 1)
         count = 2 if i % 2 == 0 else 3
         for j in range(count):
             x = w * (j + 0.5) / count + (w * 0.08 if i % 2 else 0) * rng.choice([-1, 1]) * 0.3
             half = w * rng.uniform(0.11, 0.15)
+            # Eight seeds were measured with a marble pinned at x = 0.06 w,
+            # jittering between a plank tip and the wall for the whole clip.
+            half = min(half, x - clear, w - clear - x)
             omega = rng.uniform(1.0, 1.8)
             phase = rng.uniform(0, 6.283)
             body = _rocker(space, x, y, half, omega, phase, style.thickness / 2)
             style.rockers.append((x, y, half, omega, phase))
             style.kinematics.append(("rocker", body, (omega, phase)))
-    return [], w * 0.6, lambda count: [w * 0.2 + (w * 0.6) * i / max(count - 1, 1) for i in range(count)]
+            # The hub is a bump, not just a drawing: a marble that lands on
+            # the pivot of a symmetric rocker sits there rocking with it.
+            _peg(space, x, y, style.thickness * 0.9, elasticity=0.5)
+        # Deflectors on both walls under each row: whatever a plank throws
+        # at the wall is turned back to the middle instead of sliding down it.
+        if i < rows - 1:
+            yd = y - (top - bottom) / max(rows - 1, 1) * 0.55
+            for a, b in (((6.0, yd + w * 0.07), (w * 0.11, yd)), ((w - 6.0, yd + w * 0.07), (w - w * 0.11, yd))):
+                _wall(space, a, b, thickness=style.thickness / 2)
+                segments.append((a, b))
+    return segments, w * 0.6, lambda count: [w * 0.2 + (w * 0.6) * i / max(count - 1, 1) for i in range(count)]
 
 
 def _stage_drums(space, w, h, rng, style):
@@ -519,9 +503,135 @@ def _stage_drums(space, w, h, rng, style):
     return [], w * 0.6, lambda count: [w * 0.2 + (w * 0.6) * i / max(count - 1, 1) for i in range(count)]
 
 
-_STAGES = {"zigzag": _stage_zigzag, "pinwheel": _stage_pinwheel, "sieve": _stage_sieve, "pachinko": _stage_pachinko,
-           "rockers": _stage_rockers, "drums": _stage_drums, "pegboard": _stage_pegboard, "bumpers": _stage_bumpers,
-           "funnels": _stage_funnels, "gauntlet": _stage_gauntlet, "cascade": _stage_cascade}
+@dataclass(frozen=True)
+class Stage:
+    """Everything the factory knows about one stage, in one place.
+
+    Before this, a stage lived in seven dictionaries and a describe table,
+    and adding one meant editing all of them and hoping a test caught the
+    one you missed. Now a stage is one entry; the old names below are
+    derived from the list and stay only because other code reads them.
+
+    weight   share of random picks among live stages. 0 = trial: a trial
+             stage renders when a task names it, and is never picked at
+             random. `factory stage-qa` is what promotes a stage.
+    gravity  pace; tuned so the median finish lands mid-window.
+    parts    for a composed stage, the sections it stacks (see stagekit).
+    """
+
+    id: str
+    build: Any
+    gravity: float
+    noun: str
+    blurb: str
+    describe: Any
+    weight: float = 0.0
+    spinners: tuple[int, int] | None = None
+    spinner_rows: tuple[float, ...] = ()
+    wheel: int = 0
+    gate: bool = False
+    parts: tuple = ()
+
+    @property
+    def live(self) -> bool:
+        return self.weight > 0
+
+    @property
+    def composed(self) -> bool:
+        return bool(self.parts)
+
+
+def _obstacles(style, segments) -> int:
+    return len(style.circles) or len(segments)
+
+
+def _composed(id_, parts, *, gravity, noun, blurb, weight=0.0, gate=False):
+    """A stage stacked from stagekit sections. With the finish throat the
+    stack stops above the throat's mouth (0.31 h) with a marble's room to
+    spare — the drums and sieve stages learned what a section overlapping
+    the throat does."""
+    build = stagekit.compose(list(parts), bottom_frac=0.36 if gate else 0.20)
+    return Stage(
+        id=id_, build=build, gravity=gravity, noun=noun, blurb=blurb,
+        describe=lambda style, segments, _p=tuple(parts): stagekit.describe_parts(_p),
+        weight=weight, gate=gate, parts=tuple(parts),
+    )
+
+
+STAGE_SPECS: list[Stage] = [
+    Stage("zigzag", _stage_zigzag, -600.0, "ramps", "ramps — fast, the classic",
+          lambda s, g: f"a {_obstacles(s, g)}-ramp zigzag stage", weight=0.16),
+    Stage("pegboard", _stage_pegboard, -110.0, "pegs", "pegs — a slow rattle down a Galton board",
+          lambda s, g: f"a pegboard of {_obstacles(s, g)} pegs", weight=0.12),
+    Stage("bumpers", _stage_bumpers, -95.0, "bumpers", "bumpers and spinning bars — the busiest frame",
+          lambda s, g: f"a field of {_obstacles(s, g)} bumpers", weight=0.14,
+          spinners=(3, 4), spinner_rows=(0.26, 0.40, 0.54, 0.68), gate=True),
+    Stage("funnels", _stage_funnels, -45.0, "funnels", "stacked funnels — every throat is a bottleneck",
+          lambda s, g: f"{_obstacles(s, g) // 2} stacked funnels", weight=0.09),
+    # No bar at 0.70, where the funnel dumps the field onto it: it juggled
+    # the field for a whole clip.
+    Stage("gauntlet", _stage_gauntlet, -55.0, "spinners", "a lane of spinning bars — nothing else in the way",
+          lambda s, g: "a narrow gauntlet", weight=0.09,
+          spinners=(4, 5), spinner_rows=(0.20, 0.30, 0.40, 0.50, 0.60), gate=True),
+    Stage("cascade", _stage_cascade, -200.0, "chutes", "chutes that split and rejoin — the marbles keep swapping sides",
+          lambda s, g: f"a cascade of {_obstacles(s, g)} chutes", weight=0.03),
+    Stage("pinwheel", _stage_pinwheel, -40.0, "arms", "one big four-armed wheel in the middle, pegs around it",
+          lambda s, g: f"a four-armed pinwheel among {_obstacles(s, g)} pegs", weight=0.09, wheel=2),
+    Stage("sieve", _stage_sieve, -60.0, "bars", "rows of short tilted bars with gaps — a sieve the marbles fall through",
+          lambda s, g: f"a sieve of {_obstacles(s, g)} tilted bars", weight=0.09, gate=True),
+    Stage("pachinko", _stage_pachinko, -70.0, "pegs", "pegs on arcs around a central bumper, like a pachinko board",
+          lambda s, g: f"a pachinko board of {_obstacles(s, g)} pegs", weight=0.07),
+    Stage("rockers", _stage_rockers, -150.0, "planks", "planks that rock on a pivot — tip one way, then the other",
+          lambda s, g: f"{len(s.rockers)} rocking planks", weight=0.06),
+    Stage("drums", _stage_drums, -40.0, "drums", "big spinning drums that carry a marble sideways before it drops",
+          lambda s, g: f"{len(s.drums)} spinning drums", weight=0.06, gate=True),
+    # --- composed from stagekit sections. Trial (weight 0) until stage-qa passes them.
+    # COMPOSED-STAGES-BEGIN
+    # Gravity from `factory stage-qa --calibrate`; weight 0.05 each once the
+    # stage passed every gate on 48 fresh seeds (2026-09-23, docs/06). arcade
+    # stays trial: its lead changed 1.1 times a race against a gate of 1.5.
+    _composed("arcade", [("bumpers", 1.1), ("spinners", 1.2), ("pegs", 1.0)], gravity=-30.0, noun="bumpers",
+              blurb="bumpers, then a row of spinning bars, then pegs", gate=True),
+    _composed("plinko", [("pegs", 1.0), ("wheel", 1.6), ("pegs", 1.0)], gravity=-31.0, noun="pegs",
+              blurb="pegs, a big four-armed wheel, then more pegs", gate=True, weight=0.05),
+    _composed("switchback", [("ramps", 1.2), ("belts", 1.0), ("ramps", 1.0)], gravity=-60.0, noun="ramps",
+              blurb="zigzag ramps with a band of conveyor belts in the middle", gate=True, weight=0.05),
+    _composed("seesaw", [("rockers", 1.2), ("pegs", 1.0), ("funnel", 1.0)], gravity=-30.0, noun="planks",
+              blurb="rocking planks, then pegs, then a funnel", weight=0.05),
+    _composed("rapids", [("ramps", 0.9), ("chutes", 1.5), ("bumpers", 1.0)], gravity=-30.0, noun="chutes",
+              blurb="ramps, split-and-rejoin chutes, then bumpers", weight=0.05),
+    _composed("carnival", [("pegs", 0.7), ("wheel", 1.4), ("spinners", 1.3), ("pegs", 0.7)], gravity=-30.0, noun="arms",
+              blurb="pegs, a big wheel, a row of spinning bars, then pegs", gate=True, weight=0.05),
+    _composed("quarry", [("sieve", 1.4), ("funnel", 1.0), ("pegs", 1.0)], gravity=-30.0, noun="bars",
+              blurb="a sieve, a funnel, then pegs", weight=0.05),
+    _composed("tumble", [("funnel", 1.0), ("drums", 1.4), ("pegs", 1.0)], gravity=-30.0, noun="drums",
+              blurb="a funnel dropping the field onto spinning drums, then pegs", weight=0.05),
+    _composed("labyrinth", [("ramps", 1.0), ("sieve", 1.3), ("chutes", 1.5)], gravity=-30.0, noun="bars",
+              blurb="ramps, a sieve, then split-and-rejoin chutes", weight=0.05),
+    _composed("orchard", [("pegs", 1.0), ("rockers", 1.3), ("pegs", 1.0)], gravity=-30.0, noun="planks",
+              blurb="pegs, rocking planks, then more pegs", gate=True, weight=0.05),
+    _composed("pinball", [("bumpers", 1.1), ("rockers", 1.2), ("funnel", 0.9)], gravity=-30.0, noun="bumpers",
+              blurb="bumpers, rocking planks, then a funnel", weight=0.05),
+    _composed("gallery", [("pegs", 1.0), ("sieve", 1.3), ("funnel", 1.0)], gravity=-44.0, noun="pegs",
+              blurb="pegs, a sieve of tilted bars, then a funnel", weight=0.05),
+    _composed("spillway", [("chutes", 1.5), ("pegs", 1.0), ("funnel", 0.9)], gravity=-30.0, noun="chutes",
+              blurb="split-and-rejoin chutes, pegs, then a funnel", weight=0.05),
+    # COMPOSED-STAGES-END
+]
+
+STAGE_BY_ID: dict[str, Stage] = {st.id: st for st in STAGE_SPECS}
+_LIVE_TOTAL = sum(st.weight for st in STAGE_SPECS if st.live)
+# Derived names, kept because web, tasks and the tests read them.
+STAGES = {st.id: (st.weight / _LIVE_TOTAL if st.live else 0.0) for st in STAGE_SPECS}
+LIVE_STAGES = [st.id for st in STAGE_SPECS if st.live]
+STAGE_GRAVITY = {st.id: st.gravity for st in STAGE_SPECS}
+STAGE_NOUN = {st.id: st.noun for st in STAGE_SPECS}
+STAGE_BLURB = {st.id: st.blurb for st in STAGE_SPECS}
+SPINNER_STAGES = {st.id: st.spinners for st in STAGE_SPECS if st.spinners}
+SPINNER_ROWS = {st.id: st.spinner_rows for st in STAGE_SPECS if st.spinners}
+WHEEL_STAGES = {st.id: st.wheel for st in STAGE_SPECS if st.wheel}
+GATE_STAGES = tuple(st.id for st in STAGE_SPECS if st.gate)
+_STAGES = {st.id: st.build for st in STAGE_SPECS}
 
 
 def parse_hex(value: str) -> tuple[int, int, int]:
@@ -537,17 +647,6 @@ def _structure_for(background: tuple[int, int, int]) -> tuple[int, int, int]:
     light = sum(background) / 3 > 128
     delta = -46 if light else 42
     return tuple(max(0, min(255, c + delta)) for c in background)
-
-
-def _spinner(space: pymunk.Space, x: float, y: float, half: float, omega: float, phase: float, thickness: float) -> None:
-    body = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
-    body.position = (x, y)
-    body.angle = phase
-    body.angular_velocity = omega
-    shape = pymunk.Segment(body, (-half, 0), (half, 0), thickness)
-    shape.elasticity = 0.72
-    shape.friction = 0.10
-    space.add(body, shape)
 
 
 # A throat in the run-in to the line. Measured over 20 seeds a stage:
@@ -587,10 +686,16 @@ FINISH_GATE_CHANCE = 0.72
 # throat, 15 of 20 seeds finish and 47% of marbles end the clip stuck in the
 # pocket where a throat arm meets the peg above it; without it, 20 of 20
 # and 5%. The surprise it bought (75% -> 20%) was bought with dead marbles.
-GATE_STAGES = ("bumpers", "gauntlet", "sieve", "drums")
+# GATE_STAGES is derived from Stage.gate in the registry.
 GATE_HEIGHT = 0.085  # of the frame above the line: close enough that nothing re-spreads
 GATE_GAP = (0.17, 0.21)  # of the width; about 3-3.7 of the largest marble
-SPINNER_ROWS = {"bumpers": (0.26, 0.40, 0.54, 0.68), "gauntlet": (0.20, 0.30, 0.40, 0.50, 0.60, 0.70)}  # heights, frame fractions
+GATE_GAP_COMPOSED = (0.21, 0.24)  # past two marbles side by side: no arch
+GATE_RISE_COMPOSED = 0.16  # of the height, arm mouth over throat: slope about 0.5
+# rad/s of the gauntlet's gates. Measured over 18 seeds: 0.7-1.1 never
+# stalled but the field arrived one at a time; 1.1-1.6 gave photo finishes
+# and two stalls; 1.0-1.5 gave both — no stalls, a runner-up on 8 of 18.
+GAUNTLET_OMEGA = (1.0, 1.5)
+# SPINNER_ROWS is derived from Stage.spinner_rows in the registry.
 
 
 def _add_spinners(space, w, h, rng, style):
@@ -618,8 +723,26 @@ def _add_spinners(space, w, h, rng, style):
             lane_l = min(a[0] for a, b in style.lane) if style.lane else 0.0
             lane_r = max(a[0] for a, b in style.lane) if style.lane else w
             x = (lane_l + lane_r) / 2 + rng.uniform(-w * 0.02, w * 0.02)
-            half = (lane_r - lane_l) * rng.uniform(0.36, 0.42)
-            omega = rng.choice([-1, 1]) * rng.uniform(0.9, 1.5)
+            half = (lane_r - lane_l) * rng.uniform(0.34, 0.40)
+            omega = rng.choice([-1, 1]) * rng.uniform(*GAUNTLET_OMEGA)
+            # The pocket between a bar's tip and the lane wall is where
+            # every gauntlet non-finisher was measured (x = 400-416 with the
+            # wall at 458): the tip kept knocking the marble back up into
+            # it. A wedge on each wall at the bar's height fills the pocket,
+            # so the only way down is through the sweep — which is the gate.
+            for wall, sign in ((lane_l, 1), (lane_r, -1)):
+                tip = wall + sign * (lane_r - lane_l) * 0.5 - sign * half
+                inner = tip + sign * 4.0  # just short of the sweep
+                # Solid, and with its apex below the bar: two thin edges let
+                # a pinched marble tunnel inside, and an apex level with the
+                # bar was a point a marble balanced on. Apex under the bar,
+                # the tip sweeps whatever rests there back into the lane.
+                apex = (inner, y - h * 0.03)
+                top_, bot_ = (wall, y + h * 0.06), (wall, y - h * 0.06)
+                poly = pymunk.Poly(space.static_body, [top_, apex, bot_])
+                poly.elasticity, poly.friction = 0.46, 0.30
+                space.add(poly)
+                style.lane_wedges += [(top_, apex), (apex, bot_)]
         else:
             x = w * (0.5 + side * rng.uniform(0.04, 0.12))
             half = w * rng.uniform(0.09, 0.13)
@@ -642,9 +765,18 @@ def _add_finish_gate(space, w, h, rng, style) -> None:
     if style.stage not in GATE_STAGES or rng.random() > FINISH_GATE_CHANCE:
         return
     throat = h * GATE_HEIGHT + 110.0
-    mouth = throat + h * 0.11
+    spec = STAGE_BY_ID.get(style.stage)
+    composed = spec is not None and spec.composed
+    # Composed stages run at low gravity, where the hand-built arms (slope
+    # 0.34) are barely downhill: marbles sat on them for the last eight
+    # seconds of a clip. Their arms are steeper.
+    mouth = throat + h * (GATE_RISE_COMPOSED if composed else 0.11)
     centre = w * rng.uniform(0.42, 0.58)
-    gap = w * rng.uniform(*GATE_GAP)
+    # A composed stage gets a wider throat. At 0.17-0.21 w two marbles can
+    # arch across it; stage QA found 27 of switchback's 28 stuck marbles
+    # jostling there, and it is where bumpers parks its marbles too. The
+    # hand-built stages keep theirs so their seeds replay unchanged.
+    gap = w * rng.uniform(*(GATE_GAP_COMPOSED if composed else GATE_GAP))
     for side in (-1, 1):
         a = (w / 2 + side * w * 0.62, mouth)  # past the wall, so nothing goes round
         b = (centre + side * gap / 2, throat)
@@ -670,7 +802,7 @@ def _build_race(space: pymunk.Space, w: int, h: int, rng: random.Random, stage: 
         style.structure = _structure_for(style.background)
     style.thickness = rng.randint(8, 15)
     style.theme, style.decoration, style.caption = theme.id, theme.decoration, theme.caption
-    style.stage = stage or _pick(rng, STAGES)
+    style.stage = stage or _pick(rng, {k: v for k, v in STAGES.items() if v > 0})
     if style.stage not in _STAGES:
         raise ValueError(f"no stage {style.stage!r}; have {sorted(_STAGES)}")
     space.gravity = (0.0, STAGE_GRAVITY[style.stage])
@@ -678,9 +810,14 @@ def _build_race(space: pymunk.Space, w: int, h: int, rng: random.Random, stage: 
     _wall(space, (4, 0), (4, h))
     _wall(space, (w - 4, 0), (w - 4, h))
     _wall(space, (4, 6), (w - 4, 6))
+    # A ceiling. The gauntlet's lane-wide gates flung marbles clean out of
+    # the top of the frame (one was measured 22 frame-heights up) and the
+    # clip ended with them "still racing" somewhere in the sky.
+    _wall(space, (4, h - 2), (w - 4, h - 2))
 
     segments, runway, lanes_for = _STAGES[style.stage](space, w, h, rng, style)
     _add_spinners(space, w, h, rng, style)
+    segments = list(segments) + style.lane_wedges
     _add_finish_gate(space, w, h, rng, style)
 
     # Identical marbles keep their starting order for the whole run, which kills
@@ -723,6 +860,10 @@ def _build_funnel(space: pymunk.Space, w: int, h: int, rng: random.Random):
     _wall(space, (4, 0), (4, h))
     _wall(space, (w - 4, 0), (w - 4, h))
     _wall(space, (4, 6), (w - 4, 6))
+    # A ceiling. The gauntlet's lane-wide gates flung marbles clean out of
+    # the top of the frame (one was measured 22 frame-heights up) and the
+    # clip ended with them "still racing" somewhere in the sky.
+    _wall(space, (4, h - 2), (w - 4, h - 2))
 
     radius = w * 0.022
     upper_gap = radius * rng.uniform(5.6, 6.4)
@@ -789,7 +930,7 @@ class PhysicsSandbox:
             # this one so the whole clip is still one number.
             heat = rounds[0]
             lineup = [(b.name, b.color) for b in heat["balls"]]
-            other = [c for c in STAGES if c != heat["style"].stage] or list(STAGES)
+            other = [c for c in LIVE_STAGES if c != heat["style"].stage] or list(LIVE_STAGES)
             final_stage = params.get("final_stage") or random.Random(seed ^ 0x5F3759DF).choice(other)
             rounds.append(self._round(seed + 104729, variant, {**params, "stage": final_stage},
                                       cfg, sim_w, sim_h, fps, lineup=lineup))
@@ -818,7 +959,8 @@ class PhysicsSandbox:
                 yield from self._frames(r["states"], r["balls"], r["segments"], sim_w, sim_h,
                                         overlay=overlay, style=r["style"],
                                         ask=self._closing_ask(sim_w, sim_h, fps),
-                                        winner_frame=r["winner_frame"], winner=r["winner"])
+                                        winner_frame=r["winner_frame"], winner=r["winner"],
+                                        impacts=r["impacts"], fps=fps)
 
         silent = render.encode_frames(
             all_frames(), out_path=clip_dir / "video.mp4",
@@ -840,7 +982,7 @@ class PhysicsSandbox:
                     label += f" down {self._stage_text(r)}"
                 if r["winner"]:
                     gap = (f", {_seconds(r['margin_s'])} ahead of {r['runner_up']}" if r["runner_up"]
-                           else f"; no other marble crosses in the next {POST_WIN_S} seconds")
+                           else f"; no other marble crosses in the next {POST_WIN_MAX_S} seconds")
                     parts.append(f"{label}. The {r['winner']} marble reaches the bottom first, at "
                                  f"{r['winner_frame'] / fps:.1f} seconds{gap}.")
                 else:
@@ -887,19 +1029,7 @@ class PhysicsSandbox:
     def _stage_text(self, r) -> str:
         style, segments = r["style"], r["segments"]
         obstacles = len(style.circles) or len(segments)
-        base = {
-            "zigzag": f"a {obstacles}-ramp zigzag stage",
-            "pegboard": f"a pegboard of {obstacles} pegs",
-            "bumpers": f"a field of {obstacles} bumpers",
-            "funnels": f"{obstacles // 2} stacked funnels",
-            "gauntlet": "a narrow gauntlet",
-            "cascade": f"a cascade of {obstacles} chutes",
-            "pinwheel": f"a four-armed pinwheel among {obstacles} pegs",
-            "sieve": f"a sieve of {obstacles} tilted bars",
-            "pachinko": f"a pachinko board of {obstacles} pegs",
-            "rockers": f"{len(style.rockers)} rocking planks",
-            "drums": f"{len(style.drums)} spinning drums",
-        }[style.stage]
+        base = STAGE_BY_ID[style.stage].describe(style, segments)
         if style.spinners:
             base += f" with {len(style.spinners)} spinning bar{'s' if len(style.spinners) > 1 else ''}"
         if style.gates:
@@ -990,11 +1120,15 @@ class PhysicsSandbox:
         stalled = 0
 
         for frame in range(max_frames):
+            for ball in balls:
+                v = ball.body.velocity
+                if v.length > MAX_SPEED:
+                    ball.body.velocity = v * (MAX_SPEED / v.length)
             for kind, body, params in style.kinematics:
                 if kind == "rocker":
-                    omega, phase = params
+                    omega, phase, *rest = params
                     t = frame / fps
-                    body.angle = ROCK_AMPLITUDE * math.sin(omega * t + phase)
+                    body.angle = (rest[0] if rest else 0.0) + ROCK_AMPLITUDE * math.sin(omega * t + phase)
                     body.angular_velocity = ROCK_AMPLITUDE * omega * math.cos(omega * t + phase)
             for _ in range(SUBSTEPS):
                 space.step(dt)
@@ -1037,8 +1171,12 @@ class PhysicsSandbox:
                         finishes[ball.name] = frame
                         if winner is None:
                             winner, winner_frame = ball.name, frame
-            if winner_frame is not None and frame >= winner_frame + int(fps * POST_WIN_S):
-                break
+            if winner_frame is not None:
+                second = sorted(finishes.values())[1] if len(finishes) > 1 else None
+                if second is not None and frame >= second + int(fps * POST_WIN_S):
+                    break
+                if frame >= winner_frame + int(fps * POST_WIN_MAX_S):
+                    break
 
         # Varying the stage changed the duration spread as well as the look,
         # and a short stage can now finish under the QC floor. The generator
@@ -1134,6 +1272,166 @@ class PhysicsSandbox:
 
     def _frames(
         self, states, balls, segments, sim_w, sim_h, overlay=None, style=None,
+        winner_frame=None, winner=None, ask=None, impacts=None, fps=30,
+    ) -> Iterator[bytes]:
+        """One frame renderer or the other, by `render.engine`. Same inputs,
+        same physics; pygame adds motion to every object."""
+        from . import fx
+
+        if fx.engine() == "pygame":
+            yield from self._frames_pygame(states, balls, segments, sim_w, sim_h, overlay=overlay, style=style,
+                                           winner_frame=winner_frame, winner=winner, ask=ask,
+                                           impacts=impacts or [], fps=fps)
+            return
+        yield from self._frames_pil(states, balls, segments, sim_w, sim_h, overlay=overlay, style=style,
+                                    winner_frame=winner_frame, winner=winner, ask=ask)
+
+    def _frames_pygame(
+        self, states, balls, segments, sim_w, sim_h, overlay=None, style=None,
+        winner_frame=None, winner=None, ask=None, impacts=(), fps=30,
+    ) -> Iterator[bytes]:
+        """The race with the juice: every object moves in its own way.
+
+        Marble      squash along the hit on every impact (the audio's impact
+                    list drives it, so nothing is re-simulated), a fading
+                    trail, a rolling highlight, a flash on a hard hit.
+        Spinners,   a glow that scales with how fast they turn, so a viewer
+        drums       reads the danger before a marble reaches it.
+        Gates       pulse once when a marble passes the throat.
+        Sparks      on hard impacts, in the marble's colour.
+        Finish      the chequer flashes, the winner gets rings and a burst.
+        Words       the caption slides up and settles; the ask pops in.
+        """
+        import pygame
+        from . import fx
+
+        fx.init()
+        style = style or _Style()
+        finish_line = style.stage in STAGES
+        winner_index = next((i for i, b in enumerate(balls) if b.name == winner), None)
+        rng = random.Random(style.seed * 17 + 3)
+        by_frame: dict[int, list] = {}
+        for im in impacts:
+            by_frame.setdefault(int(round(im.t * fps)), []).append(im)
+        anim = [fx.Ball(trail_len=7) for _ in balls]
+        sparks = fx.Particles(rng, gravity=420.0, decay=2.2)
+        confetti = fx.Particles(rng, gravity=260.0, decay=0.7)
+        gate_pulse = 0.0
+        finish_flash = 0.0
+        fy = sim_h - 110.0
+        Y = lambda y: sim_h - y  # physics is y-up; the screen is y-down
+        cap_surface = fx.text_surface(overlay[0], overlay[1].size, sim_w * 0.9, colour=style.caption) if overlay else None
+        ask_surface = fx.text_surface(ask[0], ask[1].size, sim_w * 0.9, colour=style.caption) if ask else None
+        structure_hi = fx.lighten(style.structure, 60)
+        gate_col = fx.lighten(style.structure, 34)
+
+        surface = pygame.Surface((sim_w, sim_h))
+        for frame_index, positions in enumerate(states):
+            t = frame_index / fps
+            dt = 1.0 / fps
+            # --- events → animation state
+            for im in by_frame.get(frame_index, []):
+                i = im.index
+                if i >= len(balls):
+                    continue
+                x, y = positions[i]
+                # direction of the squash: away from where it was heading
+                prev = states[frame_index - 1][i] if frame_index else (x, y)
+                dx, dy = x - prev[0], Y(y) - Y(prev[1])
+                norm = math.hypot(dx, dy) or 1.0
+                anim[i].hit(im.strength, (dx / norm, dy / norm))
+                if im.strength > 0.45:
+                    sparks.burst(x, Y(y), fx.lighten(balls[i].color, 40), int(2 + im.strength * 6),
+                                 speed=(60, 200 * im.strength + 60), size=(1.2, 2.6))
+            for i, (x, y) in enumerate(positions):
+                anim[i].step(x, Y(y), balls[i].radius)
+                if style.gates:
+                    throat = min(b[1] for _, b in style.gates)
+                    prev_y = states[frame_index - 1][i][1] if frame_index else y
+                    if prev_y > throat >= y:
+                        gate_pulse = 1.0
+            if winner_frame is not None and frame_index == winner_frame and winner_index is not None:
+                wx, wy = positions[winner_index]
+                for colour, count in (((255, 210, 80), 34), ((255, 255, 255), 26), ((120, 200, 255), 22), ((255, 120, 140), 22)):
+                    confetti.burst(wx, Y(wy), colour, count, speed=(140, 360), size=(2.4, 4.2), arc=(-math.pi, 0), life=1.3)
+                finish_flash = 1.0
+            sparks.step(dt); confetti.step(dt)
+            gate_pulse *= 0.86
+            finish_flash *= 0.9
+
+            # --- draw
+            surface.fill(style.background)
+            if finish_line:
+                cell = 14
+                lift = int(70 + 120 * finish_flash)
+                for k in range(0, sim_w, cell):
+                    shade = style.structure if (k // cell) % 2 == 0 else fx.lighten(style.structure, lift)
+                    pygame.draw.rect(surface, shade, (k, fy - 4, cell, 8))
+                if finish_flash > 0.05:
+                    band = pygame.Surface((sim_w, 24), pygame.SRCALPHA); band.fill((255, 255, 255, int(120 * finish_flash)))
+                    surface.blit(band, (0, fy - 12))
+            if style.decoration != "none":
+                _decorate_pygame(surface, style, frame_index, sim_w, sim_h)
+            for i, ball in enumerate(balls):
+                anim[i].draw_trail(surface, ball.radius, ball.color, alpha=48)
+            # moving structure, each with a glow that says how fast it turns
+            for sx, sy, half, omega, phase, *bias in style.rockers:
+                angle = (bias[0] if bias else 0.0) + ROCK_AMPLITUDE * math.sin(omega * t + phase)
+                dx, dy = math.cos(angle) * half, math.sin(angle) * half
+                fx.capped_line(surface, (sx - dx, Y(sy - dy)), (sx + dx, Y(sy + dy)), style.thickness, structure_hi)
+                fx.disc(surface, sx, Y(sy), style.thickness * 0.9, style.structure)
+            for sx, sy, r, omega in style.drums:
+                fx.soft(surface, sx, Y(sy), r * 1.18, (*structure_hi, int(min(80, 18 + abs(omega) * 10))), width=3)
+                fx.disc(surface, sx, Y(sy), r, fx.lighten(style.structure, 22))
+                for k in range(3):
+                    angle = omega * t + k * 2.094
+                    fx.capped_line(surface, (sx, Y(sy)), (sx + math.cos(angle) * r * 0.9, Y(sy + math.sin(angle) * r * 0.9)),
+                                   max(2, style.thickness // 2), structure_hi)
+                fx.disc(surface, sx, Y(sy), style.thickness * 0.6, style.structure)
+            for sx, sy, half, omega, phase in style.spinners:
+                angle = phase + omega * t
+                dx, dy = math.cos(angle) * half, math.sin(angle) * half
+                fx.soft(surface, sx, Y(sy), half * 1.04, (*structure_hi, int(min(70, 16 + abs(omega) * 12))), width=3)
+                # a ghost of where the bar just was, so the spin has a direction
+                ga = angle - omega * dt * 2.5
+                gx, gy = math.cos(ga) * half, math.sin(ga) * half
+                ghost = pygame.Surface((sim_w, sim_h), pygame.SRCALPHA)
+                pygame.draw.line(ghost, (*structure_hi, 70), (sx - gx, Y(sy - gy)), (sx + gx, Y(sy + gy)), style.thickness)
+                surface.blit(ghost, (0, 0))
+                fx.capped_line(surface, (sx - dx, Y(sy - dy)), (sx + dx, Y(sy + dy)), style.thickness, structure_hi)
+                fx.disc(surface, sx, Y(sy), style.thickness * 0.9, style.structure)
+            for a, b, speed in style.belts:
+                fx.capped_line(surface, (a[0], Y(a[1])), (b[0], Y(b[1])), style.thickness, fx.lighten(style.structure, 26))
+                for mx, my, ux, uy in _belt_marks(a, b, speed, t):
+                    # a chevron riding on the belt, pointing the way it runs
+                    tip = (mx + ux * 6, Y(my + uy * 6))
+                    nx, ny = -uy, ux
+                    back_a = (mx - ux * 3 + nx * 4, Y(my - uy * 3 + ny * 4))
+                    back_b = (mx - ux * 3 - nx * 4, Y(my - uy * 3 - ny * 4))
+                    pygame.draw.polygon(surface, fx.lighten(style.structure, 110), [tip, back_a, back_b])
+            for a, b in style.gates:
+                col = fx.lighten(gate_col, int(120 * gate_pulse))
+                fx.capped_line(surface, (a[0], Y(a[1])), (b[0], Y(b[1])), style.thickness, col)
+                if gate_pulse > 0.05:
+                    fx.soft(surface, b[0], Y(b[1]), style.thickness * (1.5 + 2 * (1 - gate_pulse)), (255, 255, 255, int(120 * gate_pulse)), width=2)
+            for a, b in segments:
+                fx.capped_line(surface, (a[0], Y(a[1])), (b[0], Y(b[1])), style.thickness, style.structure)
+            for cx, cy, r in style.circles:
+                fx.disc(surface, cx, Y(cy), r, style.structure)
+                fx.disc(surface, cx - r * 0.25, Y(cy) - r * 0.35, r * 0.22, fx.lighten(style.structure, 40))
+            for i, (ball, (x, y)) in enumerate(zip(balls, positions)):
+                anim[i].draw(surface, x, Y(y), ball.radius, ball.color)
+                if winner_index == i and winner_frame is not None and frame_index >= winner_frame:
+                    fx.winner_rings(surface, x, Y(y), ball.radius, (frame_index - winner_frame) / fps)
+            sparks.draw(surface); confetti.draw(surface)
+            if cap_surface is not None:
+                fx.caption_in(surface, cap_surface, sim_w / 2, overlay[3] + cap_surface.get_height() / 2, frame_index, overlay[4], fps, rise=sim_h * 0.04)
+            if ask_surface is not None and winner_frame is not None:
+                fx.pop_in(surface, ask_surface, sim_w / 2, ask[3], frame_index - winner_frame, ask[4], fps)
+            yield fx.to_bytes(surface)
+
+    def _frames_pil(
+        self, states, balls, segments, sim_w, sim_h, overlay=None, style=None,
         winner_frame=None, winner=None, ask=None,
     ) -> Iterator[bytes]:
         style = style or _Style()
@@ -1165,8 +1463,8 @@ class PhysicsSandbox:
                     r = ball.radius * (0.35 + 0.08 * (6 - back))
                     draw.ellipse([px - r, sim_h - py - r, px + r, sim_h - py + r], fill=colour)
             t = frame_index / 30.0
-            for sx, sy, half, omega, phase in style.rockers:
-                angle = ROCK_AMPLITUDE * math.sin(omega * t + phase)
+            for sx, sy, half, omega, phase, *bias in style.rockers:
+                angle = (bias[0] if bias else 0.0) + ROCK_AMPLITUDE * math.sin(omega * t + phase)
                 dx, dy = math.cos(angle) * half, math.sin(angle) * half
                 draw.line([(sx - dx, sim_h - (sy - dy)), (sx + dx, sim_h - (sy + dy))],
                           fill=tuple(min(255, c + 60) for c in style.structure), width=style.thickness)
@@ -1186,6 +1484,15 @@ class PhysicsSandbox:
                           fill=tuple(min(255, c + 60) for c in style.structure), width=style.thickness)
                 hub = style.thickness * 0.9
                 draw.ellipse([sx - hub, sim_h - sy - hub, sx + hub, sim_h - sy + hub], fill=style.structure)
+            for a, b, speed in style.belts:
+                draw.line([(a[0], sim_h - a[1]), (b[0], sim_h - b[1])],
+                          fill=tuple(min(255, c + 26) for c in style.structure), width=style.thickness)
+                for mx, my, ux, uy in _belt_marks(a, b, speed, t):
+                    nx, ny = -uy, ux
+                    draw.polygon([(mx + ux * 6, sim_h - (my + uy * 6)),
+                                  (mx - ux * 3 + nx * 4, sim_h - (my - uy * 3 + ny * 4)),
+                                  (mx - ux * 3 - nx * 4, sim_h - (my - uy * 3 - ny * 4))],
+                                 fill=tuple(min(255, c + 110) for c in style.structure))
             for a, b in style.gates:
                 draw.line([(a[0], sim_h - a[1]), (b[0], sim_h - b[1])],
                           fill=tuple(min(255, c + 34) for c in style.structure), width=style.thickness)
@@ -1241,6 +1548,21 @@ class PhysicsSandbox:
             yield image.tobytes()
 
 
+def _belt_marks(a, b, speed: float, t: float, spacing: float = 26.0):
+    """Where the chevrons on a belt are at time t: evenly spaced along a→b
+    and sliding at the belt's speed, so the belt reads as moving and the
+    fast one reads as fast. Returns (x, y, ux, uy) in physics coordinates."""
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    length = math.hypot(dx, dy) or 1.0
+    ux, uy = dx / length, dy / length
+    shift = (t * speed) % spacing
+    marks, d = [], shift
+    while d < length - 4:
+        marks.append((a[0] + ux * d, a[1] + uy * d, ux, uy))
+        d += spacing
+    return marks
+
+
 def _decorate(draw, style: _Style, frame: int, w: int, h: int) -> None:
     """Seasonal particles, deterministic from the seed so a re-render matches.
 
@@ -1274,6 +1596,34 @@ def _decorate(draw, style: _Style, frame: int, w: int, h: int) -> None:
         elif kind == "drops":
             y = (y0 + t * speed * 3) % h
             draw.line([(x0, y), (x0, y + size * 4)], fill=(150, 205, 240), width=1)
+
+
+def _decorate_pygame(surface, style: _Style, frame: int, w: int, h: int) -> None:
+    """The seasonal particles, drawn with pygame; same seed, same positions."""
+    from . import fx
+
+    rng = random.Random(style.seed * 31 + 7)
+    kind = style.decoration
+    count = {"snow": 70, "embers": 40, "sparks": 55, "drops": 60}.get(kind, 0)
+    t = frame / 30.0
+    for _ in range(count):
+        x0 = rng.uniform(0, w)
+        y0 = rng.uniform(0, h)
+        speed = rng.uniform(22, 60)
+        size = rng.uniform(1.2, 3.2)
+        phase = rng.uniform(0, 6.283)
+        if kind == "snow":
+            fx.soft(surface, (x0 + math.sin(t * 0.8 + phase) * 12) % w, (y0 + t * speed) % h, size, (226, 232, 244, 220))
+        elif kind == "embers":
+            glow = int(150 + 100 * (0.5 + 0.5 * math.sin(t * 5 + phase)))
+            fx.soft(surface, (x0 + math.sin(t * 1.4 + phase) * 8) % w, (y0 - t * speed) % h, size * 1.6, (255, glow, 40, 160))
+        elif kind == "sparks":
+            twinkle = 0.5 + 0.5 * math.sin(t * 6 + phase)
+            if twinkle > 0.45:
+                fx.soft(surface, x0, y0, size * twinkle, (240, 205, 90, 230))
+        elif kind == "drops":
+            y = (y0 + t * speed * 3) % h
+            fx.capped_line(surface, (x0, y), (x0, y + size * 4), 1, (150, 205, 240))
 
 
 register(PhysicsSandbox())

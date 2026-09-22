@@ -50,6 +50,12 @@ def test_spinning_bars_only_where_they_belong():
                 continue
         assert sim is not None
         style = sim[6]
+        spec = physics.STAGE_BY_ID[stage]
+        if spec.composed:
+            # A composed stage's bars come from its sections, never the add-on.
+            has_bars = any(name in ("spinners", "wheel") for name, _ in spec.parts)
+            assert bool(style.spinners) == has_bars, (stage, len(style.spinners))
+            continue
         wheel = physics.WHEEL_STAGES.get(stage, 0)
         lo, hi = physics.SPINNER_STAGES.get(stage, (wheel, wheel))
         assert lo <= len(style.spinners) <= hi, (stage, len(style.spinners))

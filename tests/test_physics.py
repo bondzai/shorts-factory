@@ -139,12 +139,13 @@ def test_an_unknown_stage_names_the_known_ones():
 
 
 def test_the_seed_picks_the_stage_when_none_is_given():
+    # 22 stages, some at a 2-3% share: a few hundred seeds to see them all.
     seen = set()
-    for seed in range(40):
+    for seed in range(400):
         *_, style, _ = physics.PhysicsSandbox()._simulate(
-            seed=seed, variant="marble_race", sim_w=W, sim_h=H, fps=FPS, max_frames=3)
+            seed=seed, variant="marble_race", sim_w=W, sim_h=H, fps=FPS, max_frames=1)
         seen.add(style.stage)
-    assert seen == set(physics.STAGES)
+    assert seen == set(physics.LIVE_STAGES)
 
 
 def test_the_theme_dresses_the_race(monkeypatch):
@@ -176,7 +177,10 @@ def test_spinners_live_only_in_the_bumper_field():
     24 never finished; among pegs it reads as a glitch. Measured, then pinned."""
     for stage in physics.STAGES:
         *_, style, _ = simulate(4242, frames=3, stage=stage)
-        assert bool(style.spinners) == (stage in physics.SPINNER_STAGES or stage in physics.WHEEL_STAGES), stage
+        spec = physics.STAGE_BY_ID[stage]
+        wanted = (stage in physics.SPINNER_STAGES or stage in physics.WHEEL_STAGES
+                  or any(name in ("spinners", "wheel") for name, _ in spec.parts))
+        assert bool(style.spinners) == wanted, stage
 
 
 def test_opening_mid_action_shifts_every_clock_together():

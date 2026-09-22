@@ -146,7 +146,7 @@ function HandOff({ snap, channelId, refresh }: { snap: Snap; channelId: string; 
       <pre className="captured" style={{ maxHeight: 260 }}>{text || "loading…"}</pre>
       {snap.agents?.available
         ? <div className="row mt-3"><button onClick={() => act(() => send("/api/tasks/work", { channel: channelId }), { after: refresh })} disabled={snap.job?.running}>Run with built-in agents</button><span className="hint">does every make-clip task in the queue, in a job</span></div>
-        : <div className="hint mt-3">No built-in provider is ready (Settings → Brains), so an external agent works this queue.</div>}
+        : <div className="hint mt-3">Or let the console run the agent for you: <a href="#/team">Team → Workers</a> starts Claude Code or Codex on this queue, with an auto mode that watches for new work.</div>}
     </div>
   );
 }

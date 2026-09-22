@@ -3,7 +3,14 @@
 ## Stages
 
 A race needs a descent, and each shape of descent is a different picture to
-the similarity gate and a different question to the viewer.
+the similarity gate and a different question to the viewer. There are two
+kinds: eleven stages built by hand, one function each, and eleven **stacked
+from sections** (below). Every stage is one entry in `STAGE_SPECS` in
+`factory/generators/physics.py` — gravity, noun, blurb, weight, spinners,
+throat — and nothing else in the code keeps its own list. The live numbers
+for all of them are on the **Stage QA** page (docs/06).
+
+### Built by hand
 
 | stage | what the viewer sees | measured (24 seeds, through the retry loop) |
 |---|---|---|
@@ -33,6 +40,114 @@ it), and a gauntlet of short bars (every seed fell straight past them under
 the floor, whatever the gravity; the bars now span the lane so a marble must
 wait for a gap to turn round). An earlier wedges stage — chevrons staggered
 like pegs — had three traps and seven finishes in 24, and is not offered.
+
+### Stacked from sections
+
+A section fills one horizontal band of the frame with one kind of obstacle;
+a stage is a list of sections, top to bottom, each with a share of the
+height. The kit is `factory/generators/stagekit.py`:
+
+| section | what it puts in its band |
+|---|---|
+| `pegs` | offset rows of small pegs, a marble's width apart, rows 66 px or more apart |
+| `bumpers` | a lattice of big elastic bumpers |
+| `funnel` | two ramps from the walls to one throat, 4.2–4.8 marble radii wide |
+| `ramps` | zigzag ramps at slope 0.37–0.44 |
+| `sieve` | rows of short tilted bars, tips a marble apart |
+| `drums` | rows of spinning drums, every drum sized from the gaps around it |
+| `rockers` | planks rocking about a tilt, tips clear of the walls, deflectors below |
+| `spinners` | pairs of bars turning opposite ways, sweeps a marble apart |
+| `wheel` | one four-armed wheel |
+| `chutes` | a V then a split peak, with a marble's room under every throat |
+| `belts` | **new**: conveyor belts from alternate walls, each at its own speed |
+
+The rule that makes stacking safe: **nothing solid within a margin of a
+band's edge** (0.06 of the width), so two neighbouring sections are further
+apart than the biggest marble and cannot make a pocket between them. Every
+clearance inside a section is sized from the marble too — the lessons the
+hand-built stages taught one stuck marble at a time, written once.
+
+| stage | stacked | gravity |
+|---|---|---|
+| **plinko** | pegs → wheel → pegs, throat | −31 |
+| **switchback** | ramps → belts → ramps, throat | −60 |
+| **seesaw** | rockers → pegs → funnel | −30 |
+| **rapids** | ramps → chutes → bumpers | −30 |
+| **carnival** | pegs → wheel → spinners → pegs, throat | −30 |
+| **quarry** | sieve → funnel → pegs | −30 |
+| **tumble** | funnel → drums → pegs | −30 |
+| **labyrinth** | ramps → sieve → chutes | −30 |
+| **orchard** | pegs → rockers → pegs, throat | −30 |
+| **pinball** | bumpers → rockers → funnel | −30 |
+| **gallery** | pegs → sieve → funnel | −44 |
+| **spillway** | chutes → pegs → funnel | −30 |
+| arcade *(trial)* | bumpers → spinners → pegs, throat | −30 |
+
+Twelve are live and together take 37% of the random picks (0.05 each
+against the hand-built stages' weights). arcade is in trial: it passes
+everything but drama — the lead changed 1.1 times a race against a gate of
+1.5 — so it races when a task names it and is never picked at random. A new one is three steps: add a `_composed(...)`
+line to the registry with weight 0 (trial — it races when a task names it,
+never at random); run `factory stage-qa --stage <id> --calibrate --seeds 48`;
+if every gate passes, give it a weight.
+
+### Stage QA
+
+`factory stage-qa` runs a stage over many seeds through the same retry loop a
+render uses and measures what a viewer would notice: does it finish in the
+window, first try; does a runner-up cross before the cut; how many unfinished
+marbles are parked (under 20 px in the last two seconds) or out of the frame;
+the median finish; how often the lead changes. `--calibrate` tunes gravity
+toward a 14 s median but never below 30 — below that a race looks like the
+moon, and a stage too quick at 30 needs more in its way, not less gravity.
+`--report docs/06-stage-qa.md` writes the table. `stage_qa.contact_sheet`
+draws each seed at four moments with the real renderer, for the half of QA
+that numbers cannot do: it is how the three-peg cup and the crawling belt
+below were found.
+
+What QA caught while the eleven were built, and the fix now in the kit:
+
+- **The three-peg cup.** Two peg rows 40 px apart: a marble falls between two
+  pegs onto the offset peg below and sits in the triangle all race (36 of 64
+  unfinished marbles on one stage). Rows are now 66 px apart or there is one.
+- **The peg cradle and corner.** Pegs 49 px apart against a 57 px marble, and
+  a peg 14 px from a wall. Pegs are now a marble apart, and a peg that would
+  leave a wall gap smaller than a marble is left out.
+- **No room under a throat.** A chute's V ended 45 px above the cap below.
+- **The pivot trap.** A marble on a rocker's pivot is rolled one way, then
+  back, forever; composed rockers rock about a tilt so the pivot drains.
+- **The flat sieve.** Clamping edge-row bars to fit the band flattened them
+  into ledges (8 of 15 parked marbles on one stage); rows are inset instead.
+- **The crawling belt.** A belt drags only through friction — a marble gets a
+  third of its speed — so at a tilt of 0.10 marbles crawled for seconds.
+  Belts now tilt 0.17 and the speed decides who gains.
+- **The moon.** Calibration first pushed three stages to gravity −13…−22.
+- **Jiggled, not parked.** The agent's own QA rejected an orchard clip with a
+  marble wedged between a rocking plank and the wall for half the race —
+  moving all the time, so "moved under 20 px in two seconds" missed it.
+  *Parked* now means no headway: less than 25 px further down the course in
+  each of the last two 4-second windows. It also caught what follows.
+- **Launched, not parked.** At gravity −30 a spinning bar with the
+  hand-built bounce (0.72) sent marbles 375 px back up the frame. Composed
+  stages' bars and wheels bounce 0.35 and turn 0.9–1.4 rad/s; their bumpers
+  bounce 0.75, not 0.9, which had been juggling marbles in place.
+- **The throat at low gravity.** The finish throat's arms slope 0.34, barely
+  downhill at −30: marbles sat on them for the last eight seconds of a clip.
+  On composed stages the throat is wider (0.21–0.24 w, no two-marble arch)
+  and its arms slope about 0.5. The hand-built stages keep theirs.
+- **The rocker at the wall.** A plank tip 61 px from the wall wedged a 57 px
+  marble; tips now keep a marble's room and air, the outer planks rock about
+  a strong tilt (0.24–0.32 rad) with the outer tip high so they drain
+  inward, and the wall deflectors are gone — they only made a pocket under
+  the tip.
+- **Belts keep the order.** Stages built mostly of belts changed the lead
+  about once a race; three were dropped, and belts appear once, mid-stage.
+
+The same run measured the hand-built stages for the first time. Two pass
+every gate (zigzag, funnels); the rest are on the QA page with the reason,
+and they keep their weights until someone decides otherwise — the numbers
+say bumpers parks more than half its unfinished marbles, so it is the first
+candidate for a rebuild from sections.
 
 ## How hard the race is to call
 
@@ -149,3 +264,49 @@ touch the physics.
 
 Shipped: Default, Halloween (Oct 15–31), Christmas (Dec 1–26), New Year
 (Dec 27–Jan 3), Valentine (Feb 7–14), Songkran (Apr 10–16).
+
+## Ball battle (`battle/ball_battle`)
+
+The marble race asks *which one gets out first*; the arena asks *which one
+is left*. Four balls named by colour bounce in a round arena with a health
+bar each across the top of the frame. Every collision costs both balls
+health, scaled by the impulse and by weight (a heavier ball shrugs off
+more), a ball at zero pops out, and the clip ends a moment after one
+remains. Under a third of health a ball goes into **rage** — faster, and
+hitting half again as hard — which is what makes a comeback possible and
+the viewer's pick matter to the end. No gravity; direction is physics, the
+speed is held so the arena never runs down.
+
+Drawn with pygame (headless) rather than PIL: glows, anti-aliased discs,
+rounded bars, a burst on elimination. Captions come from `[overlay]
+ball_battle` in config, one per seed. Facts carry `winner`, `finishes` and
+`eliminated` (the knockout order), so the spoiler gate applies exactly as
+it does to a race. `fighters` and `background` are accepted as task
+parameters.
+
+## Stuck-marble lessons, round three (gauntlet and rockers)
+
+Measured on 2026-09-22 over 12 seeds each, after the Team screen showed
+both stages ending with marbles that never arrived.
+
+**Gauntlet.** Non-finishers were not slow, they were gone: positions like
+x = −15 frame-widths, y = 22 frame-heights. The lane-wide gates left a 38 px
+pocket beside each bar, less than a marble, and the sweep pinched marbles
+against the wall and threw them out of the top of the frame, which had no
+ceiling. Three changes: a ceiling on every stage and a speed clamp
+(`MAX_SPEED`) so a pinch is a hit, not a launch; a solid wedge on each lane
+wall at every bar's height, apex just below the bar, so the pocket does not
+exist and the only way down is through the sweep; and the side pegs that
+sat under the tips moved to the centre. Parked marbles went from 10 in 27
+to 1 in 32. Two more findings on the way: the bar at 0.70 h sat exactly
+where the funnel dumps the field, and juggled it for a whole clip (seed
+9212 never got a marble past it), so the rows now stop at 0.60; and gate
+speed decides the finish — 0.7–1.1 rad/s never stalled but the field came
+through one at a time, 1.1–1.6 gave photo finishes and two stalls, and
+1.0–1.5 gave both, with a runner-up on 8 of 18 seeds and no stalls.
+
+**Rockers.** Marbles sat at x = 0.06 w, jittering between a plank tip and
+the wall, or rocked on a pivot with the plank. Plank tips now keep a
+marble's width from the walls, the pivot hub is a real peg so nothing
+rests on it, and a short deflector on each wall under every row turns a
+thrown marble back to the middle. Runner-ups went from 0 in 6 to 7 in 12.

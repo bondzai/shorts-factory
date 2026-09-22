@@ -599,5 +599,7 @@ def test_the_closing_ask_cannot_appear_before_the_result(sandbox):
     telling the viewer the race is about to end."""
     import inspect
 
-    source = inspect.getsource(physics.PhysicsSandbox._frames)
-    assert "frame_index >= winner_frame" in source
+    for renderer in (physics.PhysicsSandbox._frames_pil, physics.PhysicsSandbox._frames_pygame):
+        source = inspect.getsource(renderer)
+        assert "frame_index >= winner_frame" in source
+        assert "frame_index - winner_frame" in source  # the ask's age, never negative

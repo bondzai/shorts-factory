@@ -80,6 +80,17 @@ def _clip_summary(row) -> dict[str, Any]:
     }
 
 
+def agent_name(given: str) -> str:
+    """One short lowercase word per agent. Sessions of the same tool used to
+    call themselves five different things ("Claude (Opus 5) queue worker",
+    "claude-opus-5-queue-main"), and the Team screen showed five strangers.
+    Anything after the first word is a description, not a name."""
+    import re
+
+    first = re.sub(r"[^a-z0-9]+", " ", (given or "").lower()).split()
+    return (first[0] if first else "agent")[:24]
+
+
 def build_server():
     from mcp.server.mcpserver import MCPServer
     # The SDK swallows the message of any exception it did not expect, so a
@@ -252,7 +263,10 @@ def build_server():
                 if task_id:
                     logs.event("task.step", channel=resolve_channel_id(conn, channel), task=task_id,
                                clip=clip_id, step="rendered")
-            except (ValueError, KeyError) as exc:
+            except (ValueError, KeyError, RuntimeError) as exc:
+                # A stalled seed raises RuntimeError with the reason in it;
+                # without this the agent saw "Error executing tool" and
+                # blamed the stage.
                 raise ToolError(str(exc)) from None
         logs.event("mcp.call", actor="mcp", tool="render_clip", clip=clip_id,
                    variant=variant)
@@ -526,6 +540,7 @@ def build_server():
     def next_task(agent: str = "agent", channel: str | None = None) -> dict[str, Any]:
         from . import tasks
 
+        agent = agent_name(agent)
         with db.connect() as conn:
             row = db.claim_task(conn, agent, channel_id=channel)
             if row is None:

@@ -6,7 +6,9 @@ there are none.
 
 The loop:
 
-1. Call `next_task` with `agent` (who you are) and `channel="{channel}"`. It
+1. Call `next_task` with `agent` — one lowercase word for the tool you are,
+   `claude` or `codex`, not the model and not a description; the Team screen
+   groups work by it — and `channel="{channel}"`. It
    claims the next task on that channel and returns its full instructions —
    the playbook for that kind of task with the task's own parameters on top.
    If it says the queue is empty, stop and report.

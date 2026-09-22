@@ -107,8 +107,15 @@ on = ["run.finished", "run.failed"]
 ```
 
 ```bash
-factory notify   # post a test and report what the endpoint said
+factory notify   # post a test and report what each endpoint said
 ```
+
+Two sinks, both set in `.env`: `FACTORY_WEBHOOK_URL` (Discord, Slack, ntfy)
+and a Telegram bot (`FACTORY_TELEGRAM_TOKEN` + `FACTORY_TELEGRAM_CHAT_ID`).
+Telegram is the one that talks back: a clip that passes QC arrives as the
+video with Approve and Reject under it, and the bot answers `/status`,
+`/queue`, `/clip`, `/approve`, `/reject` and `/daily` while `factory serve`
+runs. See docs/02 for the three-step setup.
 
 Pointed away from this machine on purpose. The CLI, the web UI and the MCP
 server all write the same SQLite file, so none of them needs telling what the

@@ -477,6 +477,16 @@ def rehook(conn: sqlite3.Connection, clip_id: str, text: str | None, *, by: str 
         raise ValueError(f"{clip_id} is published; the caption is in the uploaded pixels")
     ch = channels.get(conn, row["channel_id"])
     params = json.loads(row["params_json"] or "{}")
+    # Pin the stages the clip was actually raced on. A stage chosen by the
+    # seed is a weighted pick from the registry, and the registry grows: the
+    # same seed re-rendered after new stages arrive would race elsewhere and
+    # the caption would land on a different clip.
+    facts = json.loads(row["facts_json"] or "{}")
+    raced = [r.get("stage") for r in facts.get("rounds") or [] if r.get("stage")]
+    if row["generator"] == "physics" and raced:
+        params.setdefault("stage", raced[0])
+        if len(raced) > 1:
+            params.setdefault("final_stage", raced[1])
     if text is None:
         # Let the render choose from what it measures — for a clip rendered
         # before captions were measured, this is how it catches up.

@@ -515,23 +515,51 @@ def cmd_logs(args) -> int:
     return 0
 
 
+def cmd_stage_qa(args) -> int:
+    """Measure stages over many seeds; optionally tune gravity; write the report."""
+    from . import settings as _settings, stage_qa
+    from .generators import physics
+
+    wanted = args.stage or ([s.id for s in physics.STAGE_SPECS if s.composed] if args.composed
+                            else [s.id for s in physics.STAGE_SPECS])
+    unknown = [s for s in wanted if s not in physics.STAGE_BY_ID]
+    if unknown:
+        print(f"no stage {unknown}; have {sorted(physics.STAGE_BY_ID)}")
+        return 2
+    seeds = list(range(args.first_seed, args.first_seed + args.seeds))
+    reports = []
+    for stage in wanted:
+        g = None
+        if args.calibrate:
+            g = stage_qa.calibrate(stage, list(range(args.first_seed + 5000, args.first_seed + 5000 + 10)))
+            print(f"{stage}: calibrated gravity {g:.0f} (registry has {physics.STAGE_GRAVITY[stage]:.0f})")
+        rep = stage_qa.run(stage, seeds, gravity_value=g)
+        reports.append(rep)
+        print(rep.row(), flush=True)
+    if args.report:
+        path = _settings.ROOT / args.report
+        path.write_text(stage_qa.report_markdown(reports, args.seeds), encoding="utf-8")
+        print(f"wrote {path.relative_to(_settings.ROOT)}")
+    return 0 if all(r.passed for r in reports) else 1
+
+
 def cmd_notify(args) -> int:
     from . import notify, settings as _settings
 
-    url = notify._config().get("webhook_url")
-    if not url:
-        print("no webhook set: FACTORY_WEBHOOK_URL in .env, or webhook_url in [notify]")
+    sinks = notify.sinks()
+    if not sinks:
+        print("nothing to post to: set FACTORY_WEBHOOK_URL and/or FACTORY_TELEGRAM_TOKEN + FACTORY_TELEGRAM_CHAT_ID in .env")
         return 1
-    from urllib.parse import urlsplit
+    where = ", ".join(f"{s['kind']} ({s['where']})" for s in sinks)
 
     if getattr(args, "daily", False):
-        print(f"posting the daily reminder to {urlsplit(url).netloc}")
+        print(f"posting the daily reminder to {where}")
         sent = notify.daily(force=True)
         if not sent:
             print("nothing approved is waiting, so nothing was sent")
             return 0
     else:
-        print(f"posting a test notification to {urlsplit(url).netloc} (the path is a secret and stays unprinted)")
+        print(f"posting a test notification to {where} (paths and ids are secrets and stay unprinted)")
         sent = notify.post(
             "notify.test", "[test] shorts-factory can reach this endpoint",
             channel="test", kind="test", status="ok",
@@ -542,10 +570,14 @@ def cmd_notify(args) -> int:
     import time
 
     time.sleep(2)
-    for record in __import__("factory.logs", fromlist=["logs"]).read(limit=3):
-        if record["event"].startswith("notify."):
-            print(f"{record['event']}: {record.get('status') or record.get('error')}")
-            return 0 if record["event"] == "notify.sent" else 1
+    seen, failed = 0, 0
+    for record in __import__("factory.logs", fromlist=["logs"]).read(limit=6, event_name="notify."):
+        if record["event"] in ("notify.sent", "notify.failed") and seen < len(sinks):
+            seen += 1
+            failed += record["event"] == "notify.failed"
+            print(f"{record.get('sink') or 'webhook'}: {record['event'].split('.')[1]} {record.get('status') or record.get('error') or ''}")
+    if seen:
+        return 1 if failed else 0
     print("no result logged yet; check `factory logs --event notify.`")
     return 0
 
@@ -813,6 +845,16 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--event", default=None, help="prefix, for example clip. or agent.")
     p.add_argument("--clip", default=None)
     p.set_defaults(func=cmd_logs)
+
+    p = sub.add_parser("stage-qa", help="measure race stages over many seeds: stalls, parked marbles, runner-ups, pace, drama",
+                       description="measure race stages over many seeds: stalls, parked marbles, runner-ups, pace, drama")
+    p.add_argument("--stage", action="append", help="a stage id; repeat for several (default: all)")
+    p.add_argument("--composed", action="store_true", help="only the stages stacked from sections")
+    p.add_argument("--seeds", type=int, default=16, help="seeds per stage (default 16)")
+    p.add_argument("--first-seed", type=int, default=700)
+    p.add_argument("--calibrate", action="store_true", help="tune gravity so the median finish lands mid-window, then measure")
+    p.add_argument("--report", help="write the markdown table here, e.g. docs/06-stage-qa.md")
+    p.set_defaults(func=cmd_stage_qa)
 
     p = sub.add_parser("notify", help="post a test notification, or today's upload reminder, to the configured webhook", description="post a test notification, or today's upload reminder, to the configured webhook")
     p.add_argument("--daily", action="store_true", help="send the daily 'approved clips waiting' reminder now")

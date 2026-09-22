@@ -36,7 +36,7 @@ it, back `data/` up yourself.
 
 ```bash
 git clone git@github.com:bondzai/shorts-factory.git && cd shorts-factory
-printf 'FACTORY_PASSWORD=choose-one\nFACTORY_WEBHOOK_URL=\n' > .env
+printf 'FACTORY_PASSWORD=choose-one\nFACTORY_WEBHOOK_URL=\nFACTORY_TELEGRAM_TOKEN=\nFACTORY_TELEGRAM_CHAT_ID=\n' > .env
 docker compose up -d --build
 ```
 
@@ -50,8 +50,9 @@ machines, copy `data/`, `channels/` and `.env`; everything else is in git.
 Two things stay outside the container by design. Agents (Codex, Claude
 Code) run on the host and reach the factory over MCP, so `bin/cowork` still
 uses the host's `.venv`; the container only serves the console and does
-the rendering an agent asks for. And the daily Discord reminder runs inside
-the container's server, so it fires as long as the container is up.
+the rendering an agent asks for. And the daily reminder and the Telegram bot
+run inside the container's server, so they work as long as the container is
+up.
 
 Put it behind Tailscale (private) or Caddy with HTTPS (public). Register the
 MCP server for an agent on the VM, or run `factory work` from cron with a

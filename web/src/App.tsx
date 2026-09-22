@@ -9,6 +9,7 @@ import { Toasts } from "./ui";
 import { Logo } from "./ui/Logo";
 import { useTheme, type Theme } from "./lib/theme";
 import { Today } from "./screens/Today";
+import { Team } from "./screens/Team";
 import { Work } from "./screens/Work";
 import { Clips, ClipDrawer } from "./screens/Clips";
 import { Results } from "./screens/Results";
@@ -19,6 +20,7 @@ import type { Channel, Snap } from "./lib/types";
 
 const VIEWS = [
   { id: "today", name: "Today", meaning: "decide, then upload" },
+  { id: "team", name: "Team", meaning: "who is doing what, right now" },
   { id: "clips", name: "Clips", meaning: "queued, rendering, made" },
   { id: "results", name: "Results", meaning: "how published clips did" },
   { id: "activity", name: "Activity", meaning: "what ran, and what happened" },
@@ -64,7 +66,7 @@ export default function App() {
         <div className="brand"><Logo />shorts factory</div>
         {VIEWS.map((v) => (
           <a key={v.id} href={`#/${v.id}`} aria-current={view === v.id ? "page" : undefined}>
-            <span className="name">{v.name}{v.id === "today" && queueCount > 0 && <span className="count">{queueCount}</span>}{v.id === "clips" && taskCount > 0 && <span className="count" title="queued or rendering">{taskCount}</span>}</span>
+            <span className="name">{v.name}{v.id === "today" && queueCount > 0 && <span className="count">{queueCount}</span>}{v.id === "clips" && taskCount > 0 && <span className="count" title="queued or rendering">{taskCount}</span>}{v.id === "team" && (snap?.tasks?.claimed || 0) > 0 && <span className="count" title="agents working">{snap?.tasks?.claimed}</span>}</span>
             <span className="meaning">{v.meaning}</span>
           </a>
         ))}
@@ -77,6 +79,7 @@ export default function App() {
           {openClip && <ClipDrawer id={openClip} close={() => setOpenClip(null)} refresh={reload} sound={sound} />}
           {!snap ? <p className="empty">{error ? `cannot reach the server: ${error}` : "loading…"}</p>
             : view === "today" ? <Today snap={snap} {...screenProps} sound={sound} setSound={setSound} />
+            : view === "team" ? <Team navigate={navigate} onOpen={setOpenClip} channelId={channelId!} />
             : view === "clips" ? <Work snap={snap} {...screenProps} />
             : view === "bin" ? <Clips {...screenProps} bin />
             : view === "results" ? <Results {...screenProps} />

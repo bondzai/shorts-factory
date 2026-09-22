@@ -12,6 +12,7 @@ const TABS = [
   { id: "brains", label: "Brains", meaning: "which model each agent runs on" },
   { id: "themes", label: "Themes", meaning: "seasons: colours, marbles, decorations" },
   { id: "factory", label: "Factory", meaning: "the knobs: gates, captions, retention, rounds" },
+  { id: "alerts", label: "Alerts", meaning: "where you are told: Discord, Slack, Telegram" },
 ];
 
 export function Settings({ snap, channelId, refresh, tab, setTab }: { snap: Snap; channelId: string; refresh: () => Promise<void>; tab: string; setTab: (id: string) => void }) {
@@ -27,6 +28,7 @@ export function Settings({ snap, channelId, refresh, tab, setTab }: { snap: Snap
       {current.id === "brains" && <Brains refresh={refresh} />}
       {current.id === "themes" && <Themes />}
       {current.id === "factory" && <FactorySettings />}
+      {current.id === "alerts" && <Alerts />}
     </Page>
   );
 }
@@ -228,3 +230,26 @@ export function AddChannel({ onDone }: { onDone: () => Promise<void> }) {
   );
 }
 export { Chips as _unusedChips };
+
+interface NotifyView { sinks: { kind: string; where: string }[]; daily_at: string; on: string[] }
+
+function Alerts() {
+  const [v, setV] = useState<NotifyView | null>(null);
+  useEffect(() => { api<NotifyView>("/api/notify").then(setV).catch((e) => toast((e as Error).message, "error")); }, []);
+  const test = () => act(() => send<{ sent: boolean }>("/api/notify/test"), { ok: "Test sent — check the phone" });
+  if (!v) return <p className="empty">loading…</p>;
+  return (
+    <>
+      <Card title="Where alerts go" hint="Set in .env next to the password, never here: FACTORY_WEBHOOK_URL for Discord, Slack or ntfy; FACTORY_TELEGRAM_TOKEN and FACTORY_TELEGRAM_CHAT_ID for the Telegram bot. Restart the server after changing them.">
+        {v.sinks.length ? v.sinks.map((s) => <div key={s.kind} className="row"><span className="badge ok">{s.kind}</span><span className="hint">{s.where}</span></div>) : <p className="hint">Nothing configured. Add one of the variables above and restart.</p>}
+        <div className="actions mt-3"><button onClick={test} disabled={!v.sinks.length}>Send a test</button></div>
+      </Card>
+      <Card title="Telegram" hint="A bot you make with @BotFather. Put its token in .env, send it /start, put the chat id it answers with in .env, restart.">
+        <p className="hint">After that a clip that passes QC arrives as the video with Approve and Reject under it, the daily reminder comes at {v.daily_at || "the configured time"}, and the bot answers /status, /queue, /clip, /approve, /reject and /daily.</p>
+      </Card>
+      <Card title="What is sent" hint="Set under [notify] on in config.toml.">
+        <div className="row wrap">{v.on.map((e) => <span key={e} className="badge">{e}</span>)}</div>
+      </Card>
+    </>
+  );
+}

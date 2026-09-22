@@ -247,3 +247,12 @@ def test_a_task_tells_the_agent_which_channel_it_is_on(sandbox):
         assert "make-clip on hodl" in text
         work = playbooks.render("work", "hodl")
         assert 'channel="hodl"' in work and "works `hodl`" not in work
+
+
+def test_an_agents_name_is_one_lowercase_word():
+    from factory.mcp import agent_name
+
+    assert agent_name("Claude (Opus 5) queue worker") == "claude"
+    assert agent_name("claude-opus-5-queue-main") == "claude"
+    assert agent_name("Codex") == "codex"
+    assert agent_name("") == "agent"

@@ -8,6 +8,11 @@ width = 1080
 height = 1920
 fps = 30
 render_scale = 0.5
+# Which renderer draws a physics clip: "pil" is the original still-frame
+# drawing; "pygame" adds motion to every object — squash on impact, trails,
+# sparks, glowing spinners, a burst and rings at the finish. The physics is
+# identical either way; only the drawing differs.
+engine = "pygame"
 max_seconds = 22
 # Seconds of the simulation dropped from the front, so frame one already has
 # marbles bouncing rather than leaving the gate. The swipe decision is made in
@@ -37,6 +42,8 @@ cta = "COMMENT YOUR PICK"
 cta_seconds = 1.3
 marble_race = "PICK ONE | PICK YOUR MARBLE | CALL IT NOW | WHICH ONE IS YOURS? | ONLY ONE GETS OUT | DON'T BLINK | BET ON ONE"
 funnel_drop = ""
+# The arena: four balls, health bars, last one standing. Same job — pick a side.
+ball_battle = "PICK A FIGHTER | PICK YOUR FIGHTER | WHO SURVIVES? | LAST ONE STANDING | BACK ONE | CALL THE WINNER"
 
 [notify]
 # Where to tell YOU that a run finished. Slack, Discord, ntfy and any endpoint
