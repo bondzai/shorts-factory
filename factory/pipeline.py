@@ -572,11 +572,24 @@ def retitle(
         "clip.retitled", channel=ch.id, clip=clip_id, title=title, was=row["title"],
         by=by, why=why, published=published,
     )
+    pushed, push_error = False, None
+    if published and row["remote_id"]:
+        # A driver that can reach the video changes it there too, so the gauge
+        # this function keeps (what each title earned) matches what viewers saw.
+        driver = publish.get(ch.driver, ch)
+        if hasattr(driver, "update_metadata"):
+            try:
+                pushed = bool(driver.update_metadata(row["remote_id"], title=title))
+            except Exception as exc:
+                push_error = str(exc)[:200]
+                logs.event("clip.retitle_push_failed", level="warn", channel=ch.id,
+                           clip=clip_id, error=push_error)
     return {
         "clip": clip_id, "title": title, "was": row["title"], "published": published,
-        "changes": len(history),
-        # On a manual channel nothing here reaches YouTube by itself.
-        "needs_manual_update": published and ch.driver == "manual",
+        "changes": len(history), "pushed": pushed, "push_error": push_error,
+        # Nothing reaches YouTube by itself on a manual channel, or when the
+        # push failed.
+        "needs_manual_update": published and not pushed,
     }
 
 
@@ -767,6 +780,9 @@ def publish_one(conn: sqlite3.Connection, clip_id: str) -> StageOutcome:
             title=row["title"],
             description=row["description"],
             hashtags=json.loads(row["hashtags_json"] or "[]"),
+            # The question the clip asks belongs under the clip, and the slot
+            # is the one the rest of the factory already agreed on.
+            comment=row["comment_prompt"],
         )
         db.update(
             conn, row["id"], status=PUBLISHED, platform=result.platform,

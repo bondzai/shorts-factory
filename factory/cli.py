@@ -515,6 +515,43 @@ def cmd_logs(args) -> int:
     return 0
 
 
+def cmd_youtube(args) -> int:
+    """Connect a channel to YouTube, say what is connected, or forget a token."""
+    from . import channels, db
+    from .publish import youtube as yt
+
+    with db.connect() as conn:
+        ch = channels.resolve(conn, args.channel)
+    driver = yt.YouTubePublisher(ch)
+    if args.action == "connect":
+        print(f"connecting {ch.id} — a browser will open; sign in as that channel's account")
+        try:
+            who = driver.connect()
+        except Exception as exc:
+            print(f"not connected: {exc}")
+            return 1
+        print(f"connected as {who['title']} ({who['id']})"
+              + (f" · {who['subscribers']} subscribers" if who.get("subscribers") is not None else ""))
+        print(f"token: {driver.token_path.relative_to(settings.ROOT)} (gitignored, this channel only)")
+        return 0
+    if args.action == "disconnect":
+        print("forgot the token" if driver.disconnect() else "nothing to forget")
+        print("the grant itself lives in the Google account: revoke it at "
+              "https://myaccount.google.com/permissions")
+        return 0
+    status = driver.status()
+    print(f"channel      {ch.id} ({ch.name}), driver {ch.driver}")
+    print(f"client id    {'client_secrets.json found' if status['client_secrets'] else 'MISSING client_secrets.json'}")
+    print(f"connected    {'yes' if status['connected'] else 'no'}")
+    if status.get("account"):
+        a = status["account"]
+        print(f"as           {a['title']} ({a['id']})" + (f" · {a['videos']} videos" if a.get("videos") is not None else ""))
+    if status.get("error"):
+        print(f"error        {status['error']}")
+    print(f"uploads      {status['privacy']}; about {status['uploads_per_day']} a day within YouTube's quota")
+    return 0 if status["connected"] else 1
+
+
 def cmd_stage_qa(args) -> int:
     """Measure stages over many seeds; optionally tune gravity; write the report."""
     from . import settings as _settings, stage_qa
@@ -845,6 +882,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--event", default=None, help="prefix, for example clip. or agent.")
     p.add_argument("--clip", default=None)
     p.set_defaults(func=cmd_logs)
+
+    p = sub.add_parser("youtube", help="connect a channel to YouTube, check it, or forget the token",
+                       description="connect a channel to YouTube, check it, or forget the token")
+    p.add_argument("action", nargs="?", default="status", choices=["status", "connect", "disconnect"])
+    p.add_argument("--channel", help="which channel (default: the first active one)")
+    p.set_defaults(func=cmd_youtube)
 
     p = sub.add_parser("stage-qa", help="measure race stages over many seeds: stalls, parked marbles, runner-ups, pace, drama",
                        description="measure race stages over many seeds: stalls, parked marbles, runner-ups, pace, drama")

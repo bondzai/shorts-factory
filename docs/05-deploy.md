@@ -74,3 +74,11 @@ the nav folds to the top. Review, approve, re-render, download and "I
 uploaded it" all work in Safari — Download saves to Files, from where the
 YouTube app can upload. What the iPad cannot do is run Codex; the agents run
 where the server runs.
+
+## YouTube from a container
+
+The OAuth flow opens a browser, which a container does not have. Connect a
+channel on your own machine first (`factory youtube connect`), then copy
+`channels/<id>/token.json` and `client_secrets.json` into the volume the
+container mounts. Refreshing an existing token needs no browser, so uploads
+keep working there; only the first connect does.

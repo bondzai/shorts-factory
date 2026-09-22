@@ -32,9 +32,16 @@ class Publisher(Protocol):
         title: str,
         description: str,
         hashtags: list[str],
+        comment: str | None = None,
+        publish_at: Any = None,
     ) -> PublishResult: ...
 
     def fetch_metrics(self, remote_id: str) -> Metrics: ...
+
+    # Optional, and asked for with hasattr: a driver that can change a
+    # published video's title pushes a retitle; one that cannot says so.
+    # def update_metadata(self, remote_id, *, title=None, description=None,
+    #                     hashtags=None) -> bool: ...
 
 
 def get(name: str, channel) -> Publisher:

@@ -51,7 +51,7 @@ export function Today({ snap, channelId, refresh, sound, setSound, onOpen }: {
     <Page title={`${snap.queue.length} to decide · ${snap.approved.length} to upload`}
       action={<button className="sm" onClick={() => setSound(!sound)}>Sound: {sound ? "on" : "off"}</button>}>
       <LiveNow snap={snap} channelId={channelId} />
-      <ClipCard key={current.id} clip={current} sound={sound} refresh={refresh} decide={decide} channelId={channelId} position={`${safe + 1} of ${items.length}`} onOpen={onOpen} />
+      <ClipCard key={current.id} clip={current} sound={sound} refresh={refresh} decide={decide} channelId={channelId} position={`${safe + 1} of ${items.length}`} onOpen={onOpen} snapDriver={snap.channel.driver} />
       <div className="strip">
         {items.map((c, i) => <button key={c.id} className="sm" aria-current={i === safe} onClick={() => setIndex(i)}>{c.status === "approved" ? "✓ " : ""}{i + 1}. {(c.title || c.id).slice(0, 32)}</button>)}
       </div>
@@ -79,8 +79,8 @@ function LiveNow({ snap, channelId }: { snap: Snap; channelId: string }) {
   );
 }
 
-function ClipCard({ clip: c, sound, refresh, decide, position, channelId, onOpen }: {
-  clip: Clip; sound: boolean; refresh: () => Promise<void>; decide: (id: string, what: "approve" | "reject") => void; position: string; channelId: string; onOpen: (id: string) => void;
+function ClipCard({ clip: c, sound, refresh, decide, position, channelId, onOpen, snapDriver }: {
+  clip: Clip; sound: boolean; refresh: () => Promise<void>; decide: (id: string, what: "approve" | "reject") => void; position: string; channelId: string; onOpen: (id: string) => void; snapDriver: string;
 }) {
   const ready = c.status === "approved";
   const [title, setTitle] = useState(c.title || "");
@@ -126,9 +126,14 @@ function ClipCard({ clip: c, sound, refresh, decide, position, channelId, onOpen
       await navigator.clipboard.writeText(out.text); setCopied(true); setTimeout(() => setCopied(false), 1500);
     } catch { toast("Could not reach the clipboard — open Details and copy from there.", "error"); }
   };
+  const auto = snapDriver === "youtube";
   const uploaded = () => {
-    if (!window.confirm("Mark this clip as uploaded? It moves to published and leaves this screen.")) return;
-    act(() => send(`/api/clip/${c.id}/publish`), { ok: "Marked as uploaded", after: refresh });
+    const ask = auto
+      ? `Upload this clip to YouTube now?\n\nIt goes up private and YouTube makes it public at ${slot || "the next slot"}.`
+      : "Mark this clip as uploaded? It moves to published and leaves this screen.";
+    if (!window.confirm(ask)) return;
+    act(() => send<{ detail: string }>(`/api/clip/${c.id}/publish`),
+        { ok: auto ? "Uploaded to YouTube" : "Marked as uploaded", after: refresh });
   };
 
   return (
@@ -163,8 +168,10 @@ function ClipCard({ clip: c, sound, refresh, decide, position, channelId, onOpen
           {ready ? (
             <>
               <button className="ok" onClick={() => download(c.id)}>Download clip</button>
-              <button className="ok" onClick={uploaded}>I uploaded it</button>
-              <span className="hint">approved — download, upload by hand{slot ? `, schedule for ${slot}` : ""}, then mark it</span>
+              <button className={auto ? "primary" : "ok"} onClick={uploaded}>{auto ? "Upload to YouTube" : "I uploaded it"}</button>
+              <span className="hint">{auto
+                ? `approved — uploads private, public at ${slot || "the next slot"}`
+                : `approved — download, upload by hand${slot ? `, schedule for ${slot}` : ""}, then mark it`}</span>
             </>
           ) : (
             <>

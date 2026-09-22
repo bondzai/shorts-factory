@@ -390,6 +390,64 @@ def worker_log(channel_id: str, lines: int = 120) -> dict[str, Any]:
     return {"channel": channel_id, "lines": workers.MANAGER.log(channel_id, lines)}
 
 
+# --- YouTube: connecting a channel, and what the console shows about it -------------
+
+class YouTubeBody(BaseModel):
+    channel: str | None = None
+
+
+def _youtube_view(ch) -> dict[str, Any]:
+    from . import schedule
+    from .publish.youtube import YouTubePublisher
+
+    driver = YouTubePublisher(ch)
+    out = driver.status()
+    out["driver"] = ch.driver
+    out["slot"] = schedule.describe(schedule.next_slot())
+    return out
+
+
+@app.get("/api/youtube")
+def youtube_status(channel: str | None = None) -> dict[str, Any]:
+    with db.connect() as conn:
+        ch = _resolve(conn, channel)
+    return _youtube_view(ch)
+
+
+@app.post("/api/youtube/connect")
+def youtube_connect(body: YouTubeBody) -> dict[str, Any]:
+    """Start Google's consent flow. It opens a browser on the machine running
+    the server and waits for the person there — so this returns at once and
+    the page polls the status."""
+    from .publish.youtube import YouTubePublisher
+
+    with db.connect() as conn:
+        ch = _resolve(conn, body.channel)
+    driver = YouTubePublisher(ch)
+    if driver.connected():
+        return {"already": True, **_youtube_view(ch)}
+
+    def work() -> None:
+        try:
+            driver.connect()
+        except Exception as exc:
+            logs.event("youtube.connect_failed", level="error", channel=ch.id, error=str(exc)[:300])
+
+    threading.Thread(target=work, name=f"youtube-connect-{ch.id}", daemon=True).start()
+    return {"started": True, "note": "a browser is opening on the machine running the server; "
+                                     "sign in as this channel's YouTube account"}
+
+
+@app.post("/api/youtube/disconnect")
+def youtube_disconnect(body: YouTubeBody) -> dict[str, Any]:
+    from .publish.youtube import YouTubePublisher
+
+    with db.connect() as conn:
+        ch = _resolve(conn, body.channel)
+    YouTubePublisher(ch).disconnect()
+    return _youtube_view(ch)
+
+
 @app.get("/api/team")
 def team_overview() -> dict[str, Any]:
     """Every agent, what it holds, what it did today, across all channels."""
@@ -1108,7 +1166,9 @@ def download_name(row) -> str:
 
 @app.post("/api/clip/{clip_id}/publish")
 def publish_clip(clip_id: str) -> dict[str, str]:
-    """The "I uploaded it" button on a manual channel."""
+    """"I uploaded it" on a manual channel; "Upload to YouTube" on a connected
+    one — the same button, because both mean "this clip has left the building".
+    Either way a person presses it: nothing here uploads on its own."""
     with db.connect() as conn:
         try:
             outcome = pipeline.publish_one(conn, clip_id)

@@ -107,6 +107,19 @@ min_published_for_rules = 30
 
 [publish]
 driver = "manual"
+# --- the youtube driver (factory youtube connect). Uploads are private with a
+# publishAt, so a clip goes public at the slot below and never a minute before.
+#   scheduled  private now, public at the next slot        (the default)
+#   private    private, and you flip it in Studio
+#   public     straight to public — on purpose, or not at all
+youtube_privacy = "scheduled"
+youtube_category_id = "24"          # 24 = Entertainment
+youtube_language = "en"
+youtube_made_for_kids = false       # required by YouTube; false for this channel
+youtube_notify_subscribers = true
+# Post the clip's question as a top comment. The API cannot pin it; pinning is
+# two taps in Studio, and the comment is there waiting when you do.
+youtube_post_comment = true
 # When to upload, in your local time, chosen for the audience: 06:00 in
 # Bangkok is 18:00-19:00 in New York, the evening slot with the highest CPM.
 # "Copy for upload" prints the next slot, and the daily reminder fires just

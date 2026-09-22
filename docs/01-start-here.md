@@ -30,7 +30,7 @@ you as a clip to approve.
   <rect class="card key" x="24" y="34" width="150" height="48"/><text class="t" x="36" y="54">Console</text><text class="s" x="36" y="70">Today · Team · Clips · Results</text>
   <rect class="card" x="196" y="34" width="150" height="48"/><text class="t" x="208" y="54">Telegram</text><text class="s" x="208" y="70">clip + Approve / Reject</text>
   <rect class="card" x="368" y="34" width="150" height="48"/><text class="t" x="380" y="54">Discord / Slack</text><text class="s" x="380" y="70">what finished, daily reminder</text>
-  <rect class="card" x="540" y="34" width="190" height="48"/><text class="t" x="552" y="54">YouTube Studio</text><text class="s" x="552" y="70">you upload by hand, paste the text</text>
+  <rect class="card" x="540" y="34" width="190" height="48"/><text class="t" x="552" y="54">YouTube</text><text class="s" x="552" y="70">by hand, or the API on your press</text>
 
   <rect class="lane" x="8" y="108" width="744" height="88"/>
   <text class="lane-name" x="20" y="124">Server · factory serve</text>
@@ -68,8 +68,10 @@ you as a clip to approve.
 </svg>
 
 Orange cards are the ones you will meet every day. The dotted line is the
-one step nothing automates: the file goes to YouTube by your hand, on a
-manual channel, and you press **I uploaded it**.
+step that never happens on its own: a clip reaches YouTube only when you
+press the button. On a manual channel that means you upload the file and
+press **I uploaded it**; with the YouTube driver connected (docs/07) the
+same press uploads it, private, scheduled for the slot.
 
 ## One clip, start to finish
 
@@ -96,7 +98,7 @@ without asking the agent.
 
   <rect class="step" x="580" y="130" width="170" height="56"/><text class="n" x="590" y="148">5</text><text class="t" x="604" y="148">Title + QC</text><text class="s" x="590" y="166">agent writes, server checks</text><text class="s" x="590" y="178">no spoilers, hook ≥ 3/5</text>
   <rect class="step you" x="390" y="130" width="170" height="56"/><text class="n" x="400" y="148">6</text><text class="t" x="414" y="148">You decide</text><text class="s" x="400" y="166">Today, or the video on Telegram</text><text class="s" x="400" y="178">Approve / Reject with a reason</text>
-  <rect class="step you" x="200" y="130" width="170" height="56"/><text class="n" x="210" y="148">7</text><text class="t" x="224" y="148">Upload</text><text class="s" x="210" y="166">Copy for upload → Studio</text><text class="s" x="210" y="178">at 06:00 Bangkok · I uploaded it</text>
+  <rect class="step you" x="200" y="130" width="170" height="56"/><text class="n" x="210" y="148">7</text><text class="t" x="224" y="148">Upload</text><text class="s" x="210" y="166">one press: by hand, or the API</text><text class="s" x="210" y="178">private, public at 06:00 Bangkok</text>
   <rect class="step you" x="10" y="130" width="170" height="56"/><text class="n" x="20" y="148">8</text><text class="t" x="34" y="148">Numbers come back</text><text class="s" x="20" y="166">Results: % viewed, % swiped</text><text class="s" x="20" y="178">→ the next playbook knows</text>
 
   <path id="p1" class="flow" d="M180,48 L200,48"/>
@@ -163,7 +165,9 @@ so refresh, back and a shared link land on the same view.
 | the prompts and skills | `prompts/` | yes |
 | the knobs (also editable in Settings) | `config.toml` | yes |
 | password, webhook, Telegram token | `.env` | never |
+| YouTube OAuth client and per-channel tokens | `client_secrets.json`, `channels/<id>/token.json` | never |
 
 The rest of these docs: **02** agents, the queue, workers and Telegram;
 **03** clips, hooks and quality; **04** stages, sections, the arena and
-themes; **05** deploying with Docker; **06** stage QA, the live numbers.
+themes; **05** deploying with Docker; **06** stage QA, the live numbers; **07**
+YouTube: connecting a channel, what an upload sends, quota.

@@ -22,7 +22,7 @@ export function Settings({ snap, channelId, refresh, tab, setTab }: { snap: Snap
       <div className="row wrap mb-3">
         {TABS.map((t) => <button key={t.id} className="chip" aria-pressed={t.id === current.id} onClick={() => setTab(t.id)}>{t.label}</button>)}
       </div>
-      {current.id === "channel" && <><ChannelForm ch={snap.channel} refresh={refresh} /><AddChannel onDone={refresh} /></>}
+      {current.id === "channel" && <><ChannelForm ch={snap.channel} refresh={refresh} /><YouTube channelId={channelId} driver={snap.channel.driver} refresh={refresh} /><AddChannel onDone={refresh} /></>}
       {current.id === "rules" && <Rules channelId={channelId} />}
       {current.id === "directions" && <Directions channelId={channelId} />}
       {current.id === "brains" && <Brains refresh={refresh} />}
@@ -251,5 +251,55 @@ function Alerts() {
         <div className="row wrap">{v.on.map((e) => <span key={e} className="badge">{e}</span>)}</div>
       </Card>
     </>
+  );
+}
+
+
+interface YouTubeView {
+  driver: string; connected: boolean; client_secrets: boolean; privacy: string; slot: string;
+  uploads_per_day: number; error?: string;
+  account?: { id: string; title: string; handle?: string | null; subscribers?: number | null; videos?: number | null };
+}
+
+/* Connecting is a person's job: Google's consent screen opens on the machine
+   running the server, and nothing here ever sees the password. */
+function YouTube({ channelId, driver, refresh }: { channelId: string; driver: string; refresh: () => Promise<void> }) {
+  const [v, setV] = useState<YouTubeView | null>(null);
+  const [waiting, setWaiting] = useState(false);
+  const load = useCallback(() => api<YouTubeView>(`/api/youtube?${q({ channel: channelId })}`).then(setV).catch(() => {}), [channelId]);
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (!waiting) return;
+    const id = setInterval(async () => {
+      const out = await api<YouTubeView>(`/api/youtube?${q({ channel: channelId })}`).catch(() => null);
+      if (out) { setV(out); if (out.connected) { setWaiting(false); toast(`Connected as ${out.account?.title || "YouTube"}`); } }
+    }, 2000);
+    const stop = setTimeout(() => setWaiting(false), 180000);
+    return () => { clearInterval(id); clearTimeout(stop); };
+  }, [waiting, channelId]);
+  if (!v) return null;
+  const connect = () => act(async () => { await send("/api/youtube/connect", { channel: channelId }); setWaiting(true); },
+                            { ok: "Finish the sign-in in the browser window" });
+  const disconnect = () => {
+    if (!window.confirm("Forget this channel's YouTube token? Uploads stop until you connect again.")) return;
+    act(() => send("/api/youtube/disconnect", { channel: channelId }), { ok: "Token forgotten", after: async () => { await load(); await refresh(); } });
+  };
+  return (
+    <Card title="YouTube" hint={v.connected
+      ? `Approved clips upload from Today: private now, public at ${v.slot}. About ${v.uploads_per_day} uploads a day fit YouTube's quota.`
+      : "Connect this channel to upload from Today instead of by hand. One token per channel, kept in channels/ and gitignored."}>
+      <div className="row wrap">
+        <span className={"badge " + (v.connected ? "ok" : "")}>{v.connected ? "connected" : "not connected"}</span>
+        {v.account && <span className="hint">{v.account.title}{v.account.videos != null ? ` · ${v.account.videos} videos` : ""}{v.account.subscribers != null ? ` · ${v.account.subscribers} subscribers` : ""}</span>}
+        {waiting && <span className="hint">waiting for the browser…</span>}
+        {v.error && <span className="no-text">{v.error}</span>}
+        <span className="grow" />
+        {v.connected
+          ? <button className="sm danger" onClick={disconnect}>Disconnect</button>
+          : <button className="sm primary" onClick={connect} disabled={!v.client_secrets || waiting}>Connect this channel</button>}
+      </div>
+      {!v.client_secrets && <p className="hint mt-3">First put an OAuth client for a Google Cloud project with the YouTube Data API v3 and YouTube Analytics API enabled at <code>client_secrets.json</code> in the project folder, then install the extra: <code>pip install -e '.[youtube]'</code>.</p>}
+      {v.connected && driver !== "youtube" && <p className="hint mt-3">This channel still publishes with the <b>manual</b> driver — set <b>publish driver</b> above to <b>youtube</b> to upload from Today.</p>}
+    </Card>
   );
 }

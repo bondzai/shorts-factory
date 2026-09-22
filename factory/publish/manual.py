@@ -34,13 +34,18 @@ class ManualPublisher:
         title: str,
         description: str,
         hashtags: list[str],
+        comment: str | None = None,
+        publish_at=None,
     ) -> PublishResult:
+        # comment and publish_at belong to a driver that can post and schedule;
+        # here the operator does both by hand, and the text file carries them.
         queue = settings.load().out_dir / self.channel.id / "publish-queue"
         queue.mkdir(parents=True, exist_ok=True)
         stem = f"{clip_id}-{_slug(title)}"
         shutil.copy2(video_path, queue / f"{stem}.mp4")
         (queue / f"{stem}.txt").write_text(
             f"{title}\n\n{description}\n\n{' '.join(hashtags)}\n"
+            + (f"\nPinned comment: {comment}\n" if comment else "")
         )
         return PublishResult(
             platform="manual",
