@@ -12,8 +12,9 @@ is the publish window). Everything an agent writes is judged by that reader.
   "nail-biting", "insane", "epic". The margin is never in the title, and a
   parts list ("3 spinners, 24 bumpers") is not a hook.
 - **Titles**: sentence case, the pick in the first three words ("Pick",
-  "Call it", "Which one is yours"), the lineup named, never the winner or the
-  margin, under 60 characters so nothing is cut on a phone. A question only when the
+  "Call it", "Which one is yours"), the count and the stage, never the winner,
+  the margin or a colour list, under 45 characters so nothing is cut in the
+  feed. A question only when the
   clip answers it in the next fifteen seconds.
 - **Pinned comment** is a pick-your-team prompt with the colours named:
   "Red, blue or green — which did you back?" That is the whole engagement play.

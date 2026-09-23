@@ -22,10 +22,12 @@ FACTS = {
 def test_the_title_leads_with_the_pick_and_names_the_whole_field_in_screen_order():
     meta, cost = template.write_metadata(facts=FACTS, seed=0)
     assert cost == 0.0
-    # Five colours and the stage leave no room for the longest verb; the next
-    # in the rotation that fits is used, and the stage and the field stay.
-    assert meta.title == "Call it now at the plinko: red, blue, violet, amber or green"
-    assert len(meta.title) <= template.FEED_MAX
+    # No colour list in the title: the feed cuts at 45 and the marbles are on
+    # screen under it. The count and the stage carry the pick; the pinned
+    # comment carries the colours, where the viewer answers with one.
+    assert meta.title == "Pick one — five go down the plinko"
+    assert len(meta.title) <= template.FEED_MAX == 45
+    assert not any(c in meta.title for c in FACTS["lineup"])
     assert meta.comment_prompt == "Red, blue, violet, amber or green — which did you back?"
     assert meta.hook_text is None  # the render's caption bank already chose
 
@@ -37,24 +39,18 @@ def test_it_passes_the_pipeline_s_own_spoiler_gate(sandbox):
     assert "green" not in first and "first" not in first.lower().replace("first bend", "")
 
 
-def test_the_verb_rotates_by_seed_so_consecutive_clips_differ():
-    three = {**FACTS, "lineup": ["red", "blue", "green"]}
-    titles = {template.write_metadata(facts=three, seed=s)[0].title for s in range(len(template.VERBS))}
-    assert len(titles) == len(template.VERBS)
-    # Even with five colours more than one verb still fits beside the stage.
-    five = {template.write_metadata(facts=FACTS, seed=s)[0].title.split(" at the")[0] for s in range(len(template.VERBS))}
-    assert len(five) >= 3
+def test_the_shape_rotates_by_seed_so_consecutive_clips_differ():
+    titles = {template.write_metadata(facts=FACTS, seed=s)[0].title for s in range(len(template.SHAPES))}
+    assert len(titles) == len(template.SHAPES)
+    assert all(len(t) <= template.FEED_MAX for t in titles)
 
 
-def test_a_lineup_that_does_not_fit_is_dropped_whole_never_trimmed():
-    """A subset of colours that happens to hold the winner is a spoiler by the
-    pipeline's rule, so the fallback never names some of them."""
+def test_a_long_stage_name_still_fits_the_feed():
     facts = {**FACTS, "lineup": ["red", "blue", "violet", "amber", "green", "white", "black"], "stage": "switchback",
              "rounds": [{"stage": "switchback", "winner": "green", "finishes": {"green": 10.4}}]}
-    meta, _ = template.write_metadata(facts=facts, seed=2)  # "Which one is yours" is the long verb
-    assert len(meta.title) <= template.FEED_MAX
-    named = [c for c in facts["lineup"] if c in meta.title]
-    assert named == [] or named == facts["lineup"]
+    for seed in range(len(template.SHAPES)):
+        meta, _ = template.write_metadata(facts=facts, seed=seed)
+        assert len(meta.title) <= template.FEED_MAX and "switchback" in meta.title
 
 
 def test_every_field_is_inside_the_bounds_an_agent_is_held_to():

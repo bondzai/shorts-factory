@@ -70,8 +70,8 @@ The pattern in the data so far: clips hold the viewers who start them and lose
 the ones deciding whether to start. Average percentage viewed has been high
 while the share who stay past the first moment has been low. So the title and
 the first second are the same problem, and the title is the half you control
-here — ask for the pick, not the category. "Pick your marble: red, blue or
-green" gives the viewer something to do. "Marble race #14" states a filename,
+here — ask for the pick, not the category. "Pick one — five go down the
+plinko" gives the viewer something to do. "Marble race #14" states a filename,
 and "decided by half a second" states the result — the server refuses that
 one.
 
@@ -98,9 +98,12 @@ are lost, and the benchmark channels aim for is three of four *kept*:
   marble**: `PICK ONE`, `CALL IT NOW`. Not the stage's numbers, and never
   anything about the ending — `RED BY 0.8s` and `DECIDED BY 0.8s` both tell
   them how it ends, and they swipe.
-- The title is the same hook written for the feed: lead with the pick and
-  name the lineup. "Pick your marble: red, blue or green" — not "Red wins by
-  0.8s", not "Decided by 0.8s", not "3 spinners, 24 bumpers".
+- The title is the same hook written for the feed: lead with the pick, say
+  how many and where, and keep it under 45 characters — the feed cuts the
+  rest. "Pick one — five go down the plinko" — not "Red wins by 0.8s", not
+  "Decided by 0.8s", not "3 spinners, 24 bumpers", and not the colour list:
+  the marbles are on screen under the title, and the pinned comment names
+  them.
 - What makes a clip worth keeping is still a close finish or an upset — you
   judge that in `submit_qc` from the facts. You just never put it in the
   title. Only a clip where the same marble runs away with both rounds has

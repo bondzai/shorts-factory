@@ -19,11 +19,23 @@ from typing import Any
 from ..models import TITLE_MAX, Metadata
 
 # Rotated by seed so consecutive clips do not open on the same words; the
-# same ritual, not the same sentence. Every one is a verb in the second
-# person, which is what the hooks skill asks of a title's first three words.
-VERBS = ("Pick your marble", "Call it now", "Which one is yours", "Bet on one", "Pick one")
-FEED_MAX = 60  # what a phone shows of a title in the feed before it is cut
+# same ritual, not the same sentence. Every shape asks for the pick in its
+# first three words and names the stage, and none of them lists the colours:
+# in the Shorts feed the title sits on the playing video, where the colours
+# are already on screen, and the feed cuts a title at about 45 characters —
+# on a five-marble race the list was exactly the part that got cut. The
+# pinned comment is where the colours belong, because that is where the
+# viewer answers with one.
+SHAPES = (
+    "Pick one \u2014 {n} go down the {stage}",
+    "Call it now: {n} marbles, the {stage}",
+    "Which one is yours? {n} down the {stage}",
+    "Bet on one \u2014 {n} go down the {stage}",
+    "Run it back: {n} marbles, the {stage}",
+)
+FEED_MAX = 45  # what a phone shows of a title in the Shorts feed before it is cut
 HASHTAGS = ["#shorts", "#marblerace", "#marblerun", "#satisfying"]
+NUMBERS = {2: "two", 3: "three", 4: "four", 5: "five", 6: "six", 7: "seven", 8: "eight"}
 
 
 class Unsupported(ValueError):
@@ -35,33 +47,28 @@ def can_write(facts: dict[str, Any]) -> bool:
 
 
 def names(lineup: list[str]) -> str:
-    """'red, blue or green' — the whole field, in screen order."""
+    """'red, blue or green' — the whole field, in screen order. For the pinned
+    comment, where the viewer answers with a colour."""
     if len(lineup) == 1:
         return lineup[0]
     return ", ".join(lineup[:-1]) + " or " + lineup[-1]
 
 
 def title(facts: dict[str, Any], seed: int) -> str:
-    """The pick, the stage, the lineup — and the whole lineup or none of it.
+    """The pick, the count, the stage — inside what the feed shows.
 
-    Five colours and a stage leave eleven characters for the verb, so the
-    verbs are tried from the seed's starting point and the first that fits
-    is used: the rotation survives a long lineup instead of collapsing to
-    the shortest verb every time. The stage goes before the colours do, and
-    the colours go whole: a title that dropped some would name a subset, and
-    a subset that happens to hold the winner is a spoiler by the pipeline's
-    own rule.
+    Shapes are tried from the seed's starting point and the first that fits
+    45 characters is used, so the rotation survives a long stage name instead
+    of collapsing to the shortest shape every time.
     """
-    lineup, stage = list(facts["lineup"]), stage_of(facts)
-    field = names(lineup)
-    start = seed % len(VERBS)
-    order = VERBS[start:] + VERBS[:start]
-    for shape in ("{verb} at the {stage}: {field}", "{verb}: {field}"):
-        for verb in order:
-            candidate = shape.format(verb=verb, stage=stage, field=field)
-            if len(candidate) <= FEED_MAX:
-                return candidate
-    return f"{order[0]} at the {stage} — {len(lineup)} marbles, one line"[:TITLE_MAX]
+    n = NUMBERS.get(len(facts["lineup"]), str(len(facts["lineup"])))
+    stage = stage_of(facts)
+    start = seed % len(SHAPES)
+    for shape in SHAPES[start:] + SHAPES[:start]:
+        candidate = shape.format(n=n, stage=stage)
+        if len(candidate) <= FEED_MAX:
+            return candidate
+    return f"Pick one \u2014 {n} marbles, one line"[:TITLE_MAX]
 
 
 def stage_of(facts: dict[str, Any]) -> str:
@@ -77,7 +84,7 @@ def description(facts: dict[str, Any]) -> str:
     words = facts.get("stage_words") or f"the {stage_of(facts)}"
     rounds = facts.get("rounds") or []
     first = f"{len(lineup)} marbles race down {words}."
-    parts = [first, "Pick one before the first bend."]
+    parts = [first, f"Pick one before the first bend: {names(lineup)}."]
     if len(rounds) > 1:
         parts.append(f"Two rounds: a heat on the {rounds[0].get('stage')}, then a final on the {rounds[-1].get('stage')} with the same marbles.")
     margin = facts.get("margin_s")

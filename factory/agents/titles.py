@@ -23,7 +23,7 @@ from .. import llm
 Angle = Literal["pick", "curiosity", "stakes", "challenge", "series"]
 
 ANGLES: dict[str, str] = {
-    "pick": "ask them to choose a marble and name the whole lineup, colours in the order given",
+    "pick": "ask them to choose a marble; say how many and where, not which colours",
     "curiosity": "say there is an outcome without saying what it is — a gap they stay to close",
     "stakes": "a number from the facts that describes the scene (marbles, obstacles, throats), never the ending",
     "challenge": "dare them to call it before the stage's mechanism decides",
@@ -53,7 +53,10 @@ viewer with a stake stays to the finish.
 Rules the server enforces after you answer, so obey them or the idea is thrown \
 away: never name the winner; never tell the result in any form (no "decided", \
 "wins", "won", "upset", "photo finish", no margin like "by 0.4s"); no result \
-language at all. Sentence case, under 60 characters, American English, no \
+language at all. Do not list the colours in the title: the title sits on the \
+playing video where the colours are already on screen, and the feed cuts a \
+title at about 45 characters — the pinned comment names them instead. \
+Sentence case, under 45 characters, American English, no \
 emoji unless told you may, no ALL CAPS, no exclamation marks, no Thai. \
 Present tense, second person. Every colour, number and stage you mention must \
 be in the facts — a promise the clip does not keep costs more than a dull title.

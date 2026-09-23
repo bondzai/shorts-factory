@@ -210,7 +210,7 @@ def retitle(
 # --- title ideas ---------------------------------------------------------------
 
 EMOJI = re.compile(r"[\U0001F000-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF\uFE0F]")
-FEED_MAX = 60  # what a phone shows of a title in the feed before it is cut
+FEED_MAX = 45  # what a phone shows of a title in the Shorts feed before it is cut
 SHAPE_WORDS = 3  # a title that opens on the same three words is the same title
 
 

@@ -13,24 +13,26 @@ and pinned comment you write should do at least one of them on purpose:
 
 ## Seen — the pick, nothing else
 
-Covered in the hooks skill: lead with the pick, name the lineup, no result,
-no spec sheet. One addition: **specific beats loud.** "Pick your marble:
-red, blue or amber" is stopped by more thumbs than "INSANE marble race" —
-the colours give the viewer something to do, the adjective gives them
-nothing. Never use a superlative the clip does not earn on screen.
+Covered in the hooks skill: lead with the pick, name the stage, no result,
+no spec sheet, no colour list. One addition: **specific beats loud.** "Pick
+one — five go down the plinko" is stopped by more thumbs than "INSANE marble
+race" — the count and the stage give the viewer something to do, the
+adjective gives them nothing. Never use a superlative the clip does not earn
+on screen.
 
 ## Remembered — a ritual the viewer can name
 
 A channel is remembered for a thing it does the same way each time. Ours:
 
 - **The ask is always the same shape.** Caption: two or three words, second
-  person, a verb (`PICK ONE`, `CALL IT NOW`). Title: the pick, then the
-  lineup by colour. Pinned comment: "which did you back?" A viewer who has
+  person, a verb (`PICK ONE`, `CALL IT NOW`). Title: the pick, the count,
+  the stage. Pinned comment: the colours, "which did you back?" A viewer who has
   seen three of our clips should be able to say the caption before it
   appears.
 - **The lineup is always colours, named in the same order as on screen**,
-  left to right. Not "the fast one", not "the underdog" — those are results
-  wearing a disguise, and they are not repeatable.
+  left to right — in the pinned comment and the description, where the
+  viewer answers with one. Not "the fast one", not "the underdog" — those
+  are results wearing a disguise, and they are not repeatable.
 - **The stage is a name, not a number.** "on the drums", "in the funnels",
   "in the arena". A viewer remembers *the drums one*; nobody remembers
   *the 31-bumper one*.

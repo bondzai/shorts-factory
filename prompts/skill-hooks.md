@@ -57,10 +57,14 @@ A title is read before the first frame on the feed, so it is the hook's second
 chance. Marketing rules for it:
 
 1. **Lead with the pick.** A verb or "you" in the first three words:
-   `Pick your marble: red, blue or green`, `Call it before the spinners do`,
+   `Pick one — five go down the plinko`, `Call it before the spinners do`,
    `Three go in. Which one is yours?`
-2. **Name the lineup, never the winner.** The colours are the menu the viewer
-   picks from; naming all of them gives nothing away. Naming one is a spoiler.
+2. **Never name the winner — and do not list the colours either.** In the
+   Shorts feed the title sits on the playing video, where the colours are
+   already on screen, and the feed cuts a title at about 45 characters: on a
+   five-marble race the list was exactly the part that got cut. The colours
+   belong in the pinned comment, where the viewer answers with one. Naming a
+   single colour in a title is a spoiler by the server's rule.
 3. **Present tense, second person.** "You" and "which" are invitations; "won"
    and "decided" are reports.
 4. **Numbers only when they are the drama.** "75 pegs" can be a scale claim;
@@ -68,8 +72,10 @@ chance. Marketing rules for it:
 5. **Truthful or nothing.** Every colour, count and round you mention is in
    `facts`. A promise the clip does not keep costs more than a dull title —
    it teaches the audience not to trust the next one.
-6. **Shape.** Sentence case, under 60 characters, American spelling on the US
-   channel, no emoji, no ALL CAPS.
+6. **Shape.** Sentence case, under 45 characters so the feed shows all of
+   it, American spelling on the US channel, no ALL CAPS; an emoji only when
+   the channel's titles setting allows one and it says something the words
+   do not.
 
    - ✗ `Amber by 0.04s in the final, blue took the heat`
    - ✗ `Decided by 0.7s in the heat, then a final on 8 ramps`
