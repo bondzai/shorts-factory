@@ -4,8 +4,6 @@ connection, the numbers each clip earned, and what the agents cost.
 
 from __future__ import annotations
 
-import json
-
 from .. import analytics, channels, db, llm, pipeline, settings
 from ..publish import youtube as yt
 

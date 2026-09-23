@@ -15,7 +15,7 @@ from ... import pipeline
 from ... import schedule, settings
 from ... import tasks
 from ...generators import physics
-from ...models import APPROVED, AWAITING_APPROVAL, PLANNED, PUBLISHED
+from ...models import APPROVED, AWAITING_APPROVAL, PUBLISHED
 from ..common import IdsBody
 from ..common import JOB
 from ..common import clip_json

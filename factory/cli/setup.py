@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import sys
 
 from PIL import Image
 
@@ -29,7 +30,6 @@ def cmd_init(args) -> int:
 
 
 def cmd_doctor(args) -> int:
-    cfg = settings.load()
     ok = True
     for tool in ("ffmpeg", "ffprobe"):
         path = shutil.which(tool)

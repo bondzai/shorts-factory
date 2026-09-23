@@ -16,7 +16,7 @@ from typing import Any, Callable
 from fastapi import HTTPException
 from pydantic import BaseModel
 
-from .. import channels, db, settings
+from .. import channels, db
 import re
 import unicodedata
 

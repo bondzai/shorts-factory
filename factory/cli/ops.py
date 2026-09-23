@@ -4,9 +4,10 @@ and the two long-running servers.
 
 from __future__ import annotations
 
+import json
 import time
 
-from .. import channels, db, gc, logs, mcp as mcp_server, notify, settings, stage_qa
+from .. import db, gc, logs, mcp as mcp_server, notify, settings, stage_qa
 from ..generators import physics
 
 

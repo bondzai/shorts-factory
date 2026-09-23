@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from ... import channels, db
 from ... import llm
-from ...models import APPROVED, AWAITING_APPROVAL, PLANNED, PUBLISHED
+from ...models import APPROVED, AWAITING_APPROVAL, PLANNED
 from ..common import JOB
 from ..common import clip_json
 from ..common import resolve

@@ -222,7 +222,7 @@ def test_a_named_seed_is_rendered_as_named_even_if_a_binned_clip_had_it(sandbox,
         def fake_stage(conn_, ch, clip_id, params, by):
             seen["seed"] = db.get(conn_, clip_id)["seed"]
             raise RuntimeError("stop here")
-        monkeypatch.setattr(pipeline, "_render_stage", fake_stage)
+        monkeypatch.setattr(pipeline.building, "render_stage", fake_stage)
         with pytest.raises(RuntimeError, match="stop here"):
             pipeline.create_and_render(conn, "main", variant="marble_race", seed=7301)
         assert seen["seed"] == 7301

@@ -190,6 +190,7 @@ def test_the_report_is_a_table_with_every_stage(sandbox):
 
 def test_a_rehook_pins_the_stages_the_clip_raced_on(sandbox, monkeypatch):
     from factory import channels, db, pipeline
+    from factory.pipeline import building
 
     seen = {}
 
@@ -197,7 +198,7 @@ def test_a_rehook_pins_the_stages_the_clip_raced_on(sandbox, monkeypatch):
         seen.update(params)
         raise RuntimeError("stop here")
 
-    monkeypatch.setattr(pipeline, "_render_stage", fake_render)
+    monkeypatch.setattr(building, "render_stage", fake_render)
     with db.connect() as conn:
         db.migrate(conn)
         channels.create(conn, name="Main", channel_id="main")

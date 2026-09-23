@@ -6,7 +6,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
-from ... import channels, db
+from ... import db
 from ... import notify
 from ... import settings
 from ... import team
