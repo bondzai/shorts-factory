@@ -126,10 +126,10 @@ models = ["qwen2.5vl:7b", "qwen2.5:7b", "llama3.1:8b"]
 #   qc = "ollama/qwen2.5vl:7b"        analyst = "ollama/qwen2.5:7b"
 # With metadata_source = "template", the Metadata brain is only used for a
 # generator the template does not write.
-idea = "claude-opus-5"
-metadata = "claude-opus-5"
-qc = "claude-opus-5"
-analyst = "claude-opus-5"
+idea = "ollama/qwen2.5vl:7b"
+metadata = "ollama/qwen2.5vl:7b"
+qc = "ollama/qwen2.5vl:7b"
+analyst = "ollama/qwen2.5vl:7b"
 
 [llm.pricing]
 # USD per million tokens, [input, output]. A model missing here is billed at

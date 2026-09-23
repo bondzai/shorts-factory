@@ -144,9 +144,29 @@ def model_for(agent: str | None) -> str:
     return resolve(agent)[1]
 
 
+def local_models(p: Provider) -> list[str] | None:
+    """What a keyless endpoint on this machine is serving, or None when it is
+    not answering at all. Only asked of local providers: an API's model list
+    is its business, and a key check already says whether it will answer.
+
+    Without this, `factory brains` said "ok" for ollama with the server down
+    and the model never pulled, and the first clip found out the hard way."""
+    if p.kind != "openai" or p.api_key_env or not p.base_url:
+        return None
+    try:
+        import urllib.request
+
+        with urllib.request.urlopen(p.base_url.rstrip("/") + "/models", timeout=2) as r:
+            data = json.load(r).get("data") or []
+        return [m.get("id", "") for m in data]
+    except Exception:
+        return None
+
+
 def readiness() -> dict[str, dict[str, Any]]:
     """Per agent: where it would run and whether that can work right now."""
     out = {}
+    served: dict[str, list[str] | None] = {}
     for agent in AGENTS:
         try:
             p, model = resolve(agent)
@@ -158,6 +178,14 @@ def readiness() -> dict[str, dict[str, Any]]:
             why = f"{p.api_key_env or 'credentials'} not set in .env"
         elif agent in NEEDS_VISION and not p.vision:
             why = f"{p.id} cannot see images; {agent} judges frames"
+        elif p.kind == "openai" and not p.api_key_env:
+            if p.id not in served:
+                served[p.id] = local_models(p)
+            have = served[p.id]
+            if have is None:
+                why = f"{p.id} is not answering at {p.base_url}"
+            elif model not in have and model.split(":")[0] not in {h.split(":")[0] for h in have}:
+                why = f"{p.id} does not have {model}; pull it first (have: {', '.join(have) or 'nothing'})"
         out[agent] = {"ok": why is None, "provider": p.id, "model": model, "why": why,
                       "free": p.free or (p.kind == "openai" and not p.api_key_env)}
     return out

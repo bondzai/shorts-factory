@@ -48,7 +48,8 @@ def test_every_schema_entry_exists_in_config_toml(sandbox):
 
 # --- providers and assignment -------------------------------------------------
 
-def test_a_bare_model_name_still_means_anthropic(sandbox):
+def test_a_bare_model_name_still_means_anthropic(sandbox, monkeypatch):
+    monkeypatch.setitem(settings.load().raw["llm"], "agents", {"qc": "claude-opus-5"})
     assert llm.assignment("qc") == "anthropic/claude-opus-5"
 
 
@@ -89,6 +90,7 @@ def test_a_local_endpoint_needs_no_key_and_costs_nothing(sandbox, monkeypatch):
     monkeypatch.setitem(settings.load().raw["llm"], "providers", [
         {"id": "ollama", "kind": "openai", "base_url": "http://localhost:11434/v1", "api_key_env": None}])
     monkeypatch.setitem(settings.load().raw["llm"], "agents", {a: "ollama/qwen" for a in llm.AGENTS})
+    monkeypatch.setattr(llm, "local_models", lambda p: ["qwen"])  # serving it
     r = llm.readiness()
     assert all(v["ok"] and v["free"] for v in r.values())
     assert llm.usd(types.SimpleNamespace(prompt_tokens=1_000_000, completion_tokens=1_000_000), "qwen", llm.provider("ollama")) == 0.0
@@ -193,3 +195,17 @@ def test_the_test_button_reports_what_the_provider_said(client, monkeypatch):
     monkeypatch.setattr(llm, "test_provider", lambda pid, model=None: {"ok": True, "model": model, "latency_ms": 12, "reply": "ok"})
     r = client.post("/api/brains/test", json={"provider": "anthropic", "model": "claude-sonnet-5"})
     assert r.json()["ok"] is True and r.json()["model"] == "claude-sonnet-5"
+
+
+def test_a_local_provider_is_ready_only_when_it_is_serving_the_model(sandbox, monkeypatch):
+    """`factory brains` said ok for ollama with the server down and the model
+    never pulled; the first clip found out the hard way."""
+    monkeypatch.setitem(settings.load().raw["llm"], "providers", [
+        {"id": "ollama", "kind": "openai", "base_url": "http://localhost:11434/v1", "api_key_env": None, "vision": True}])
+    monkeypatch.setitem(settings.load().raw["llm"], "agents", {a: "ollama/qwen2.5vl:7b" for a in llm.AGENTS})
+    monkeypatch.setattr(llm, "local_models", lambda p: None)
+    assert "not answering" in llm.readiness()["qc"]["why"]
+    monkeypatch.setattr(llm, "local_models", lambda p: ["llama3.1:8b"])
+    assert "pull it first" in llm.readiness()["qc"]["why"]
+    monkeypatch.setattr(llm, "local_models", lambda p: ["qwen2.5vl:7b"])
+    assert llm.readiness()["qc"] == {"ok": True, "provider": "ollama", "model": "qwen2.5vl:7b", "why": None, "free": True}
