@@ -143,6 +143,11 @@ default = [5.0, 25.0]
 # "" picks by calendar (see factory/themes.py); a theme id forces it.
 force = ""
 
+[titles]
+# Suggested titles (the button on a clip). The rules say no emoji; this is
+# the switch for the day a number says otherwise.
+emoji = false
+
 [analyst]
 min_published_for_rules = 30
 

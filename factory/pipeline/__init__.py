@@ -34,7 +34,7 @@ from .review import (
     unbin_clips,
 )
 from .spoilers import RESULT_WORDS, lineup, spoiler, winners
-from .words import attach_metadata, redescribe, rehook, retitle
+from .words import attach_metadata, redescribe, rehook, retitle, title_ideas
 
 __all__ = [
     "RESULT_WORDS", "STUCK", "StageOutcome", "Written", "apply_qc", "approve",
@@ -42,5 +42,5 @@ __all__ = [
     "destroy_clips", "digest", "lineup", "plan", "publish_approved", "publish_one",
     "pull_metrics", "queue", "redescribe", "rehook", "reject", "render_stage",
     "resolve", "restore", "resume", "retitle", "sample_times", "set_metrics",
-    "spoiler", "stuck", "unbin_clips", "winners",
+    "spoiler", "stuck", "title_ideas", "unbin_clips", "winners",
 ]

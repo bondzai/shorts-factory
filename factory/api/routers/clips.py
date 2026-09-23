@@ -9,7 +9,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from ... import db
+from ... import db, llm
 from ... import generators
 from ... import pipeline
 from ... import schedule, settings
@@ -249,6 +249,25 @@ def edit_text(clip_id: str, body: TextBody) -> dict[str, Any]:
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from None
     return out
+
+
+@router.post("/api/clip/{clip_id}/titles")
+def title_ideas(clip_id: str, captions: bool = False) -> dict[str, Any]:
+    """Five ways to ask for the pick, already through the gates. Applying one
+    is the existing PATCH .../text, so the old title and its numbers are kept."""
+    # A brain that is down is the likeliest failure here, and "Internal Server
+    # Error" told the operator nothing. Readiness knows the reason — not
+    # answering, model not pulled, key missing — so that is what comes back.
+    ready = llm.readiness().get("metadata", {})
+    if not ready.get("ok"):
+        raise HTTPException(503, f"the Metadata brain is not ready: {ready.get('why')}")
+    with db.connect() as conn:
+        try:
+            return pipeline.title_ideas(conn, clip_id, captions=captions)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from None
+        except Exception as exc:  # the brain answered badly or not at all
+            raise HTTPException(502, f"the Metadata brain did not answer: {type(exc).__name__}: {str(exc)[:200]}") from None
 
 
 class HookBody(BaseModel):

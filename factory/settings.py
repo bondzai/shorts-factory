@@ -78,6 +78,9 @@ SCHEMA: list[dict[str, Any]] = [
     {"section": "llm", "key": "image_long_edge", "type": "number", "min": 256, "max": 1920, "step": 64,
      "label": "Frames sent to a brain (px, long edge)",
      "help": "Sampled frames are shrunk to this before any model sees them. 512 is plainly legible; 768 leaves room."},
+    {"section": "titles", "key": "emoji", "type": "select", "options": [False, True],
+     "label": "Emoji in suggested titles", "help": "The channel's rules say none. Off until a number says otherwise; "
+     "when on, the Title brain may end a title with one and the server stops refusing them."},
     {"section": "analyst", "key": "min_published_for_rules", "type": "number", "min": 1, "max": 500, "step": 1,
      "label": "Clips before the Analyst may propose rules"},
 ]

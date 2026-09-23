@@ -11,7 +11,7 @@ import json
 import re
 import sqlite3
 
-from .. import channels, db, logs
+from .. import channels, db, logs, playbooks, settings
 from .. import publish as drivers
 from ..models import (
     APPROVED,
@@ -26,7 +26,7 @@ from ..models import (
     TITLE_MIN,
     Metadata,
 )
-from ..agents import qc
+from ..agents import qc, titles as title_agent
 from ..generators import physics
 from . import building
 from .common import StageOutcome
@@ -205,3 +205,65 @@ def retitle(
         # push failed.
         "needs_manual_update": published and not pushed,
     }
+
+
+# --- title ideas ---------------------------------------------------------------
+
+EMOJI = re.compile(r"[\U0001F000-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF\uFE0F]")
+FEED_MAX = 60  # what a phone shows of a title in the feed before it is cut
+SHAPE_WORDS = 3  # a title that opens on the same three words is the same title
+
+
+def shape(title: str) -> str:
+    """The opening of a title, as the feed reads it: the first three words,
+    lowercased, punctuation gone. Two titles with the same shape are the
+    same ask in different colours, which is what an operator pressing the
+    button is trying to get away from."""
+    words = re.sub(r"[^a-z0-9 ]", " ", title.lower()).split()
+    return " ".join(words[:SHAPE_WORDS])
+
+
+def title_ideas(conn: sqlite3.Connection, clip_id: str, *, captions: bool = False) -> dict:
+    """Five ways to ask for the pick, one per angle, from the Metadata brain
+    — then the server decides which the operator gets to see.
+
+    Nothing the model says is trusted. Each idea goes through the same
+    spoiler gate as a title an agent submits, the feed's 60-character line,
+    the channel's emoji setting, English only, and a repetition check
+    against the last twenty titles on the channel by their opening three
+    words. What was dropped is reported with its reason, so a button that
+    comes back with two ideas instead of five says why.
+    """
+    row = db.get(conn, clip_id)
+    if row is None:
+        raise ValueError(f"no clip {clip_id}")
+    facts = json.loads(row["facts_json"] or "{}")
+    recent = [r["title"] for r in db.recent(conn, row["channel_id"], limit=20) if r["title"] and r["id"] != clip_id]
+    emoji_ok = bool(settings.load().raw.get("titles", {}).get("emoji", False))
+    ideas, cost = title_agent.suggest(
+        facts=facts, recent_titles=recent, directions=playbooks.directions_text(conn, row["channel_id"]),
+        emoji_allowed=emoji_ok, want_captions=captions and row["status"] != PUBLISHED,
+    )
+    taken = {shape(t) for t in recent} | {shape(row["title"] or "")}
+    kept, dropped = [], []
+    for idea in ideas.ideas:
+        title = " ".join(idea.title.split())
+        why = None
+        if not TITLE_MIN <= len(title) <= FEED_MAX:
+            why = f"{len(title)} characters; the feed shows {FEED_MAX} and the floor is {TITLE_MIN}"
+        elif not emoji_ok and EMOJI.search(title):
+            why = "emoji, and the channel's titles setting says none"
+        elif not EMOJI.sub("", title).isascii():  # an allowed emoji is not Thai
+            why = "not plain English"
+        elif shape(title) in taken:
+            why = f"opens like a title already used ({shape(title)!r})"
+        else:
+            why = spoiler(facts, title=title, hook_text=idea.caption)
+        if why:
+            dropped.append({"angle": idea.angle, "title": title, "why": why})
+            continue
+        taken.add(shape(title))
+        kept.append({"angle": idea.angle, "title": title, "caption": idea.caption, "why": idea.why})
+    logs.event("clip.title_ideas", channel=row["channel_id"], clip=clip_id, kept=len(kept),
+               dropped=len(dropped), cost_usd=round(cost, 6))
+    return {"clip": clip_id, "ideas": kept, "dropped": dropped, "cost_usd": round(cost, 6)}

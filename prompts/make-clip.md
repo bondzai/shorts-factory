@@ -70,9 +70,10 @@ The pattern in the data so far: clips hold the viewers who start them and lose
 the ones deciding whether to start. Average percentage viewed has been high
 while the share who stay past the first moment has been low. So the title and
 the first second are the same problem, and the title is the half you control
-here — name the specific thing that resolves, not the category. "This marble
-race is decided by half a second" states a stake. "Marble race #14" states a
-filename.
+here — ask for the pick, not the category. "Pick your marble: red, blue or
+green" gives the viewer something to do. "Marble race #14" states a filename,
+and "decided by half a second" states the result — the server refuses that
+one.
 
 Two more fields on `submit_metadata`, both optional, both for the same
 problem:

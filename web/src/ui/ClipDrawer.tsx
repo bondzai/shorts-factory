@@ -46,6 +46,7 @@ export function ClipDrawer({ id, close, refresh, sound }: { id: string; close: (
                   : <button className="sm" onClick={() => run("/api/clips/bin", { ids: [c.id] })}>Move to bin</button>}
                 {!c.deleted_at && c.status === "qc_rejected" && c.file.exists && !(c.reject_reason || "").startsWith("too similar") && <button className="sm" onClick={() => run(`/api/clip/${c.id}/restore`)}>Back to queue</button>}
               </div>
+              {!c.deleted_at && c.title && <TitleIdeas c={c} after={async () => { await load(); await refresh(); }} />}
             </div>
           </div>
           <h3>What the render measured</h3>
@@ -62,5 +63,45 @@ export function ClipDrawer({ id, close, refresh, sound }: { id: string; close: (
         </div>
       )}
     </Drawer>
+  );
+}
+
+// Five ways to ask for the pick, one per angle, from the Title brain — and
+// only the ones the server let through. Choosing one goes through retitle,
+// so the old title and its numbers are kept, and the angle is kept with
+// them: when the metrics arrive this is how we learn which angle earned.
+interface Idea { angle: string; title: string; caption: string | null; why: string }
+interface Dropped { angle: string; title: string; why: string }
+
+function TitleIdeas({ c, after }: { c: ClipDetail; after: () => Promise<void> }) {
+  const [ideas, setIdeas] = useState<Idea[] | null>(null);
+  const [dropped, setDropped] = useState<Dropped[]>([]);
+  const [busy, setBusy] = useState(false);
+  const rerenderable = !c.published_at && c.status !== "published";
+  const ask = () => act(async () => {
+    setBusy(true);
+    try {
+      const out = await send<{ ideas: Idea[]; dropped: Dropped[] }>(`/api/clip/${c.id}/titles?captions=${rerenderable}`);
+      setIdeas(out.ideas); setDropped(out.dropped);
+      return out;
+    } finally { setBusy(false); }
+  }, { ok: "Ideas are in" });
+  const use = (i: Idea) => act(() => send(`/api/clip/${c.id}/text`, { title: i.title, why: `angle: ${i.angle}` }, "PATCH"), { ok: "Retitled", after });
+  const recaption = (i: Idea) => act(() => send(`/api/clip/${c.id}/hook`, { text: i.caption }), { ok: `Re-rendering with ${i.caption}`, after });
+  return (
+    <div className="stack gap-2">
+      <div className="row"><button className="sm" disabled={busy} onClick={ask}>{busy ? "Thinking…" : ideas ? "Suggest again" : "Suggest titles"}</button>
+        <span className="hint">five angles from the Title brain; the server drops any that tells the result, repeats a used opening, or breaks the channel's rules</span></div>
+      {ideas && ideas.length === 0 && <div className="hint">Nothing survived the gates this time — see below for why, and try again.</div>}
+      {ideas?.map((i) => (
+        <div key={i.angle} className="row wrap">
+          <Badge>{i.angle}</Badge><span className="grow">{i.title}</span>
+          <button className="sm ok" onClick={() => use(i)}>Use title</button>
+          {i.caption && rerenderable && <button className="sm" onClick={() => recaption(i)} title="Re-render the same race with this opening caption">Caption: {i.caption}</button>}
+          <span className="hint" style={{ flexBasis: "100%" }}>{i.why}</span>
+        </div>
+      ))}
+      {dropped.length > 0 && <details><summary className="hint">{dropped.length} dropped</summary>{dropped.map((d, n) => <div key={n} className="hint">{d.angle}: “{d.title}” — {d.why}</div>)}</details>}
+    </div>
   );
 }

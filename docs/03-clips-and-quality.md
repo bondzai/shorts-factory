@@ -76,6 +76,31 @@ the old title and the metrics at that moment, so the next numbers can be read
 as before/after rather than one blurred figure. On a manual channel the new
 title also has to be typed into Studio; the page says when.
 
+**Suggest titles**, on any clip, asks the Metadata brain for five ways in —
+one per angle — and shows only the ones the server let through:
+
+| angle | what it does to the thumb | e.g. |
+|---|---|---|
+| pick | the ritual: choose a marble, whole lineup named | `Pick your marble: red, blue or green` |
+| curiosity | there is an outcome; it is not said | `Only one gets out. Red, blue or green?` |
+| stakes | a number that describes the scene, never the ending | `Fifty-four marbles, one throat` |
+| challenge | call it before the mechanism does | `Call it before the wheel does` |
+| series | one of a run, a reason to come back | `Run it back: same three, the drums` |
+
+Nothing the model says is trusted. Each idea goes through the same spoiler
+gate as an agent's title, the feed's 60-character line, the channel's emoji
+setting (`[titles] emoji`, off — the rules say none, and no number yet says
+otherwise), English only, and a repetition check: an idea that opens on the
+same three words as any of the last twenty titles is dropped, which is the
+"not the same title in different colours" the button exists for. What was
+dropped is listed with its reason, so two ideas instead of five says why.
+
+Choosing one is a retitle, so the old title and its numbers are kept — and
+the angle is kept with them (`angle: curiosity` in the history). When metrics
+arrive, that is how the channel learns which angle earns, instead of arguing
+about it. On an unpublished clip each idea can also carry a caption; choosing
+that re-renders the same race with the new opening words.
+
 ## Where the files are
 
 Renders live under `data/work/<channel>/<clip>/clip.mp4`. Pressing
