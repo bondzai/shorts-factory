@@ -11,7 +11,9 @@ viewer would notice:
   runner-up   a second marble crosses before the clip cuts — the payoff
               for everyone who backed a different colour
   parked      marbles that end the clip not moving and not finished — but
-              not one a holding trap has hold of, which is `held`
+              not one a holding trap has hold of, which is `held`, and judged
+              over the race, not the tail; `short` counts races too brief to
+              judge at all
   out         marbles outside the frame (a pinch that launched one)
   duration    the median finish, which gravity is tuned to
   lead        how often the leader changes — the drama
@@ -21,17 +23,33 @@ median finish lands mid-window; `run` measures; `report` writes the table
 docs/06-stage-qa.md shows. The registry's weight is what makes a stage live,
 and a stage is only given one after it passes here.
 
-Two of these gates are measured over the whole round, tail included, so they
-moved when POST_WIN_MAX_S went 2.8 -> 7.0 s even though no race changed shape:
-`stuck` looks at the last eight seconds, which a 7 s tail now nearly fills, so
-a marble that settles after the winner is home is counted where before the clip
-had already cut; and `_leads` samples a longer round in which the lead cannot
-change, while the longer tail also clears the QC floor more often and so
-retries fewer seeds, which changes which attempt gets measured. Five stages
-that passed on 48 seeds now fail on parked or lead changes (pegboard,
-switchback, orchard, carnival, labyrinth) while every stage gained runner-ups
-and none fails the runner-up gate any more. Judging drama and parking over the
-race rather than the tail is the fix; it is not done here.
+Parked and lead changes are measured over the *race* — up to the winner's
+crossing — and everything else over the whole round. The split had to be made
+explicit when POST_WIN_MAX_S went 2.8 -> 7.0 s: `stuck` reads two four-second
+windows and `_leads` samples every frame, so given the round both were mostly
+measuring the seven seconds after the result rather than the race.
+
+What that was worth, measured on one tree over 48 seeds a stage, tail 2.8 vs
+7.0 with the metrics over the round and then over the race:
+
+  parked, round -> race   bumpers 85 -> 43 of 121, gauntlet 59 -> 41 of 133,
+                          pinwheel 23 -> 12, trapdoor 22 -> 6, arcade 14 -> 7.
+                          pinwheel and pachinko go from FAIL to pass on it.
+  lead, round -> race     slightly *lower* everywhere: zigzag 6.2 -> 5.9,
+                          switchback 1.8 -> 1.5. The round was counting the
+                          runner-up joining the winner at the bottom of the
+                          frame as the lead changing. Truer, and stricter.
+
+One correction to what this file said before. The claim that five stages
+(pegboard, switchback, orchard, carnival, labyrinth) went pass -> fail on the
+tail change was wrong: it compared against a report generated before the
+magnets and trapdoor sections changed the kit's geometry, so it charged the
+tail for other people's changes. Like for like, four of those five already
+failed at a 2.8 s tail, and only labyrinth moved — 1.6 -> 1.4 lead changes,
+which the scoping does not put back because it is not the window artifact at
+all: the longer tail clears the QC floor more often, so fewer seeds are
+retried and first-attempt races get measured in place of retried ones. That
+is the honest number for what ships.
 """
 
 from __future__ import annotations
@@ -83,6 +101,11 @@ class Report:
     runner_up: int = 0
     parked: int = 0
     others: int = 0
+    # Races too short to judge for parking: `stuck` wants two PARKED_S windows
+    # of race and the winner was home before it had them. Counted rather than
+    # quietly skipped, because a parked figure drawn from half a stage's races
+    # is weak evidence and the table should say so (pinwheel 21 of 48).
+    unjudged: int = 0
     out: int = 0
     durations: list[float] = field(default_factory=list)
     # The gap winner -> second, per finished race, None when no second marble
@@ -138,8 +161,11 @@ class Report:
     def row(self) -> str:
         r = self.rates
         verdict = "pass" if self.passed else "FAIL: " + "; ".join(self.problems())
+        parked = f"{self.parked}/{self.others}"
+        if self.unjudged:
+            parked += f" ({self.unjudged} short)"
         return (f"| `{self.stage}` | {self.gravity:.0f} | {self.finished}/{self.seeds} | {self.first_try}/{self.seeds} | "
-                f"{r['runner_up']:.0%} | {self.parked}/{self.others} | {self.out} | {self.median_s} | "
+                f"{r['runner_up']:.0%} | {parked} | {self.out} | {self.median_s} | "
                 f"{r['lead_changes']:.1f} | {r['comeback']:.0%} | {verdict} |")
 
 
@@ -158,7 +184,17 @@ def gravity(stage: str, value: float | None) -> Iterator[None]:
 
 
 def _leads(states) -> tuple[int, int | None]:
-    """Lead changes, sampled twice a second; and which marbles were ever last."""
+    """Lead changes, sampled twice a second; and which marbles were ever last.
+
+    `states` is the race — up to and including the winner's crossing, not the
+    whole round. After the winner is home the lead cannot change in any way a
+    viewer would call a change: the winner sits at the bottom and stays lowest
+    until the runner-up lands beside it, and *that* read as the lead changing.
+    Scoping to the race takes those out, so the count goes down rather than up
+    — zigzag 6.2 -> 5.9, switchback 1.8 -> 1.5 over 48 seeds. It makes this
+    gate bite harder, not less, which is the right direction for a true
+    number: five stages now sit under 1.5 (cascade 0.8, arcade 1.1, carnival
+    1.3, labyrinth 1.4, trapdoor 1.4)."""
     leader, changes, last_seen = None, 0, set()
     for frame in range(0, len(states), 15):
         ys = [y for _, y in states[frame]]
@@ -172,7 +208,7 @@ def _leads(states) -> tuple[int, int | None]:
 
 
 def stuck(states, i: int, style=None) -> bool:
-    """Made no headway down the course in the last PARKED_S seconds.
+    """Made no headway down the course in the last PARKED_S seconds of the race.
 
     First this was "moved under 20 px in two seconds", which is a marble at
     rest. It missed the one the agent's QA then found: wedged between a
@@ -180,6 +216,24 @@ def stuck(states, i: int, style=None) -> bool:
     race, moving all the time and going nowhere. Headway is the lowest point
     reached, so a marble bouncing in place or pinched and shaken counts, and
     one queueing slowly through a funnel throat does not.
+
+    `states` is the race, ending at the winner's crossing, because the two
+    windows this reads are eight seconds long and the tail is now seven: given
+    the round they would be almost entirely tail, and would report the state of
+    the field after the result rather than a defect during the race. A marble
+    going nowhere while the race is on is the defect this is for; one that was
+    still working its way down and settled once the result was in is the normal
+    end of a clip, which is what the render's `unfinished` reports separately.
+
+    A race shorter than the two windows is not judged at all, and the windows
+    are not shrunk to fit it. Scaling them down was tried and measured worse:
+    early in a race a marble is still being let go from the top and covers
+    little ground, so a 3 s window calls it parked when nothing is wrong —
+    gauntlet went from 41 parked in 133 to 76, pinwheel 12 to 34, and plinko
+    and pinball failed a gate they should pass. A false parked reading is the
+    exact failure this scoping is meant to remove. The races that go unjudged
+    are counted instead, as `Report.unjudged`, so the gap is visible rather
+    than silent: 18% of races have a winner home inside 8 s.
 
     A marble sitting in a holding trap is the one exception, and it is not a
     looser threshold — see `held`."""
@@ -281,6 +335,16 @@ def run(stage: str, seeds: range | list[int], *, gravity_value: float | None = N
             report.gaps.append(r["margin_s"])
             report.durations.append(r["duration_s"])
             states, style = r["states"], r["style"]
+            # Two of these are judged over the race and two over the round, and
+            # the split is the point. Leaving the frame is a glitch whenever it
+            # happens, and not having finished is only knowable at the cut, so
+            # both read the round's last frame. Parking and the lead are
+            # properties of the race, so they stop at the winner's crossing —
+            # otherwise a seven-second tail is most of what they measure.
+            race = states[: (r["winner_frame"] if r["winner_frame"] is not None
+                             else len(states) - 1) + 1]
+            if len(race) < 2 * int(PARKED_S * FPS):
+                report.unjudged += 1
             last = states[-1]
             for i, (x, y) in enumerate(last):
                 if not (-5 <= x <= W + 5 and -5 <= y <= H + 5):
@@ -288,9 +352,9 @@ def run(stage: str, seeds: range | list[int], *, gravity_value: float | None = N
                     continue
                 if y > 0.12 * H:  # above the line: did not finish
                     report.others += 1
-                    if stuck(states, i, style):
+                    if stuck(race, i, style):
                         report.parked += 1
-            changes, ever_last = _leads(states)
+            changes, ever_last = _leads(race)
             report.leads.append(changes)
             winner_index = next((i for i, b in enumerate(r["balls"]) if b.name == r["winner"]), None)
             report.comebacks += winner_index in ever_last
@@ -334,6 +398,10 @@ def report_markdown(reports: list[Report], seeds: int) -> str:
         f"{g['runner_up']:.0%} of races; no more than {g['parked_max']:.0%} of unfinished marbles are parked "
         f"and none leave the frame; the median finish is {g['duration'][0]}-{g['duration'][1]:.0f} s; and "
         f"the lead changes {g['lead_changes']} times a race or more.",
+        "",
+        "Parked and lead changes are measured over the race — up to the winner's crossing — and the "
+        "rest over the whole round. `(n short)` beside a parked figure is races whose winner was home "
+        "before there was enough race to judge parking in; that figure is drawn from the rest.",
         "",
         "A stage built from sections is given a weight — picked at random — only after it passes. "
         "The eleven hand-built stages predate QA and keep the weights they had; their verdicts are "
