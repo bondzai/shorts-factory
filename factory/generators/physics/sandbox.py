@@ -54,6 +54,16 @@ def unfinished(round_: dict, fps: int) -> tuple[list[str], list[str]]:
     return running, stopped
 
 
+def screen_order(round_: dict) -> list[str]:
+    """The marbles as the viewer meets them: left to right on the opening
+    frame. The channel's rules name the colours in screen order and never the
+    winner, so the order a title needs is this one — not the spawn order the
+    balls list keeps, which on seed 470547365 read green, red, violet, blue,
+    amber for a frame that showed red, blue, violet, amber, green."""
+    first = round_["states"][0]
+    return [b.name for _, b in sorted(zip(first, round_["balls"]), key=lambda t: t[0][0])]
+
+
 def generate(*, seed: int, variant: str, params: dict[str, Any], work_dir: Path) -> GeneratedClip:
     if variant not in VARIANTS:
         raise ValueError(f"physics: unknown variant {variant!r}")
@@ -174,6 +184,10 @@ def generate(*, seed: int, variant: str, params: dict[str, Any], work_dir: Path)
             # fault (see `unfinished`).
             "still_running_at_the_cut": unfinished(last, fps)[0],
             "stopped_before_the_end": unfinished(last, fps)[1],
+            # For whoever writes the words: the colours in screen order, and
+            # the stage in the render's own words with no result in them.
+            "lineup": screen_order(rounds[0]) if variant == "marble_race" else [],
+            "stage_words": stage_text(last) if variant == "marble_race" else "",
             "runner_up": last["runner_up"],
             "margin_s": last["margin_s"],
             "hook_text": hook_text,

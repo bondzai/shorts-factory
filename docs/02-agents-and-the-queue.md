@@ -33,6 +33,39 @@ agents uses. **Test** makes a one-word round trip so you know it works before
 an agent finds out the hard way. QC judges four frames, so it refuses a
 provider that cannot see images.
 
+**No brain at all, for the words.** `[llm] metadata_source = "template"`
+writes the title, description and pinned question from the render's facts
+and the channel's rules — the verb, the stage by name, the lineup in screen
+order, never the winner. That is the shape the rules already require, and
+it is the shape every agent-written title on the channel turned out to have,
+so a model was being paid to produce a string a template produces. The
+template is held to the same gates as an agent: the length bounds, and the
+spoiler check. It only knows marble races; another generator's clip goes to
+the Metadata brain, and the log says so. Switch back to `agent` when you
+want taste rather than ritual.
+
+**Making clips without spending a token.** Clip production and development
+are different bills. To keep Claude and Codex for the code and make clips
+on this machine:
+
+1. `ollama pull qwen2.5vl:7b` (about 6 GB; it sees frames, which QC needs)
+   and, for the text-only agents, `ollama pull qwen2.5:7b`.
+2. In `config.toml`, or on Settings → Brains, point the four agents at
+   `ollama/…` — the commented lines under `[llm.agents]` are the exact ones.
+3. `factory brains --test ollama` for one round trip, then **Build planned**
+   on the console (or `factory build`). The MCP workers on the Team screen
+   are the Claude/Codex path and are not needed for this.
+
+Every frame a brain sees is shrunk first (`[llm] image_long_edge`, 768 by
+default): the render's 1080×1920 frames were two to three thousand tokens
+each, and at 288×512 every marble and the caption are still plain to see.
+That saving applies to the API providers too.
+
+On a small machine the model, not the render, is the wait: a clip renders
+in seconds, a 7B model on a CPU answers in tens of seconds to minutes. The
+template takes the per-clip Metadata call out entirely; QC is the one call
+left per clip.
+
 ## The queue
 
 A task is a kind plus parameters — `make-clip` with a variant and maybe a

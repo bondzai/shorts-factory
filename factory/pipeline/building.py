@@ -19,7 +19,7 @@ import sqlite3
 from dataclasses import dataclass
 
 from .. import channels, db, gc, generators, logs, phash, render, settings
-from ..agents import metadata as metadata_agent, qc
+from ..agents import metadata as metadata_agent, qc, template
 from ..channels import Channel
 from ..models import (
     AWAITING_APPROVAL,
@@ -30,6 +30,7 @@ from ..models import (
     RENDERED,
 )
 from .common import StageOutcome, resolve, sample_times
+from .spoilers import spoiler
 
 
 @dataclass
@@ -148,14 +149,7 @@ def build(conn: sqlite3.Connection, clip_id: str, *, force: bool = False) -> Sta
             )
             logs.event("clip.metadata_reused", channel=ch.id, clip=clip_id, title=meta.title)
         else:
-            meta, cost = metadata_agent.write_metadata(
-            description=clip.description,
-                facts=clip.facts,
-                hook=row["hook"] or "",
-            rules=ch.rules(),
-                recent_titles=[r["title"] for r in recent if r["title"]],
-                frames=frames,
-            )
+            meta, cost, by = written_metadata(row, ch, clip, frames, recent)
             spent += cost
             db.update(
                 conn,
@@ -167,7 +161,7 @@ def build(conn: sqlite3.Connection, clip_id: str, *, force: bool = False) -> Sta
             )
             logs.event(
                 "clip.described", channel=ch.id, clip=clip_id,
-                title=meta.title, hashtags=meta.hashtags, cost_usd=round(cost, 6),
+                title=meta.title, hashtags=meta.hashtags, cost_usd=round(cost, 6), by=by,
             )
     except Exception as exc:
         db.add_cost(conn, clip_id, spent)
@@ -217,6 +211,38 @@ def build(conn: sqlite3.Connection, clip_id: str, *, force: bool = False) -> Sta
             stage="qc", error=str(exc),
         )
         return StageOutcome(clip_id, FAILED, f"qc failed: {exc}", spent)
+
+
+def written_metadata(row, ch, clip, frames, recent):
+    """The clip's words, from the template or the Metadata agent, per
+    `[llm] metadata_source`. Returns (metadata, cost, who).
+
+    The template writes only what the rules already fix and is held to the
+    same spoiler check as an agent — a template with a bug in it must not be
+    the one thing that can ship a result in a title. What it cannot write
+    (another generator's clip) goes to the agent, and the log says so.
+    """
+    source = settings.load().llm.get("metadata_source", "agent")
+    if source == "template" and template.can_write(clip.facts):
+        meta, cost = template.write_metadata(facts=clip.facts, seed=row["seed"])
+        first_sentence = meta.description.split(". ")[0]
+        problem = spoiler(clip.facts, title=meta.title, comment_prompt=meta.comment_prompt,
+                          description=first_sentence)
+        if problem:
+            raise ValueError(f"template: {problem}")
+        return meta, cost, "template"
+    if source == "template":
+        logs.event("clip.metadata_template_declined", channel=ch.id, clip=row["id"],
+                   variant=clip.facts.get("variant"))
+    meta, cost = metadata_agent.write_metadata(
+        description=clip.description,
+        facts=clip.facts,
+        hook=row["hook"] or "",
+        rules=ch.rules(),
+        recent_titles=[r["title"] for r in recent if r["title"]],
+        frames=frames,
+    )
+    return meta, cost, "agent"
 
 
 def build_all(

@@ -44,7 +44,7 @@ you as a clip to approve.
   <text class="lane-name" x="20" y="224">Agents · over MCP</text>
   <rect class="card key" x="24" y="234" width="200" height="48"/><text class="t" x="36" y="254">Claude Code / Codex</text><text class="s" x="36" y="270">next_task → render_clip → submit_qc → finish_task</text>
   <rect class="card" x="244" y="234" width="170" height="48"/><text class="t" x="256" y="254">factory mcp</text><text class="s" x="256" y="270">the tools, one process per agent</text>
-  <rect class="card" x="434" y="234" width="160" height="48"/><text class="t" x="446" y="254">Built-in agents</text><text class="s" x="446" y="270">idea · metadata · QC · analyst (API key)</text>
+  <rect class="card" x="434" y="234" width="160" height="48"/><text class="t" x="446" y="254">Built-in agents</text><text class="s" x="446" y="270">idea · metadata · QC · analyst — local or API</text>
   <rect class="card" x="614" y="234" width="116" height="48"/><text class="t" x="626" y="254">Playbooks</text><text class="s" x="626" y="270">prompts/*.md + skills</text>
 
   <rect class="lane" x="8" y="308" width="744" height="100"/>

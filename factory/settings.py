@@ -72,6 +72,12 @@ SCHEMA: list[dict[str, Any]] = [
     {"section": "render", "key": "skip_start_s", "type": "number", "min": 0, "max": 3, "step": 0.1,
      "label": "Open mid-action (s dropped from the start)",
      "help": "The swipe decision is made in the first two seconds; marbles leaving the gate are the dullest part."},
+    {"section": "llm", "key": "metadata_source", "type": "select", "options": ["agent", "template"],
+     "label": "Who writes the title", "help": "template: from the facts and the channel's own rules, no model, no cost. "
+     "agent: the Metadata brain on Settings \u2192 Brains (local or API)."},
+    {"section": "llm", "key": "image_long_edge", "type": "number", "min": 256, "max": 1920, "step": 64,
+     "label": "Frames sent to a brain (px, long edge)",
+     "help": "Sampled frames are shrunk to this before any model sees them. 512 is plainly legible; 768 leaves room."},
     {"section": "analyst", "key": "min_published_for_rules", "type": "number", "min": 1, "max": 500, "step": 1,
      "label": "Clips before the Analyst may propose rules"},
 ]

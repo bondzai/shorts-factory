@@ -235,14 +235,45 @@ def _record(agent: str | None, usage: Any, cost: float, p: Provider, model: str,
 
 # --- content ------------------------------------------------------------------
 
+def shrink(png: bytes, long_edge: int) -> bytes:
+    """A sampled frame, no bigger than it needs to be to be judged.
+
+    The render's frames are 1080x1920 and 180-270 KB each; four of them are a
+    megabyte of base64 in one request, and a model turns each into two or
+    three thousand tokens before it has read a word. At 288x512 every marble,
+    peg and the caption are still plain to see (looked at, not assumed), the
+    file is 40 KB, and the image is a tenth of the tokens. The default sits
+    above that with room to spare. Flat colour, so PNG stays smaller than
+    JPEG and has no artefacts to misread as a marble."""
+    from io import BytesIO
+
+    from PIL import Image, UnidentifiedImageError
+
+    try:
+        im = Image.open(BytesIO(png))
+    except (UnidentifiedImageError, OSError):
+        return png  # not a picture we can read: shrinking is a saving, not a gate
+    with im:
+        if max(im.size) <= long_edge:
+            return png
+        ratio = long_edge / max(im.size)
+        small = im.resize((round(im.width * ratio), round(im.height * ratio)), Image.LANCZOS)
+        out = BytesIO()
+        small.save(out, format="PNG", optimize=True)
+        return out.getvalue()
+
+
 def image_blocks(pngs: list[bytes]) -> list[dict[str, Any]]:
     """PNG bytes -> image content blocks, for agents that need to see the render.
 
     Anthropic's shape; `_to_openai_content` translates when the provider needs it.
+    Every image is shrunk first (see `shrink`) — the same frames go to every
+    provider, so this is where the saving applies to all of them.
     """
+    long_edge = int(settings.load().llm.get("image_long_edge", 768))
     return [
         {"type": "image", "source": {"type": "base64", "media_type": "image/png",
-                                     "data": base64.standard_b64encode(png).decode("ascii")}}
+                                     "data": base64.standard_b64encode(shrink(png, long_edge)).decode("ascii")}}
         for png in pngs
     ]
 
