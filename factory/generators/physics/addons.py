@@ -10,9 +10,9 @@ import random
 
 import pymunk
 
-from ..stagekit import _wall as wall, _peg as peg, _spinner as spinner
+from ..stagekit import _wall as wall, _peg as peg, _spinner as spinner, marble_room
 from .model import Style
-from .registry import GATE_STAGES, SPINNER_ROWS, SPINNER_STAGES, STAGE_BY_ID
+from .registry import GATE_STAGES, SPINNER_ROWS, SPINNER_STAGES, STAGE_BY_ID, TWIN_STAGES
 
 # How much the marbles differ in size. This was +/-12%, with a comment
 # saying identical marbles keep their starting order and never overtake.
@@ -51,6 +51,27 @@ GATE_RISE_COMPOSED = 0.16  # of the height, arm mouth over throat: slope about 0
 # and two stalls; 1.0-1.5 gave both — no stalls, a runner-up on 8 of 18.
 GAUNTLET_OMEGA = (1.0, 1.5)
 # SPINNER_ROWS is derived from Stage.spinner_rows in the registry.
+
+# --- the twin finish ----------------------------------------------------------
+# The single throat gathers the field and then hands the race to whoever is in
+# front of the queue. A twin finish asks one more question after that: the run-in
+# forks, and the bounce that picks a side is the last thing that happens before
+# the line. Turned on per stage with Stage.twin in the registry.
+TWIN_GAP = (0.175, 0.205)  # of the width, EACH exit; floored at a marble's room below
+TWIN_HALF = 0.075          # of the width, half the divider's base: 40 px on a 540 px frame
+TWIN_RISE = 0.055          # of the height, the crown over the throat line: 53 px
+# Half the crown, as a fraction of the width. A divider has to shed what lands
+# on it, and docs/04 has both ways of getting that wrong measured on the
+# cascade: a flat cap is a ledge a marble rests on, a bare point is an apex it
+# balances on. The chutes section's answer is a short cap tilted at 0.4, which
+# is the slope every stage in the kit holds its ramps at, so the crown here is
+# the same shape at a quarter of the size.
+TWIN_CAP = 0.028
+TWIN_TILT = 0.4
+# Tighter than the single throat's 0.42-0.58: the fork is three times as wide
+# as one throat (2 x 0.19 w + 0.15 w = 0.53 w), so its outer tips would leave
+# the frame at that spread.
+TWIN_CENTRE = (0.46, 0.54)
 
 
 def add_spinners(space, w, h, rng, style):
@@ -117,7 +138,14 @@ def add_finish_gate(space, w, h, rng, style) -> None:
     arrive, and they go through as a pack. What comes out the other side is
     a finish nobody could call — which is the thing worth watching.
     """
-    if style.stage not in GATE_STAGES or rng.random() > FINISH_GATE_CHANCE:
+    if style.stage not in GATE_STAGES:
+        return
+    twin = style.stage in TWIN_STAGES
+    # A twin finish is the whole point of the stages that ask for one, so it is
+    # on every seed. The single throat stays on 72% of them, which is where it
+    # was measured — and the roll is only taken on that path, so every seed a
+    # gated stage has already rendered replays unchanged.
+    if not twin and rng.random() > FINISH_GATE_CHANCE:
         return
     throat = h * GATE_HEIGHT + 110.0
     spec = STAGE_BY_ID.get(style.stage)
@@ -126,14 +154,65 @@ def add_finish_gate(space, w, h, rng, style) -> None:
     # 0.34) are barely downhill: marbles sat on them for the last eight
     # seconds of a clip. Their arms are steeper.
     mouth = throat + h * (GATE_RISE_COMPOSED if composed else 0.11)
+    if twin:
+        _twin_finish(space, w, h, rng, style, throat, mouth)
+        return
     centre = w * rng.uniform(0.42, 0.58)
     # A composed stage gets a wider throat. At 0.17-0.21 w two marbles can
     # arch across it; stage QA found 27 of switchback's 28 stuck marbles
     # jostling there, and it is where bumpers parks its marbles too. The
     # hand-built stages keep theirs so their seeds replay unchanged.
     gap = w * rng.uniform(*(GATE_GAP_COMPOSED if composed else GATE_GAP))
+    _arms(space, w, style, throat, mouth, centre, gap / 2)
+
+
+def _arms(space, w, style, throat: float, mouth: float, centre: float, inner: float) -> None:
+    """The run-in's two outer ramps, from off-frame down to `inner` px either
+    side of `centre`. Shared by the single throat and the twin finish, which
+    differ only in where the arms stop and what sits between them."""
     for side in (-1, 1):
         a = (w / 2 + side * w * 0.62, mouth)  # past the wall, so nothing goes round
-        b = (centre + side * gap / 2, throat)
+        b = (centre + side * inner, throat)
         wall(space, a, b, thickness=style.thickness / 2)
         style.gates.append((a, b))
+
+
+def _twin_finish(space, w, h, rng, style, throat: float, mouth: float) -> None:
+    """Two exits instead of one, split by a wedge on the throat line.
+
+    What this buys: the single throat decides the race at the back of a
+    queue, several seconds before the line. Here the field still queues, but
+    the wedge splits it at the last moment, and neither exit is faster than
+    the other — so the bounce that picks a side is the last thing that
+    happens, and it happens on camera.
+
+    Neither exit is a dead end, and that is geometry rather than luck: the
+    only thing the arms and the wedge reach down to is `throat`, which is
+    h * 0.085 + 110 = 192 px on a 960 px frame, and the finish line is at
+    110. Below the wedge's base there is nothing but the 82 px of open frame
+    both exits empty into, so a marble through either side is past the line.
+    """
+    room = marble_room(w)
+    # Centre to centre, so both segment radii come out of it: two walls
+    # `style.thickness / 2` thick leave `gap - style.thickness` clear, and
+    # what has to clear a marble is the clear width. 0.175 w is 94 px on a
+    # 540 px frame, 80 px clear against a 72 px marble_room and a 57 px
+    # marble — the same clearance the throat ships with.
+    gap = max(w * rng.uniform(*TWIN_GAP), room + style.thickness)
+    half = w * TWIN_HALF
+    centre = w * rng.uniform(*TWIN_CENTRE)
+    _arms(space, w, style, throat, mouth, centre, half + gap)
+    cap, crown = w * TWIN_CAP, throat + h * TWIN_RISE
+    tilt = rng.choice([-1, 1])
+    cap_a = (centre - cap, crown + tilt * cap * TWIN_TILT)
+    cap_b = (centre + cap, crown - tilt * cap * TWIN_TILT)
+    base_a, base_b = (centre - half, throat), (centre + half, throat)
+    # Solid, not three thin edges: the gauntlet's wall wedges were edges
+    # first and a pinched marble tunnelled inside one. The flanks come out at
+    # a slope of 1.8-2.3, four times the 0.4 a marble is known to rest on.
+    poly = pymunk.Poly(space.static_body, [cap_a, cap_b, base_b, base_a])
+    poly.elasticity, poly.friction = 0.46, 0.30
+    space.add(poly)
+    # Drawn as the gate it is part of, so both renderers light it up and pulse
+    # it when a marble crosses without knowing a twin finish exists.
+    style.gates += [(cap_a, cap_b), (cap_a, base_a), (cap_b, base_b), (base_a, base_b)]

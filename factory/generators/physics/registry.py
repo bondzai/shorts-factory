@@ -40,6 +40,7 @@ class Stage:
     spinner_rows: tuple[float, ...] = ()
     wheel: int = 0
     gate: bool = False
+    twin: bool = False  # the gate forks into two exits instead of one throat
     parts: tuple = ()
 
     @property
@@ -55,7 +56,7 @@ def obstacles(style, segments) -> int:
     return len(style.circles) or len(segments)
 
 
-def composed(id_, parts, *, gravity, noun, blurb, weight=0.0, gate=False):
+def composed(id_, parts, *, gravity, noun, blurb, weight=0.0, gate=False, twin=False):
     """A stage stacked from stagekit sections. With the finish throat the
     stack stops above the throat's mouth (0.31 h) with a marble's room to
     spare — the drums and sieve stages learned what a section overlapping
@@ -64,7 +65,7 @@ def composed(id_, parts, *, gravity, noun, blurb, weight=0.0, gate=False):
     return Stage(
         id=id_, build=build, gravity=gravity, noun=noun, blurb=blurb,
         describe=lambda style, segments, _p=tuple(parts): stagekit.describe_parts(_p),
-        weight=weight, gate=gate, parts=tuple(parts),
+        weight=weight, gate=gate, twin=twin, parts=tuple(parts),
     )
 
 
@@ -126,6 +127,15 @@ STAGE_SPECS: list[Stage] = [
               blurb="pegs, a sieve of tilted bars, then a funnel", weight=0.05),
     composed("spillway", [("chutes", 1.5), ("pegs", 1.0), ("funnel", 0.9)], gravity=-30.0, noun="chutes",
               blurb="split-and-rejoin chutes, pegs, then a funnel", weight=0.05),
+    # The twin finish, on trial. Every other stage hands the race to whoever
+    # leads the queue at the throat; this one forks the run-in, so the last
+    # thing that happens before the line is a bounce picking a side. The stack
+    # under it is chosen to deliver a bouncing field rather than a sorted one:
+    # chutes swap sides, bumpers scatter, and the pegs above the fork mean no
+    # marble arrives already committed to an exit.
+    composed("delta", [("chutes", 1.3), ("bumpers", 1.0), ("pegs", 1.0)], gravity=-30.0, noun="chutes",
+              blurb="chutes and bumpers into a finish that forks — the last bounce picks a side",
+              gate=True, twin=True),
     # COMPOSED-STAGES-END
 ]
 
@@ -141,4 +151,5 @@ SPINNER_STAGES = {st.id: st.spinners for st in STAGE_SPECS if st.spinners}
 SPINNER_ROWS = {st.id: st.spinner_rows for st in STAGE_SPECS if st.spinners}
 WHEEL_STAGES = {st.id: st.wheel for st in STAGE_SPECS if st.wheel}
 GATE_STAGES = tuple(st.id for st in STAGE_SPECS if st.gate)
+TWIN_STAGES = tuple(st.id for st in STAGE_SPECS if st.twin)
 BUILDERS = {st.id: st.build for st in STAGE_SPECS}

@@ -11,7 +11,7 @@ import json
 import pytest
 
 from factory import channels, db, settings, tasks
-from factory.generators import physics
+from factory.generators import physics, stagekit
 
 W, H, FPS = 540, 960, 30
 SEEDS = (9000, 9053, 9106, 9159, 9212, 9265)
@@ -189,3 +189,76 @@ def test_a_throat_is_named_in_the_clip_text_when_there_is_one():
     assert "throat" not in physics.stage_text({"style": style, "segments": []})
     style.gates.append(((0.0, 200.0), (100.0, 200.0)))
     assert "throat" in physics.stage_text({"style": style, "segments": []})
+
+
+# --- the twin finish: two exits instead of one throat -------------------------
+
+
+def _twin(seed, stage="delta"):
+    """The run-in of one twin-finish seed. style.gates is laid down in one
+    order: the two arms, then the wedge's crown, its two flanks and its base."""
+    style = physics.simulate(seed=seed, variant="marble_race", sim_w=W, sim_h=H,
+                             fps=FPS, max_frames=2, stage=stage)[6]
+    left_arm, right_arm = style.gates[0], style.gates[1]
+    base = [style.gates[3][1], style.gates[4][1]]  # the flanks' lower ends
+    return style, left_arm, right_arm, min(b[1] for _, b in style.gates), base
+
+
+def test_a_twin_stage_always_gets_its_fork_and_a_plain_gated_stage_never_does():
+    """The fork is what its stage is for, so unlike the 72% throat it is on
+    every seed; and turning it on is one flag in the registry, so no other
+    gated stage may sprout one."""
+    assert set(physics.TWIN_STAGES) <= set(physics.GATE_STAGES) <= set(physics.STAGES)
+    assert physics.TWIN_STAGES, "no stage shows the twin finish off"
+    for seed in [9000 + i * 53 for i in range(12)]:
+        assert len(_twin(seed)[0].gates) == 6  # two arms, four wedge edges
+    for stage in ("bumpers", "plinko"):
+        assert stage not in physics.TWIN_STAGES
+        for seed in [9000 + i * 53 for i in range(12)]:
+            style = physics.simulate(seed=seed, variant="marble_race", sim_w=W, sim_h=H,
+                                     fps=FPS, max_frames=2, stage=stage)[6]
+            assert len(style.gates) in (0, 2), (stage, seed, len(style.gates))
+
+
+def test_both_exits_of_the_twin_finish_clear_a_marble_and_neither_is_a_dead_end():
+    """Two ways the fork could fail and neither is left to luck: an exit too
+    narrow parks the field in it (every parked marble the throat ever had was
+    jostling in one), and an exit that does not reach open frame is a pocket.
+    Below the wedge's base there is nothing until the line at y = 110."""
+    room = stagekit.marble_room(W)
+    for seed in [9000 + i * 53 for i in range(30)]:
+        style, left_arm, right_arm, throat, base = _twin(seed)
+        balls = physics.simulate(seed=seed, variant="marble_race", sim_w=W, sim_h=H,
+                                 fps=FPS, max_frames=2, stage="delta")[2]
+        # The wedge sits ON the throat line, not below it: nothing of the
+        # run-in reaches into the open frame the exits empty into.
+        assert [round(b[1], 3) for b in base] == [round(throat, 3)] * 2, seed
+        # Centre to centre less both segment radii is the clear width.
+        for tip, corner in zip(sorted(b for _, b in (left_arm, right_arm)), sorted(base)):
+            clear = abs(tip[0] - corner[0]) - style.thickness
+            assert clear >= room, (seed, clear, room)
+        # Open frame under the wedge, and the line is in it.
+        assert throat > 110 + max(b.radius for b in balls), (seed, throat)
+        assert all(7 < x < W - 7 for x in [left_arm[1][0], right_arm[1][0]] + [b[0] for b in base])
+
+
+def test_nothing_on_the_twin_wedge_can_come_to_rest_on_it():
+    """docs/04 has both ways of getting a divider wrong measured on the
+    cascade: a flat cap is a ledge, a bare point is an apex a marble balances
+    on. Every face here sheds at 0.4 or steeper — the slope the whole kit
+    holds its ramps at — and the wedge is one solid body, because the
+    gauntlet's wall wedges were thin edges first and a marble tunnelled in."""
+    for seed in [9000 + i * 53 for i in range(30)]:
+        style, left_arm, right_arm, throat, _ = _twin(seed)
+        crown, flanks = style.gates[2], style.gates[3:5]
+        assert crown[0][1] != crown[1][1], seed  # tilted, so not a ledge
+        for a, b in (crown, *flanks, left_arm, right_arm):
+            assert abs(b[1] - a[1]) / abs(b[0] - a[0]) >= 0.4, (seed, a, b)
+
+
+def test_a_twin_finish_is_named_in_the_clip_text_rather_than_a_throat():
+    style = physics.Style()
+    style.stage, style.circles = physics.TWIN_STAGES[0], [(0, 0, 1)] * 30
+    style.gates.append(((0.0, 200.0), (100.0, 200.0)))
+    text = physics.stage_text({"style": style, "segments": []})
+    assert "forks into two exits" in text and "throat in the run-in" not in text
