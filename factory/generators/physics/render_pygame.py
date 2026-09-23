@@ -12,7 +12,7 @@ import random
 from .. import fx
 from .model import ROCK_AMPLITUDE, Style
 from .registry import STAGES
-from .render_pil import belt_marks
+from .render_pil import belt_marks, magnet_marks
 
 def frames_pygame(states, balls, segments, sim_w, sim_h, overlay=None, style=None,
     winner_frame=None, winner=None, ask=None, impacts=(), fps=30,
@@ -135,6 +135,24 @@ def frames_pygame(states, balls, segments, sim_w, sim_h, overlay=None, style=Non
                 back_a = (mx - ux * 3 + nx * 4, Y(my - uy * 3 + ny * 4))
                 back_b = (mx - ux * 3 - nx * 4, Y(my - uy * 3 - ny * 4))
                 pygame.draw.polygon(surface, fx.lighten(style.structure, 110), [tip, back_a, back_b])
+        for mx, my, core, _soft, reach, _pull in style.magnets:
+            # Same magnet as the PIL renderer, with the kit's usual moving-part
+            # treatment: the field breathes so a viewer reads it as live before
+            # a marble reaches it, the way a spinner's glow says how fast it
+            # turns. The ring sits exactly where the force reaches.
+            iy = Y(my)
+            breath = 0.5 + 0.5 * math.sin(t * 2.2)
+            fx.soft(surface, mx, iy, reach, (*structure_hi, int(24 + 20 * breath)), width=1)
+            for px, py, ux, uy in magnet_marks(mx, my, reach, t):
+                nx, ny = -uy, ux
+                pygame.draw.polygon(surface, fx.lighten(style.structure, 78 + int(40 * breath)),
+                                    [(px + ux * 17, Y(py + uy * 17)),
+                                     (px - ux * 2 + nx * 4, Y(py - uy * 2 + ny * 4)),
+                                     (px - ux * 2 - nx * 4, Y(py - uy * 2 - ny * 4))])
+            pygame.draw.circle(surface, fx.lighten(style.structure, 110), (int(mx), int(iy)), int(core),
+                               draw_top_left=True, draw_top_right=True)
+            pygame.draw.circle(surface, fx.lighten(style.structure, 14), (int(mx), int(iy)), int(core),
+                               draw_bottom_left=True, draw_bottom_right=True)
         for a, b in style.gates:
             col = fx.lighten(gate_col, int(120 * gate_pulse))
             fx.capped_line(surface, (a[0], Y(a[1])), (b[0], Y(b[1])), style.thickness, col)

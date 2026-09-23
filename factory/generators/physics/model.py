@@ -121,6 +121,7 @@ class Style:
     lane: list[tuple[tuple[float, float], tuple[float, float]]] = field(default_factory=list)  # the gauntlet's two verticals
     lane_wedges: list[tuple[tuple[float, float], tuple[float, float]]] = field(default_factory=list)  # gauntlet wall wedges beside each bar
     belts: list[tuple[tuple[float, float], tuple[float, float], float]] = field(default_factory=list)  # a, b, px/s along a→b
+    magnets: list[tuple[float, float, float, float, float, float]] = field(default_factory=list)  # x, y, core, soft, reach, pull (x gravity)
 
 
 @dataclass

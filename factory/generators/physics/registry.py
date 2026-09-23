@@ -136,6 +136,11 @@ STAGE_SPECS: list[Stage] = [
     composed("delta", [("chutes", 1.3), ("bumpers", 1.0), ("pegs", 1.0)], gravity=-30.0, noun="chutes",
               blurb="chutes and bumpers into a finish that forks — the last bounce picks a side",
               gate=True, twin=True),
+    # Trial: the first stage with a force in it rather than only shapes. Pegs
+    # set the field spreading, magnets pull it off line, pegs again so the
+    # deflection has something to argue with before the run-in.
+    composed("lodestone", [("pegs", 1.0), ("magnets", 1.3), ("pegs", 1.0)], gravity=-30.0, noun="magnets",
+              blurb="pegs, then magnets that pull the marbles off line, then more pegs", gate=True),
     # COMPOSED-STAGES-END
 ]
 

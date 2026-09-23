@@ -12,6 +12,7 @@ import random
 import pymunk
 
 from ... import audio, settings
+from ..stagekit import magnet_accel
 from .build import build_funnel, build_race
 from .model import (FUNNEL_GRAVITY, IMPACT_DV, MAX_ATTEMPTS, MAX_IMPACTS_PER_FRAME, MAX_SPEED, PACE_QUICKER,
                     PACE_SLOWER, POST_WIN_MAX_S, POST_WIN_S, RACE_GRAVITY, ROCK_AMPLITUDE,
@@ -92,6 +93,10 @@ def simulate(*, seed: int, variant: str, sim_w: int, sim_h: int, fps: int, max_f
         finish_y = None
 
     dt = 1.0 / (fps * SUBSTEPS)
+    # The magnet's pull is a multiple of the stage's own gravity, which is
+    # fixed for the run by the time the build and the pace lean are done.
+    gravity_mag = abs(space.gravity.y)
+    pull_cap = max((m[5] for m in style.magnets), default=0.0) * gravity_mag
     states: list[list[tuple[float, float]]] = []
     impacts: list[audio.Impact] = []
     previous = [(b.body.velocity.x, b.body.velocity.y) for b in balls]
@@ -112,6 +117,27 @@ def simulate(*, seed: int, variant: str, sim_w: int, sim_h: int, fps: int, max_f
                 body.angle = (rest[0] if rest else 0.0) + ROCK_AMPLITUDE * math.sin(omega * t + phase)
                 body.angular_velocity = ROCK_AMPLITUDE * omega * math.cos(omega * t + phase)
         for _ in range(SUBSTEPS):
+            # Magnets are applied per substep, not per frame: the force depends
+            # on where the marble is, and at four substeps a frame a marble
+            # crosses a good part of a field between frames. Applied once a
+            # frame the pull is stale by the time it matters, and the same seed
+            # gives a visibly different race at a different substep count.
+            # `body.force` is set, not accumulated, so nothing carries over.
+            if style.magnets:
+                for ball in balls:
+                    px, py = ball.body.position
+                    ax = ay = 0.0
+                    for mx, my, _core, soft, reach, pull in style.magnets:
+                        dax, day = magnet_accel(mx - px, my - py, soft, reach, pull * gravity_mag)
+                        ax += dax
+                        ay += day
+                    # Fields are placed two reaches apart so they cannot overlap,
+                    # but a stack is composed at run time and this is the cheap
+                    # guarantee that the measured cap holds however they land.
+                    total = math.hypot(ax, ay)
+                    if total > pull_cap:
+                        ax, ay = ax * pull_cap / total, ay * pull_cap / total
+                    ball.body.force = (ball.body.mass * ax, ball.body.mass * ay)
             space.step(dt)
 
         frame_impacts = []

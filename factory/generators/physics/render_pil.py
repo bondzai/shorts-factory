@@ -76,6 +76,29 @@ def frames_pil(states, balls, segments, sim_w, sim_h, overlay=None, style=None,
                               (mx - ux * 3 + nx * 4, sim_h - (my - uy * 3 + ny * 4)),
                               (mx - ux * 3 - nx * 4, sim_h - (my - uy * 3 - ny * 4))],
                              fill=tuple(min(255, c + 110) for c in style.structure))
+        for mx, my, core, _soft, reach, _pull in style.magnets:
+            # A magnet is drawn as what it is: a solid core, and the field it
+            # pulls with. The rings are where the force actually reaches, so
+            # the picture and the physics agree — an obstacle a viewer cannot
+            # see moving marbles would read as a bug, not a feature.
+            iy = sim_h - my
+            draw.ellipse([mx - reach, iy - reach, mx + reach, iy + reach],
+                         outline=tuple(min(255, c + 7) for c in style.structure), width=1)
+            # Long, narrow arrows converging on the core. Short wide ones were
+            # tried and read as markers sitting on the ring — the eye saw an
+            # orbit, not a pull. Length is what carries the direction.
+            for px, py, ux, uy in magnet_marks(mx, my, reach, t):
+                nx, ny = -uy, ux
+                draw.polygon([(px + ux * 17, sim_h - (py + uy * 17)),
+                              (px - ux * 2 + nx * 4, sim_h - (py - uy * 2 + ny * 4)),
+                              (px - ux * 2 - nx * 4, sim_h - (py - uy * 2 - ny * 4))],
+                             fill=tuple(min(255, c + 78) for c in style.structure))
+            # Two poles, split like a bar magnet's: the light half against the
+            # dark is what makes the core a magnet and not another peg.
+            draw.pieslice([mx - core, iy - core, mx + core, iy + core], 180, 360,
+                          fill=tuple(min(255, c + 110) for c in style.structure))
+            draw.pieslice([mx - core, iy - core, mx + core, iy + core], 0, 180,
+                          fill=tuple(min(255, c + 14) for c in style.structure))
         for a, b in style.gates:
             draw.line([(a[0], sim_h - a[1]), (b[0], sim_h - b[1])],
                       fill=tuple(min(255, c + 34) for c in style.structure), width=style.thickness)
@@ -143,6 +166,24 @@ def belt_marks(a, b, speed: float, t: float, spacing: float = 26.0):
     while d < length - 4:
         marks.append((a[0] + ux * d, a[1] + uy * d, ux, uy))
         d += spacing
+    return marks
+
+
+def magnet_marks(mx: float, my: float, reach: float, t: float, count: int = 12):
+    """Where a magnet's chevrons are at time t: evenly spaced around the edge
+    of the field and pointing inward, at the centre.
+
+    Concentric rings alone were tried first and read as a target or an orbit
+    diagram, not as a magnet — on the contact sheet the marbles looked like
+    they were in orbit rather than being pulled. Inward chevrons say which way
+    the force goes, and they say it in the vocabulary the kit already uses:
+    a belt draws the same chevron pointing the way it runs. Returns
+    (x, y, ux, uy) in physics coordinates, ux/uy being the inward direction."""
+    marks = []
+    for k in range(count):
+        angle = t * 0.6 + k * 2 * math.pi / count   # a slow turn, so it reads as live
+        px, py = mx + math.cos(angle) * reach, my + math.sin(angle) * reach
+        marks.append((px, py, -math.cos(angle), -math.sin(angle)))
     return marks
 
 
