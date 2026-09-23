@@ -18,7 +18,8 @@ from .model import (FUNNEL_GRAVITY, IMPACT_DV, MAX_ATTEMPTS, MAX_IMPACTS_PER_FRA
                     PACE_SLOWER, POST_WIN_MAX_S, POST_WIN_S, RACE_GRAVITY, ROCK_AMPLITUDE,
                     STALL_SPEED, SUBSTEPS, Stalled, trap_angle)
 
-def run_round(seed, variant, params, cfg, sim_w, sim_h, fps, lineup=None) -> dict:
+def run_round(seed, variant, params, cfg, sim_w, sim_h, fps, lineup=None, *,
+              post_win_s: float | None = None, post_win_max_s: float | None = None) -> dict:
     """One simulated race, opened mid-action, with its finish arithmetic."""
     max_frames = int(float(params.get("max_seconds", cfg["max_seconds"])) * fps)
     skip = int(float(params.get("skip_start_s", cfg.get("skip_start_s", 0))) * fps)
@@ -36,6 +37,8 @@ def run_round(seed, variant, params, cfg, sim_w, sim_h, fps, lineup=None) -> dic
                 seed=seed + attempt * 7919, variant=variant, sim_w=sim_w, sim_h=sim_h,
                 fps=fps, max_frames=max_frames, stage=params.get("stage") or params.get("course"),
                 background=params.get("background"), lineup=lineup, pace=pace, min_frames=min_frames,
+                post_win_max_s=POST_WIN_MAX_S if post_win_max_s is None else post_win_max_s,
+                post_win_s=POST_WIN_S if post_win_s is None else post_win_s,
             )
             if variant == "marble_race" and sim[4] is None:
                 # Ran out of frames with nobody across the line. A marble
@@ -76,6 +79,7 @@ def run_round(seed, variant, params, cfg, sim_w, sim_h, fps, lineup=None) -> dic
 def simulate(*, seed: int, variant: str, sim_w: int, sim_h: int, fps: int, max_frames: int,
     stage: str | None = None, background: str | None = None, lineup: list | None = None,
     pace: float = 1.0, min_frames: int | None = None, stall_speed: float = STALL_SPEED,
+    post_win_s: float = POST_WIN_S, post_win_max_s: float = POST_WIN_MAX_S,
 ):
     """Run the physics only. Raises Stalled when a race goes nowhere, or
     finishes before min_frames (the QC floor, by default)."""
@@ -175,7 +179,16 @@ def simulate(*, seed: int, variant: str, sim_w: int, sim_h: int, fps: int, max_f
         else:
             stalled = 0
         if stalled > fps * 1.5:
-            if finish_y is None:
+            # A stall before anyone crosses is a wedged marble and the clip is
+            # dead. After the winner it is the opposite: the field has come to
+            # rest, so nothing more will cross and there is nothing left to
+            # wait for. Raising here burned a race that had already been won,
+            # and the longer tail is exactly the stretch where a strung-out
+            # field settles: measured, the field comes to rest inside the tail
+            # in 1% of races at 2.8 s, 4% at 5.0 s and 15% at 8.0 s. Retrying
+            # those handed back a worse race — keeping them is worth 20 more
+            # runner-ups in 733 on its own.
+            if finish_y is None or winner_frame is not None:
                 break
             raise Stalled(f"no winner by {frame / fps:.1f}s")
         if finish_y is not None:
@@ -190,9 +203,9 @@ def simulate(*, seed: int, variant: str, sim_w: int, sim_h: int, fps: int, max_f
                         winner, winner_frame = ball.name, frame
         if winner_frame is not None:
             second = sorted(finishes.values())[1] if len(finishes) > 1 else None
-            if second is not None and frame >= second + int(fps * POST_WIN_S):
+            if second is not None and frame >= second + int(fps * post_win_s):
                 break
-            if frame >= winner_frame + int(fps * POST_WIN_MAX_S):
+            if frame >= winner_frame + int(fps * post_win_max_s):
                 break
 
     # Varying the stage changed the duration spread as well as the look,

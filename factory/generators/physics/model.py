@@ -32,7 +32,33 @@ POST_WIN_S = 0.8  # how long the race keeps running after the runner-up crosses
 # the winner left three of four viewers — the ones who backed another marble —
 # with no result at all, and QC rejected the clip as a runaway. The pay-off
 # for a bet is seeing your marble arrive, even second.
-POST_WIN_MAX_S = 2.8
+#
+# 2.8 s was still too short, and an agent's QC said so in the same words four
+# times in one afternoon: "no race: only amber finishes". Measured over the 23
+# live stages x 32 seeds with no cut applied, the gap from the winner to the
+# second marble is median 1.75 s, p75 3.16 s, p90 5.61 s — so 2.8 s cut off
+# most of the field most of the time: a runner-up was on screen in 67% of
+# races, and on the two worst stages (gauntlet, bumpers) in under a quarter.
+#
+# The obvious objection is that tail is time after the result is known, which
+# is the part viewers swipe. Measured, it is not: because POST_WIN_S already
+# cuts 0.8 s after the second marble lands, the tail is only paid by the races
+# that have a long gap, and most of those spend it watching the field arrive.
+# Over the same 736 races, raising 2.8 -> 7.0 s moves:
+#
+#   runner-up on screen     67% -> 88%      (every live stage now over the gate)
+#   median round            13.0 -> 13.4 s  (a two-round clip 26.0 -> 26.9 s)
+#   p90 round               16.3 -> 17.6 s  (the QA duration gate ends at 18.0)
+#   races with no runner-up 238 -> 90
+#   total seconds on screen after the result  662 s -> 562 s
+#
+# The last line is the one that decided it: the dead air goes *down*, because a
+# longer tail turns a race with nothing to watch into a race with something to
+# watch, and a field that has come to rest ends the round early anyway (see
+# the stall break in simulate.py). 7.0 s is the most that can be spent: at
+# 8.0 s bumpers' median round reaches 18.1 s and fails the duration gate, for
+# three more points of runner-up.
+POST_WIN_MAX_S = 7.0
 CLOSE_RACE_S = 1.0  # a runner-up inside this gets the margin on screen
 FINAL_CAPTION = "FINAL · RUN IT BACK"  # what the second round opens on: a rematch, no arithmetic
 
