@@ -28,8 +28,8 @@ physics` keeps working and nothing outside reaches into a submodule.
 """
 
 from .addons import (FINISH_GATE_CHANCE, GATE_GAP, GATE_GAP_COMPOSED, GATE_HEIGHT,  # noqa: F401
-                     GATE_RISE_COMPOSED, GAUNTLET_OMEGA, MARBLE_SPREAD, add_finish_gate,
-                     add_spinners)
+                     GATE_RISE_COMPOSED, GAUNTLET_OMEGA, MARBLE_SPREAD, TWIN_CAP, TWIN_CENTRE,
+                     TWIN_GAP, TWIN_HALF, TWIN_RISE, TWIN_TILT, add_finish_gate, add_spinners)
 from .build import build_funnel, build_race  # noqa: F401
 from .model import (BACKGROUND, CLOSE_RACE_S, FINAL_CAPTION, IMPACT_DV, MAX_SPEED,  # noqa: F401
                     PALETTES, POST_WIN_MAX_S, POST_WIN_S, RACE_COLORS, RACE_GRAVITY,
@@ -37,7 +37,7 @@ from .model import (BACKGROUND, CLOSE_RACE_S, FINAL_CAPTION, IMPACT_DV, MAX_SPEE
                     Style, make_ball, parse_hex, pick, seconds, structure_for)
 from .registry import (BUILDERS, GATE_STAGES, LIVE_STAGES, SPINNER_ROWS, SPINNER_STAGES,  # noqa: F401
                        STAGE_BLURB, STAGE_BY_ID, STAGE_GRAVITY, STAGE_NOUN, STAGE_SPECS, STAGES,
-                       WHEEL_STAGES, Stage)
+                       TWIN_STAGES, WHEEL_STAGES, Stage)
 from .render import frames  # noqa: F401
 from .render_pil import frames_pil  # noqa: F401
 from .render_pygame import frames_pygame  # noqa: F401

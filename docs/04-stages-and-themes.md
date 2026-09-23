@@ -82,6 +82,7 @@ hand-built stages taught one stuck marble at a time, written once.
 | **gallery** | pegs → sieve → funnel | −44 |
 | **spillway** | chutes → pegs → funnel | −30 |
 | arcade *(trial)* | bumpers → spinners → pegs, throat | −30 |
+| delta *(trial)* | chutes → bumpers → pegs, **twin finish** | −30 |
 
 Twelve are live and together take 37% of the random picks (0.05 each
 against the hand-built stages' weights). arcade is in trial: it passes
@@ -199,6 +200,32 @@ out rather than gathering it. The throat is off on the other four stages
 because it measured worse on each: the zigzag already changes the lead five
 to seven times on its own, the pegboard traded most of its close finishes
 for a little surprise, and the funnels stage is already a row of throats.
+
+**The twin finish.** The throat still settles the race several seconds early:
+it gathers the field and then hands the win to whoever leads the queue. A twin
+finish forks the run-in instead — the same two arms, but they stop 0.075 w
+either side of a wedge sitting on the throat line, so there are two exits and
+the bounce that picks a side is the last thing that happens before the line.
+`Stage.twin` in the registry turns it on, the way `gate` turns on the throat,
+and it is on every seed of such a stage rather than 72% of them, because it is
+what the stage is for. `delta` is the trial stage that shows it
+(`--stage delta`): chutes, bumpers and pegs, so the field arrives bouncing
+rather than sorted.
+
+Three numbers hold it up, and each one is a lesson already in this file. Each
+exit is 94 px centre to centre, 80 px clear of both wall thicknesses, against a
+`marble_room` of 72 px and a biggest marble of 57 px — the throat's own
+clearance, twice over. The divider is a short cap tilted at 0.4 with flanks at
+1.8–2.3, because the cascade measured both ways of getting a divider wrong: a
+flat cap is a ledge a marble rests on, a bare point is an apex it balances on.
+And it is one solid body rather than three thin edges, because the gauntlet's
+wall wedges were edges first and a pinched marble tunnelled inside one.
+
+Nothing in the winner arithmetic had to change. The winner is whatever crosses
+y = 110 first, which is a line across the whole frame and asks nothing about x;
+the wedge's base stops at y = 192, so both exits empty into the same 82 px of
+open frame above the line and neither can be a dead end. Over 48 seeds, 47
+marbles left by the left exit and 43 by the right — a fork, not a preference.
 
 **The marbles are nearly the same size now.** The spread was ±12%, with a
 comment saying identical marbles keep their starting order and never

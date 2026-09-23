@@ -20,7 +20,8 @@ def stage_text(r) -> str:
     if style.spinners:
         base += f" with {len(style.spinners)} spinning bar{'s' if len(style.spinners) > 1 else ''}"
     if style.gates:
-        base += " and a throat in the run-in to the line"
+        base += (" and a run-in that forks into two exits at the line"
+                 if STAGE_BY_ID[style.stage].twin else " and a throat in the run-in to the line")
     return base
 
 

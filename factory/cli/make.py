@@ -132,8 +132,11 @@ def cmd_render_check(args) -> int:
     cfg.ensure_dirs()
     gen = generators.get(args.generator)
     label = f"check-{args.generator}-{args.variant}-{args.seed}"
+    # A trial stage has weight 0, so a random pick never lands on it: naming it
+    # is the only way to look at one, which is what this command is for.
+    params = {"stage": args.stage} if args.stage else {}
     clip = gen.generate(
-        seed=args.seed, variant=args.variant, params={}, work_dir=cfg.work_dir / label
+        seed=args.seed, variant=args.variant, params=params, work_dir=cfg.work_dir / label
     )
     info = render.probe(clip.video_path)
     loudness = render.loudness_lufs(clip.video_path)
@@ -199,4 +202,5 @@ def add(sub) -> None:
     p.add_argument("--generator", default="physics")
     p.add_argument("--variant", default="marble_race")
     p.add_argument("--seed", type=int, default=1)
+    p.add_argument("--stage", default=None, help="race stage id; default is the seed's own weighted pick")
     p.set_defaults(func=cmd_render_check)
