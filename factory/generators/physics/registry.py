@@ -126,6 +126,11 @@ STAGE_SPECS: list[Stage] = [
               blurb="pegs, a sieve of tilted bars, then a funnel", weight=0.05),
     composed("spillway", [("chutes", 1.5), ("pegs", 1.0), ("funnel", 0.9)], gravity=-30.0, noun="chutes",
               blurb="split-and-rejoin chutes, pegs, then a funnel", weight=0.05),
+    # Trial: the first stage with a force in it rather than only shapes. Pegs
+    # set the field spreading, magnets pull it off line, pegs again so the
+    # deflection has something to argue with before the run-in.
+    composed("lodestone", [("pegs", 1.0), ("magnets", 1.3), ("pegs", 1.0)], gravity=-30.0, noun="magnets",
+              blurb="pegs, then magnets that pull the marbles off line, then more pegs", gate=True),
     # COMPOSED-STAGES-END
 ]
 

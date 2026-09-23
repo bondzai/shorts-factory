@@ -85,6 +85,8 @@ def test_nothing_solid_outside_the_band(section):
         for x, y, half, omega, phase, *bias in style.rockers:
             rise = math.sin(physics.ROCK_AMPLITUDE + abs(bias[0] if bias else 0)) * half
             assert y + rise <= top + 1 and y - rise >= bottom - 1, (section, y, rise)
+        for x, y, core, *_ in style.magnets:
+            assert bottom - core - 1 <= y <= top + core + 1, (section, y)
 
 
 def test_pegs_leave_a_marble_between_them_and_no_corner_at_the_walls():
@@ -133,6 +135,84 @@ def test_belts_carry_toward_their_open_end():
             assert abs(a[0] - 10.0) < 1 or abs(a[0] - (W - 10.0)) < 1  # starts at a wall
             gap = min(b[0], W - b[0])
             assert gap >= stagekit.marble_room(W)  # open end leaves room to drop
+
+
+# --- the magnet: the kit's one force ---------------------------------------------------
+
+def test_magnet_cores_clear_the_walls_and_no_two_fields_overlap():
+    """Two things the pull being safe rests on. A core closer to a wall than a
+    marble is the pocket `_cornered` names; two overlapping fields would sum
+    past the one gravity the cap was measured at."""
+    for seed in range(12):
+        style, _ = build("magnets", top=800, bottom=300, seed=seed)
+        assert style.magnets, seed
+        room = stagekit.marble_room(W)
+        for x, y, core, soft, reach, pull in style.magnets:
+            assert x - core - 7.0 >= room - 1e-6, (seed, x, core)
+            assert (W - 7.0) - (x + core) >= room - 1e-6, (seed, x, core)
+            assert pull == stagekit.MAGNET_PULL
+            assert soft == pytest.approx(core + W * stagekit.MARBLE_R)
+        for i, (x1, y1, _c1, _s1, r1, _p1) in enumerate(style.magnets):
+            for x2, y2, _c2, _s2, r2, _p2 in style.magnets[i + 1:]:
+                assert math.hypot(x2 - x1, y2 - y1) >= r1 + r2 - 1e-6, (seed, x1, x2)
+
+
+def test_the_pull_is_bounded_everywhere_and_is_exactly_zero_at_reach():
+    """A naive 1/r^2 goes to infinity at the centre and a discrete solver turns
+    that into a marble through a wall. Bounded near the centre, and shifted so
+    it reaches zero at `reach` rather than stepping off a cliff."""
+    soft, reach, peak = 44.6, 142.7, 30.0
+    at = lambda r: math.hypot(*stagekit.magnet_accel(r, 0.0, soft, reach, peak))
+    assert at(0.0) == 0.0                      # no direction at dead centre
+    assert at(1e-6) <= peak and at(0.5) <= peak
+    values = [at(r) for r in range(1, int(reach))]
+    assert max(values) <= peak                 # bounded by the cap everywhere
+    assert values == sorted(values, reverse=True)   # and monotonic
+    assert at(reach) == 0.0 and at(reach + 10) == 0.0 and at(reach * 4) == 0.0
+    # the shift is what makes the edge smooth: nearly nothing left just inside
+    assert at(reach - 1.0) < peak * 0.01
+
+
+def test_a_magnet_pulls_a_marble_off_its_line_and_cannot_hold_it():
+    """The feature and its limit in one drop. Measured at peak pull 1.0 g: the
+    marble ends tens of px off the line it would have fallen down, and still
+    gets to the floor -- a magnet that can be out-pulled by gravity cannot
+    hold anything against a surface."""
+    def drop(magnet: bool):
+        space = pymunk.Space()
+        space.gravity = (0.0, -30.0)
+        floor = pymunk.Segment(space.static_body, (0, 6), (W, 6), 6.0)
+        floor.elasticity, floor.friction = 0.46, 0.30
+        space.add(floor)
+        core, my = 16.0, 480.0
+        soft = core + W * stagekit.MARBLE_R
+        reach = soft * stagekit.MAGNET_REACH
+        stagekit._magnet(space, W / 2, my, core)
+        radius = W * stagekit.MARBLE_R
+        ball = physics.make_ball(space, (W / 2 + 60.0, 900.0), radius, (255, 0, 0), "red")
+        ball.body.velocity = (0.0, -130.0)
+        for _ in range(30 * 20):
+            for _ in range(4):
+                if magnet:
+                    ax, ay = stagekit.magnet_accel(W / 2 - ball.body.position.x,
+                                                   my - ball.body.position.y, soft, reach,
+                                                   stagekit.MAGNET_PULL * 30.0)
+                    ball.body.force = (ball.body.mass * ax, ball.body.mass * ay)
+                space.step(1.0 / (30 * 4))
+        return ball.body.position
+
+    pulled, free = drop(True), drop(False)
+    assert abs(pulled.x - free.x) > 10.0, (pulled.x, free.x)   # off its line
+    assert pulled.y < 6.0 + 3 * W * stagekit.MARBLE_R          # and down at the floor
+
+
+def test_the_magnet_stage_is_the_same_race_twice():
+    """A force applied per substep is a new way to lose determinism: the same
+    seed has to give the same positions, or a re-render is a different clip."""
+    runs = [physics.simulate(seed=4242, variant="marble_race", sim_w=W, sim_h=H, fps=30,
+                             max_frames=120, stage="lodestone") for _ in range(2)]
+    assert runs[0][6].magnets == runs[1][6].magnets
+    assert runs[0][0] == runs[1][0]
 
 
 def test_a_marble_on_a_belt_moves_the_way_the_belt_runs():

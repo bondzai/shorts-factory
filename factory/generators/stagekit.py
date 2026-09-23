@@ -89,6 +89,85 @@ def _drum(space, x, y, r, omega) -> None:
     space.add(body, shape)
 
 
+def _magnet(space, x: float, y: float, core: float) -> None:
+    """A magnet's solid core: a peg, so the field has something to sit in.
+
+    The core is what keeps the force honest as well as visible. A marble's
+    centre can never come closer than `core + marble radius`, so the part of
+    the falloff curve nearest the singularity is unreachable by construction —
+    the softening below is the second line of defence, not the only one."""
+    _peg(space, x, y, core, elasticity=0.50)
+
+
+# --- the magnet's force law -----------------------------------------------------------
+#
+# Every other obstacle in this kit is a shape: it changes a marble's path by
+# being in the way. A magnet is the first that reaches out, so a path stops
+# being a function of geometry alone.
+#
+#   a(r) = peak * ( soft^2/(soft^2 + r^2) - soft^2/(soft^2 + reach^2) )
+#
+# A plain inverse square was the obvious first try and is wrong here twice
+# over. It goes to infinity at r = 0, and pymunk steps in finite slices (four
+# a frame): one step taken a few px from the centre is an impulse big enough
+# to put a marble through a wall. And cutting a force off at `reach` leaves a
+# step for the solver to ring on. So the law is softened — the soft^2 terms
+# bound it near the centre — and shifted, the second term bringing it to
+# exactly zero at `reach` rather than to a cliff.
+#
+# `soft` is the closest a marble's centre can come to the core's centre, which
+# is where the curve has to be well behaved, because it is the only place near
+# the centre a marble can ever be.
+#
+# PEAK PULL = 1.0 gravity, and that is what this was measured for. It is held
+# as a multiple of the stage's own gravity, so it scales with pace and with
+# the retry loop's gravity lean instead of needing retuning per stage.
+# Measured on a rig of one core in an empty frame at composed gravity (-30), a
+# marble dropped past it at 15 offsets, every run done twice — field on and
+# field off — so each number is a difference, over four placements: mid-frame,
+# a legal wall gap, over the floor, and over the shallowest 0.37 ramp slope.
+#
+#   peak pull   marbles captured and held
+#   1.0         0/15 in all four placements
+#   1.5         0/15 in all four placements
+#   2.0         0/15 in all four placements
+#   2.5         1/15, over the ramp        <- the knee
+#   3.0         3/15
+#   3.5         4/15, and 2/15 over the floor
+#
+# 1.0 is well under half the pull at which the first marble was ever held, and
+# at 1.0 the pull can by construction never exceed the weight it fights: a
+# magnet cannot lift a marble or hold one against a surface. What it buys is
+# 15-26 px of median sideways travel and up to 281 px at its widest, against a
+# 57 px marble — a quarter of a marble to five marbles off line. Top speed
+# stayed 222-263 px/s at every pull tried, against ~232 for free fall down this
+# frame, and no marble left the frame in any of the 360 runs: nothing is flung.
+# (Re-measured at the final core size. A wider core moved the knee out from 2.0
+# to 2.5, because the marble's centre can no longer get as near the middle of
+# the field — the geometry does part of the capping.)
+MAGNET_PULL = 1.0
+# Field radius in units of `soft`. At this distance the shifted law is already
+# zero, so `reach` is a real edge rather than a fade. 2.9 rather than 3.2 so a
+# pair still fits in a row two reaches apart once the core is big enough to
+# show its poles: at 3.2 the pair needed 342 px of the 333 px legal span and
+# fell back to a single magnet.
+MAGNET_REACH = 2.9
+
+
+def magnet_accel(dx, dy, soft: float, reach: float, peak: float):
+    """Acceleration toward a magnet (dx, dy) away, in px/s^2. See above."""
+    r2 = dx * dx + dy * dy
+    if r2 >= reach * reach or r2 < 1e-12:
+        return 0.0, 0.0
+    s2 = soft * soft
+    shape = s2 / (s2 + r2) - s2 / (s2 + reach * reach)
+    if shape <= 0.0:
+        return 0.0, 0.0
+    a = peak * shape
+    r = math.sqrt(r2)
+    return a * dx / r, a * dy / r
+
+
 def _belt(space, a, b, speed: float, thickness: float) -> None:
     """A conveyor: a static segment whose surface moves at `speed` px/s
     along a→b. pymunk applies it through friction, so the belt is grippy."""
@@ -443,10 +522,66 @@ def belts(space, w, top, bottom, rng, style):
     return segments
 
 
+def magnets(space, w, top, bottom, rng, style):
+    """Magnets: a solid core with a field around it that pulls a marble off
+    its line as it passes. The kit's only force — everything else here works
+    by being in the way.
+
+    Two placements are measured rather than chosen. A core keeps `marble_room`
+    from both walls, because a round obstacle closer than that to a wall is
+    the pocket `_cornered` names and the pegs section learned the hard way.
+    And rows are put two full `reach`s apart, so no point in the band lies
+    inside two fields at once: overlapping fields would sum past the one
+    gravity the pull was measured safe at. (The simulation clamps the sum
+    anyway — the spacing means the clamp should never have to act.)
+
+    One magnet a row, alternating side to side, so the pull is across the
+    fall rather than along it: a marble is tugged one way, then the other way
+    a row later, and which side it is on when it arrives is what changed."""
+    height = top - bottom
+    room = marble_room(w)
+    # Big enough that the two poles on the core read at full frame size; at
+    # 0.026-0.034 w the split was only legible zoomed in.
+    core = w * rng.uniform(0.038, 0.046)
+    soft = core + w * MARBLE_R
+    reach = soft * MAGNET_REACH
+    # Fields that never overlap: centres two reaches apart. A band too short
+    # for two still gets one.
+    rows = max(1, int(height // (2 * reach)))
+    row_gap = height / rows
+    # The core has to clear both walls by a marble's room, which is what
+    # leaves it somewhere to sit: on a 540 px frame, x in 94..446.
+    lo = 7.0 + room + core
+    hi = w - 7.0 - room - core
+    if lo >= hi:
+        return []
+    for i in range(rows):
+        y = top - row_gap * (i + 0.5)
+        # A pair in the row when the frame is wide enough to hold two fields
+        # two reaches apart (540 px leaves 351 px of legal span against the
+        # 277 px two fields need), otherwise one in the middle. A pair is what
+        # makes the band read: a marble down the middle is pulled equally both
+        # ways and goes straight, and anything off centre picks a side.
+        span = hi - lo
+        if span >= 2 * reach:
+            first = lo + rng.uniform(0.0, span - 2 * reach)
+            xs = [first, first + 2 * reach]
+            if rng.random() < 0.5:
+                xs.reverse()
+        else:
+            xs = [(lo + hi) / 2]
+        for x in xs:
+            if _cornered(x, core, w, room):
+                continue
+            _magnet(space, x, y, core)
+            style.magnets.append((x, y, core, soft, reach, MAGNET_PULL))
+    return []
+
+
 SECTIONS: dict[str, Callable] = {
     "pegs": pegs, "bumpers": bumpers, "funnel": funnel, "ramps": ramps, "sieve": sieve,
     "drums": drums, "rockers": rockers, "spinners": spinners, "wheel": wheel, "chutes": chutes,
-    "belts": belts,
+    "belts": belts, "magnets": magnets,
 }
 
 # How a section reads in a sentence, for the render's plain description.
@@ -454,7 +589,7 @@ SECTION_WORDS = {
     "pegs": "a band of pegs", "bumpers": "bumpers", "funnel": "a funnel", "ramps": "zigzag ramps",
     "sieve": "a sieve of tilted bars", "drums": "spinning drums", "rockers": "rocking planks",
     "spinners": "spinning bars", "wheel": "a four-armed wheel", "chutes": "split-and-rejoin chutes",
-    "belts": "conveyor belts",
+    "belts": "conveyor belts", "magnets": "magnets that pull the marbles off line",
 }
 
 
