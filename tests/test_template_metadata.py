@@ -75,3 +75,11 @@ def test_frames_are_shrunk_before_any_brain_sees_them(sandbox):
     assert len(small) < len(big.getvalue())
     tiny = BytesIO(); Image.new("RGB", (100, 200)).save(tiny, format="PNG")
     assert llm.shrink(tiny.getvalue(), 512) == tiny.getvalue()  # never upscaled
+
+
+def test_a_shape_already_on_the_channel_is_passed_over():
+    """Two four-marble races on the spillway landed on the same seed slot and
+    shipped the same title twice, which reads as a re-upload."""
+    first = template.title(FACTS, seed=0)
+    assert template.title(FACTS, seed=0, taken={first}) != first
+    assert template.title(FACTS, seed=0, taken={first}) == template.title(FACTS, seed=1)

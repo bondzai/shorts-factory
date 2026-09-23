@@ -224,7 +224,8 @@ def written_metadata(row, ch, clip, frames, recent):
     """
     source = settings.load().llm.get("metadata_source", "agent")
     if source == "template" and template.can_write(clip.facts):
-        meta, cost = template.write_metadata(facts=clip.facts, seed=row["seed"])
+        meta, cost = template.write_metadata(facts=clip.facts, seed=row["seed"],
+                                             taken={r["title"] for r in recent if r["title"]})
         first_sentence = meta.description.split(". ")[0]
         problem = spoiler(clip.facts, title=meta.title, comment_prompt=meta.comment_prompt,
                           description=first_sentence)

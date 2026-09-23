@@ -54,20 +54,26 @@ def names(lineup: list[str]) -> str:
     return ", ".join(lineup[:-1]) + " or " + lineup[-1]
 
 
-def title(facts: dict[str, Any], seed: int) -> str:
+def title(facts: dict[str, Any], seed: int, taken: set[str] = frozenset()) -> str:
     """The pick, the count, the stage — inside what the feed shows.
 
     Shapes are tried from the seed's starting point and the first that fits
     45 characters is used, so the rotation survives a long stage name instead
-    of collapsing to the shortest shape every time.
+    of collapsing to the shortest shape every time. `taken` is the channel's
+    recent titles: two four-marble races on the spillway landed on the same
+    seed slot and shipped the same title twice, which reads as a re-upload.
+    A shape already on the channel is passed over while another fits.
     """
     n = NUMBERS.get(len(facts["lineup"]), str(len(facts["lineup"])))
     stage = stage_of(facts)
     start = seed % len(SHAPES)
-    for shape in SHAPES[start:] + SHAPES[:start]:
-        candidate = shape.format(n=n, stage=stage)
-        if len(candidate) <= FEED_MAX:
+    fits = [c for shape in SHAPES[start:] + SHAPES[:start]
+            if len(c := shape.format(n=n, stage=stage)) <= FEED_MAX]
+    for candidate in fits:
+        if candidate not in taken:
             return candidate
+    if fits:
+        return fits[0]
     return f"Pick one \u2014 {n} marbles, one line"[:TITLE_MAX]
 
 
@@ -94,13 +100,13 @@ def description(facts: dict[str, Any]) -> str:
     return " ".join(parts)
 
 
-def write_metadata(*, facts: dict[str, Any], seed: int) -> tuple[Metadata, float]:
+def write_metadata(*, facts: dict[str, Any], seed: int, taken: set[str] = frozenset()) -> tuple[Metadata, float]:
     """Mirrors `agents.metadata.write_metadata`'s return: (metadata, cost)."""
     if not can_write(facts):
         raise Unsupported(f"the template only writes marble races; this is {facts.get('variant')!r}")
     lineup = list(facts["lineup"])
     return Metadata(
-        title=title(facts, seed),
+        title=title(facts, seed, taken),
         description=description(facts),
         hashtags=list(HASHTAGS),
         rationale="Template: the shape the channel's rules require, filled from the render's facts.",
