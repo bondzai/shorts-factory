@@ -136,6 +136,14 @@ def clip_json(row) -> dict[str, Any]:
         "title_history": json.loads(row["title_history_json"] or "[]"),
         "published_at": row["published_at"],
         "facts": facts_for_page(json.loads(row["facts_json"] or "{}")),
+        # When it was made, how it did, and whether it is in the bin: every
+        # list of clips shows these, so they belong in the one shape.
+        "created_at": row["created_at"],
+        "deleted_at": row["deleted_at"],
+        "views": row["views"],
+        "avg_view_pct": row["avg_view_pct"],
+        "swipe_away_pct": row["swipe_away_pct"],
+        "likes": row["likes"],
     }
 
 

@@ -284,8 +284,9 @@ title playbook says to use it.
 
 ## The console
 
-Eight screens, named for what you do on them: **Today** (decide, then
-upload), **Queue** (what agents will do next), **Clips**, **Results**,
+Seven screens, named for what you do on them: **Today** (decide, then
+upload), **Team** (every agent, and the workers), **Clips** (every piece of
+work from queued to published, and how the published ones did),
 **Activity**, **Bin**, **Settings**, **Docs**.
 
 Every screen follows one contract — title row, toolbar (search · filter

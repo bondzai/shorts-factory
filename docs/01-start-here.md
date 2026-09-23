@@ -27,7 +27,7 @@ you as a clip to approve.
 
   <rect class="lane" x="8" y="8" width="744" height="88"/>
   <text class="lane-name" x="20" y="24">You</text>
-  <rect class="card key" x="24" y="34" width="150" height="48"/><text class="t" x="36" y="54">Console</text><text class="s" x="36" y="70">Today · Team · Clips · Results</text>
+  <rect class="card key" x="24" y="34" width="150" height="48"/><text class="t" x="36" y="54">Console</text><text class="s" x="36" y="70">Today · Team · Clips · Activity</text>
   <rect class="card" x="196" y="34" width="150" height="48"/><text class="t" x="208" y="54">Telegram</text><text class="s" x="208" y="70">clip + Approve / Reject</text>
   <rect class="card" x="368" y="34" width="150" height="48"/><text class="t" x="380" y="54">Discord / Slack</text><text class="s" x="380" y="70">what finished, daily reminder</text>
   <rect class="card" x="540" y="34" width="190" height="48"/><text class="t" x="552" y="54">YouTube</text><text class="s" x="552" y="70">by hand, or the API on your press</text>
@@ -99,7 +99,7 @@ without asking the agent.
   <rect class="step" x="580" y="130" width="170" height="56"/><text class="n" x="590" y="148">5</text><text class="t" x="604" y="148">Title + QC</text><text class="s" x="590" y="166">agent writes, server checks</text><text class="s" x="590" y="178">no spoilers, hook ≥ 3/5</text>
   <rect class="step you" x="390" y="130" width="170" height="56"/><text class="n" x="400" y="148">6</text><text class="t" x="414" y="148">You decide</text><text class="s" x="400" y="166">Today, or the video on Telegram</text><text class="s" x="400" y="178">Approve / Reject with a reason</text>
   <rect class="step you" x="200" y="130" width="170" height="56"/><text class="n" x="210" y="148">7</text><text class="t" x="224" y="148">Upload</text><text class="s" x="210" y="166">one press: by hand, or the API</text><text class="s" x="210" y="178">private, public at 06:00 Bangkok</text>
-  <rect class="step you" x="10" y="130" width="170" height="56"/><text class="n" x="20" y="148">8</text><text class="t" x="34" y="148">Numbers come back</text><text class="s" x="20" y="166">Results: % viewed, % swiped</text><text class="s" x="20" y="178">→ the next playbook knows</text>
+  <rect class="step you" x="10" y="130" width="170" height="56"/><text class="n" x="20" y="148">8</text><text class="t" x="34" y="148">Numbers come back</text><text class="s" x="20" y="166">Clips: % viewed, % swiped</text><text class="s" x="20" y="178">→ the next playbook knows</text>
 
   <path id="p1" class="flow" d="M180,48 L200,48"/>
   <path id="p2" class="flow" d="M370,48 L390,48"/>
@@ -132,8 +132,9 @@ on the **Stage QA** page.
    opening caption if you want, **Copy for upload**, upload by hand, press
    **I uploaded it**. On the phone, the same clip arrives on Telegram with
    two buttons.
-3. **Results** — a few days later, enter the numbers from YouTube Studio.
-   Retitle what underperforms. The next task an agent pulls already knows
+3. **Clips → published** — a few days later, enter the numbers from YouTube
+   Studio on the row itself. Retitle what underperforms. The filter also
+   shows the channel's totals. The next task an agent pulls already knows
    what worked.
 
 ## The screens
@@ -142,8 +143,7 @@ on the **Stage QA** page.
 |---|---|
 | **Today** | decide on what is waiting, then upload what you approved |
 | **Team** | every agent across every channel: what it holds, how far along, what it did today; start and stop workers; the log read out loud |
-| **Clips** | one row per piece of work, queued to published — add work, hand it to an agent, view, download, bin |
-| **Results** | how published clips did; enter metrics; retitle |
+| **Clips** | one row per piece of work, queued to published — add work, hand it to an agent, view, download, bin. Filter to *published* and the same screen shows how they did: the channel's totals, plus retitle and enter-metrics on the row |
 | **Activity** | what ran and what happened inside each run |
 | **Bin** | what you threw away — restore, or delete for good |
 | **Settings** | this channel, its rules, the brains, the knobs, the themes, alerts |

@@ -14,7 +14,7 @@ export interface Clip {
   cost_usd: number; qc: QC | null; reject_reason: string | null; has_video: boolean; hook_text: string | null;
   comment_prompt: string | null; title_history: TitleChange[]; published_at: string | null;
   facts?: Record<string, unknown>; created_at?: string; views?: number | null; avg_view_pct?: number | null;
-  swipe_away_pct?: number | null; deleted_at?: string | null;
+  swipe_away_pct?: number | null; likes?: number | null; deleted_at?: string | null;
 }
 export interface ClipDetail extends Clip {
   facts: Record<string, unknown>; params: Record<string, unknown>; created_at: string; purged_at: string | null;

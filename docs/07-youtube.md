@@ -54,14 +54,14 @@ so; pinning is two taps in Studio.
 
 ## What comes back
 
-`factory pull-metrics` (or the Results screen) reads views and likes from
+`factory pull-metrics` (or Clips → published) reads views and likes from
 the Data API and average view percentage from Analytics. The swipe-away
 figure is derived: `audienceWatchRatio` in the first 2% of the clip,
 reported as `(1 - ratio) * 100`. It tracks the thing the strategy cares
 about but it is not an official YouTube figure.
 
 A **retitle** of a published clip is pushed to the video with
-`videos.update`, so the gauge the Results screen keeps — what each title
+`videos.update`, so the gauge the console keeps — what each title
 earned — matches what viewers saw. If the push fails, the clip says
 *needs manual update* and the reason is in the event log.
 

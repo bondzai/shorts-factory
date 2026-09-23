@@ -76,8 +76,6 @@ def work(
                     continue
                 items.append({
                     **clip_json(row), "row_kind": "clip", "phase": w["phase"], "key": w["id"],
-                    "created_at": row["created_at"], "views": row["views"],
-                    "avg_view_pct": row["avg_view_pct"], "swipe_away_pct": row["swipe_away_pct"],
                 })
         binned = conn.execute(
             "SELECT COUNT(*) n FROM clips WHERE channel_id = ? AND deleted_at IS NOT NULL", (ch.id,)
@@ -123,12 +121,6 @@ def clips(
     items = [
         {
             **clip_json(row),
-            "created_at": row["created_at"],
-            "published_at": row["published_at"],
-            "views": row["views"],
-            "avg_view_pct": row["avg_view_pct"],
-            "swipe_away_pct": row["swipe_away_pct"],
-            "deleted_at": row["deleted_at"],
         }
         for row in rows
     ]
@@ -157,14 +149,7 @@ def clip_detail(clip_id: str) -> dict[str, Any]:
         **clip_json(row),
         "facts": json.loads(row["facts_json"] or "{}"),
         "params": json.loads(row["params_json"] or "{}"),
-        "created_at": row["created_at"],
-        "published_at": row["published_at"],
-        "deleted_at": row["deleted_at"],
         "purged_at": row["purged_at"],
-        "views": row["views"],
-        "avg_view_pct": row["avg_view_pct"],
-        "swipe_away_pct": row["swipe_away_pct"],
-        "likes": row["likes"],
         "metrics_at": row["metrics_at"],
         "file": {
             "path": str(path.relative_to(settings.ROOT)) if path and path.is_relative_to(settings.ROOT) else (str(path) if path else None),
