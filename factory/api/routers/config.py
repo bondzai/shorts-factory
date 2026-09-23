@@ -20,23 +20,6 @@ from ..common import resolve
 
 router = APIRouter()
 
-def coerce(field: dict[str, Any], value: Any) -> Any:
-    if field["type"] == "number":
-        try:
-            value = float(value)
-        except (TypeError, ValueError):
-            raise ValueError(f"{field['label']}: not a number") from None
-        if "min" in field and value < field["min"] or "max" in field and value > field["max"]:
-            raise ValueError(f"{field['label']}: must be between {field['min']} and {field['max']}")
-        return int(value) if float(value).is_integer() and field.get("step", 1) == 1 else value
-    if field["type"] == "select":
-        for option in field["options"]:
-            if str(option) == str(value):
-                return option
-        raise ValueError(f"{field['label']}: must be one of {field['options']}")
-    return str(value)
-
-
 def _settings_view() -> dict[str, Any]:
     cfg = settings.load()
     fields = []
@@ -68,7 +51,7 @@ def put_setting(body: SettingBody) -> dict[str, Any]:
     if field is None:
         raise HTTPException(404, f"no setting {body.section}.{body.key}")
     try:
-        value = coerce(field, body.value)
+        value = settings.coerce(field, body.value)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from None
     with db.connect() as conn:

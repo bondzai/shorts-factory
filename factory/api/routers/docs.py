@@ -37,7 +37,8 @@ def get_playbook(name: str, channel: str | None = None) -> dict[str, Any]:
 
 
 def _reference() -> str:
-    from ... import cli  # here: cli imports this package back, for `factory serve`
+    from ... import cli  # here: the other front end, imported only to list its
+    # commands — the page must not depend on the command line to serve a request
 
     lines = ["# Reference", "", "Generated from the code at the moment you opened this page, so it cannot be stale.", ""]
     lines += ["## Settings the page can change", "", "| section | key | type | range | meaning |", "|---|---|---|---|---|"]

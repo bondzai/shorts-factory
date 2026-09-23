@@ -125,6 +125,29 @@ def load_env() -> int:
     return loaded
 
 
+def coerce(field: dict, value):
+    """A value on its way into a setting, checked against the schema entry.
+
+    The page and the command line both take settings from a human, so the
+    rule about what a number or a choice may be lives here with the schema
+    rather than in either of them.
+    """
+    if field["type"] == "number":
+        try:
+            value = float(value)
+        except (TypeError, ValueError):
+            raise ValueError(f"{field['label']}: not a number") from None
+        if "min" in field and value < field["min"] or "max" in field and value > field["max"]:
+            raise ValueError(f"{field['label']}: must be between {field['min']} and {field['max']}")
+        return int(value) if float(value).is_integer() and field.get("step", 1) == 1 else value
+    if field["type"] == "select":
+        for option in field["options"]:
+            if str(option) == str(value):
+                return option
+        raise ValueError(f"{field['label']}: must be one of {field['options']}")
+    return str(value)
+
+
 @dataclass(frozen=True)
 class Settings:
     raw: dict
