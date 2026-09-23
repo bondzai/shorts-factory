@@ -58,6 +58,46 @@ Put it behind Tailscale (private) or Caddy with HTTPS (public). Register the
 MCP server for an agent on the VM, or run `factory work` from cron with a
 free-tier provider (Settings → Brains) for `make-clip` tasks.
 
+## Moving the factory to another machine (a mini PC, say)
+
+`git clone` brings the code, the built console, the prompts, the docs and
+`config.toml`. It deliberately does **not** bring the things below, because
+they are yours, not the project's. Copy them by hand, then nothing has to be
+set up twice:
+
+| what | where | why it is not in git |
+|---|---|---|
+| the database — every clip, task, setting and metric | `data/factory.db` | your history |
+| the rendered files | `data/out/`, `data/work/` | big, and reproducible from a seed |
+| each channel's rules and directions | `channels/<id>/rules.md` | yours, edited on the Settings page |
+| the password, Telegram and Discord secrets | `.env` | secrets |
+| the YouTube credentials, per channel | `client_secrets.json`, `channels/<id>/token.json` | secrets |
+
+Copy the database with the server **stopped** (it writes a `-wal` file beside
+the `.db` while it runs), or take `data/factory.backup.db` if one is there —
+a single-file snapshot written by the sqlite backup API, safe to copy while
+the server is up. Put it in place as `data/factory.db`.
+
+On the new machine:
+
+    sudo apt install ffmpeg python3-venv        # or brew install ffmpeg
+    python3 -m venv .venv && .venv/bin/pip install -e .
+    .venv/bin/factory init                      # migrates the copied database
+    .venv/bin/factory doctor                    # ffmpeg, deps, which brains are ready
+
+For clips without a token bill, install Ollama from ollama.com/download and
+pull the one model QC needs; `config.toml` already points the four brains
+at it:
+
+    ollama pull qwen2.5vl:7b                    # about 6 GB
+    .venv/bin/factory brains --test ollama      # one round trip, before a clip finds out
+
+Then `factory serve --host 0.0.0.0 --port 8765` with `FACTORY_PASSWORD` in
+`.env`, and **Build planned** on the console makes clips with no key at all.
+On a small CPU the model is the wait, not the render: a clip renders in
+seconds, a 7B model answers in tens of seconds to minutes. See docs/02 for
+what the template takes off that bill.
+
 ## What does not fit
 
 Render, Railway, Fly and Cloud Run free tiers either sleep, have no
