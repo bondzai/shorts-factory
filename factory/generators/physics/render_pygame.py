@@ -10,7 +10,7 @@ import math
 import random
 
 from .. import fx
-from .model import ROCK_AMPLITUDE, Style
+from .model import ROCK_AMPLITUDE, Style, trap_angle
 from .registry import STAGES
 from .render_pil import belt_marks
 
@@ -114,6 +114,18 @@ def frames_pygame(states, balls, segments, sim_w, sim_h, overlay=None, style=Non
                 fx.capped_line(surface, (sx, Y(sy)), (sx + math.cos(angle) * r * 0.9, Y(sy + math.sin(angle) * r * 0.9)),
                                max(2, style.thickness // 2), structure_hi)
             fx.disc(surface, sx, Y(sy), style.thickness * 0.6, style.structure)
+        for hx, hy, bore, depth, period, phase in style.traps:
+            angle = trap_angle(t, period, phase)
+            ex, ey = hx + math.cos(angle) * bore, hy + math.sin(angle) * bore
+            # The door brightens while it is swinging and goes quiet while it
+            # holds, so the release reads as a thing that happened rather than
+            # a marble that suddenly started falling again. A halo was tried
+            # first, as the spinners have: on a bar it traces the sweep, on a
+            # door hinged at one end it is a circle round nothing.
+            moving = abs(trap_angle(t + 1.0 / fps, period, phase) - angle) * fps
+            fx.capped_line(surface, (hx, Y(hy)), (ex, Y(ey)), style.thickness,
+                           fx.lighten(style.structure, 60 + int(min(70, moving * 45))))
+            fx.disc(surface, hx, Y(hy), style.thickness * 0.8, style.structure)
         for sx, sy, half, omega, phase in style.spinners:
             angle = phase + omega * t
             dx, dy = math.cos(angle) * half, math.sin(angle) * half

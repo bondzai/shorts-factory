@@ -59,7 +59,8 @@ height. The kit is `factory/generators/stagekit.py`:
 | `spinners` | pairs of bars turning opposite ways, sweeps a marble apart |
 | `wheel` | one four-armed wheel |
 | `chutes` | a V then a split peak, with a marble's room under every throat |
-| `belts` | **new**: conveyor belts from alternate walls, each at its own speed |
+| `belts` | conveyor belts from alternate walls, each at its own speed |
+| `trap` | **new**: a pit with a hinged floor that swings away on a clock — it catches a marble, holds it for a beat and lets it go |
 
 The rule that makes stacking safe: **nothing solid within a margin of a
 band's edge** (0.06 of the width), so two neighbouring sections are further
@@ -82,11 +83,17 @@ hand-built stages taught one stuck marble at a time, written once.
 | **gallery** | pegs → sieve → funnel | −44 |
 | **spillway** | chutes → pegs → funnel | −30 |
 | arcade *(trial)* | bumpers → spinners → pegs, throat | −30 |
+| trapdoor *(trial)* | pegs → trap → pegs | −30 |
 
 Twelve are live and together take 37% of the random picks (0.05 each
 against the hand-built stages' weights). arcade is in trial: it passes
 everything but drama — the lead changed 1.1 times a race against a gate of
-1.5 — so it races when a task names it and is never picked at random. A new one is three steps: add a `_composed(...)`
+1.5 — so it races when a task names it and is never picked at random.
+trapdoor is in trial as the first stage with a `trap` in it: it passes every
+gate on 24 seeds (24 finish, 19 first try, runner-up 42%, 7 of 60 unfinished
+marbles parked, none out of frame, median 13.2 s, lead 1.7) and on 48 fresh
+seeds, and the pit held 55 marbles over those 24 seeds for a median of 1.8 s,
+3.9 s at the ninetieth and 5.9 s at the worst. A new one is three steps: add a `_composed(...)`
 line to the registry with weight 0 (trial — it races when a task names it,
 never at random); run `factory stage-qa --stage <id> --calibrate --seeds 48`;
 if every gate passes, give it a weight.
@@ -142,6 +149,26 @@ What QA caught while the eleven were built, and the fix now in the kit:
   the tip.
 - **Belts keep the order.** Stages built mostly of belts changed the lead
   about once a race; three were dropped, and belts appear once, mid-stage.
+- **Held, not parked.** A marble sitting in the `trap` section's pit and a
+  marble wedged behind a peg look identical in the last eight seconds: both
+  still, both short of the line. The harness tells them apart by what the
+  marble is sitting on rather than by how long it has been still, which is
+  why the 25 px threshold did not move. A trap's door runs on a clock that
+  does not care what is on it, so a marble in the pit is going to be let go
+  and when is arithmetic — and a marble still in the pit after
+  `stage_qa.TRAP_HOLD_CYCLES` periods has had the floor swing out from under
+  it and stayed, so it is wedged and counts as parked again. On the trapdoor
+  stage the exemption is what the verdict turns on: 12 parked in 117 with
+  it, 16 in 117 without (48 seeds), against a gate of 12%.
+- **A door that comes back fast throws marbles.** The trap's hinge makes a
+  pinch impossible — the one corner where the door meets static structure is
+  the pivot, and a gap that opens from zero cannot close on anything — but
+  the closing sweep still bats whatever is left in the pit back up the feed
+  ramp, and a marble that has to run the ramp again makes no headway. At a
+  closing sweep of 0.22 of the cycle (tip 167-190 px/s) 21 of 119 unfinished
+  marbles were parked above the pit; at 0.30 (122-139 px/s, inside the
+  rocking planks' range) it is 12 of 117. Opening is free to be quick,
+  because the door drops away from whatever is on it.
 
 The same run measured the hand-built stages for the first time. Two pass
 every gate (zigzag, funnels); the rest are on the QA page with the reason,
