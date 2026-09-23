@@ -118,9 +118,9 @@ def test_an_unknown_stage_is_refused_at_enqueue(sandbox):
 
 
 def test_old_facts_with_course_read_as_stage_on_the_page():
-    from factory.web import _facts_for_page
-    assert _facts_for_page({"course": "zigzag", "theme": "default", "seed": 1}) == {"stage": "zigzag", "theme": "default"}
-    assert _facts_for_page({"stage": "funnels"}) == {"stage": "funnels"}
+    from factory.api.common import facts_for_page
+    assert facts_for_page({"course": "zigzag", "theme": "default", "seed": 1}) == {"stage": "zigzag", "theme": "default"}
+    assert facts_for_page({"stage": "funnels"}) == {"stage": "funnels"}
 
 
 # --- the run-in throat, and what it is allowed to touch ------------------------

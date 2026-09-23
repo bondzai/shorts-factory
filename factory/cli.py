@@ -334,7 +334,7 @@ def cmd_config(args) -> int:
             db.clear_override(conn, section, key)
             print(f"{args.name} back to config.toml")
         else:
-            from .web import _coerce
+            from .api.routers.config import coerce as _coerce
             try:
                 value = _coerce(field, args.value)
             except ValueError as exc:
