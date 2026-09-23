@@ -305,6 +305,40 @@ def test_qa_gates_name_what_failed():
     assert not rep.passed
 
 
+def test_parking_is_judged_over_the_race_not_the_round():
+    """A marble still working its way down when the winner crossed, which then
+    settles during the seven-second tail, is the normal end of a clip. Given
+    the whole round `stuck` calls it parked, because the two four-second
+    windows it reads are then almost all tail."""
+    descent = [[(270.0, 900.0 - 2.33 * f)] for f in range(300)]   # 10 s, moving
+    tail = [[(270.0, 200.0)] for _ in range(210)]                 # 7 s, at rest
+    assert stage_qa.stuck(descent + tail, 0) is True    # the round: reads the tail
+    assert stage_qa.stuck(descent, 0) is False          # the race: it was moving
+
+
+def test_a_lead_change_after_the_winner_is_not_a_lead_change():
+    """Once the winner is home it sits at the bottom and stays lowest, and
+    whoever comes second joins it there — which read as the lead changing."""
+    race = ([[(100.0, 500.0), (200.0, 600.0)]] * 150      # marble 0 in front
+            + [[(100.0, 600.0), (200.0, 500.0)]] * 150)   # marble 1 takes it: 1 change
+    tail = [[(100.0, 100.0), (200.0, 200.0)]] * 210       # winner at the line
+    assert stage_qa._leads(race)[0] == 1
+    assert stage_qa._leads(race + tail)[0] == 2          # the spurious one
+
+
+def test_a_race_too_short_to_judge_parking_is_counted_not_skipped():
+    """`stuck` wants two PARKED_S windows of race and says nothing without
+    them. Shrinking the windows to fit was measured worse -- early in a race a
+    marble has barely been let go, so gauntlet went 41 parked in 133 to 76 --
+    so the races it cannot judge are counted instead of quietly dropped."""
+    window = int(stage_qa.PARKED_S * stage_qa.FPS)
+    short = [[(270.0, 400.0)] for _ in range(2 * window - 1)]
+    assert stage_qa.stuck(short, 0) is False            # dead still, still not judged
+    rep = stage_qa.run("pinwheel", range(700, 712))
+    assert rep.unjudged > 0                            # and the table says so
+    assert "short)" in rep.row()
+
+
 def test_gravity_override_is_put_back(sandbox):
     before = physics.STAGE_GRAVITY["plinko"]
     with stage_qa.gravity("plinko", -123.0):
