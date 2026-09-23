@@ -141,13 +141,19 @@ STAGE_SPECS: list[Stage] = [
     # deflection has something to argue with before the run-in.
     composed("lodestone", [("pegs", 1.0), ("magnets", 1.3), ("pegs", 1.0)], gravity=-30.0, noun="magnets",
               blurb="pegs, then magnets that pull the marbles off line, then more pegs", gate=True),
-    # The trap needs a band of its own: the pit is a marble's bore wide and
-    # 2.3 radii deep, the door hangs a bore below its hinge, and the feed ramp
-    # above it keeps the ramps section's slope. At a share of 1.0 against two
-    # neighbours there was no height left for the feed and the section built
-    # nothing. Trial until stage-qa passes it.
-    composed("trapdoor", [("pegs", 1.0), ("trap", 1.9), ("pegs", 1.0)], gravity=-30.0, noun="the trapdoor",
-              blurb="pegs, a trapdoor pit that holds a marble and lets it go, then more pegs"),
+    # Trial: the stage the holding trap is for. Three things in the stack are
+    # measured rather than chosen, all of them pace. The trap band has to be
+    # the big one (1.6 against 0.8) because the pit is 148 px of fixed height
+    # — the door's swing plus the bore's depth — and a band that cannot hold
+    # it and some air above it builds no pit at all. Bumpers under the pit,
+    # not pegs: the stack finishes about 9 s at gravity -30 either way, and
+    # bumpers is what carries the retried attempt to 12.3-12.8 s against the
+    # 11.5 s floor, where pegs left it on 11.4. And the throat, because the
+    # trap spreads the field by design and the throat is the one thing in the
+    # kit that gathers it: with it, a runner-up crosses on 56-75% of seeds.
+    composed("trapdoor", [("pegs", 0.8), ("trap", 1.6), ("bumpers", 0.8)], gravity=-30.0, noun="the trapdoor",
+              blurb="pegs, a trapdoor pit that holds a marble and lets it go, then bumpers",
+              gate=True),
     # COMPOSED-STAGES-END
 ]
 

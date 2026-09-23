@@ -60,7 +60,7 @@ height. The kit is `factory/generators/stagekit.py`:
 | `wheel` | one four-armed wheel |
 | `chutes` | a V then a split peak, with a marble's room under every throat |
 | `belts` | conveyor belts from alternate walls, each at its own speed |
-| `trap` | **new**: a pit with a hinged floor that swings away on a clock — it catches a marble, holds it for a beat and lets it go |
+| `trap` | **new**: a pit with a hinged floor that swings away on a clock — it catches a marble, holds it for a beat and lets it go; pegs fill the rest of the band |
 
 The rule that makes stacking safe: **nothing solid within a margin of a
 band's edge** (0.06 of the width), so two neighbouring sections are further
@@ -84,17 +84,23 @@ hand-built stages taught one stuck marble at a time, written once.
 | **spillway** | chutes → pegs → funnel | −30 |
 | arcade *(trial)* | bumpers → spinners → pegs, throat | −30 |
 | delta *(trial)* | chutes → bumpers → pegs, **twin finish** | −30 |
-| trapdoor *(trial)* | pegs → trap → pegs | −30 |
+| trapdoor *(trial)* | pegs → trap → bumpers, throat | −30 |
 
 Twelve are live and together take 37% of the random picks (0.05 each
 against the hand-built stages' weights). arcade is in trial: it passes
 everything but drama — the lead changed 1.1 times a race against a gate of
 1.5 — so it races when a task names it and is never picked at random.
-trapdoor is in trial as the first stage with a `trap` in it: it passes every
-gate on 24 seeds (24 finish, 19 first try, runner-up 42%, 7 of 60 unfinished
-marbles parked, none out of frame, median 13.2 s, lead 1.7) and on 48 fresh
-seeds, and the pit held 55 marbles over those 24 seeds for a median of 1.8 s,
-3.9 s at the ninetieth and 5.9 s at the worst. A new one is three steps: add a `_composed(...)`
+trapdoor is in trial as the first stage with a `trap` in it. The first
+version of it passed on the two seed sets it was built against and failed on
+a third, which is the failure mode this page exists to prevent: 16 seeds is
+enough to see a gate broken and not enough to call one that sits on the line.
+It now passes every gate on six independent 16-seed sets (finishes 16/16
+every time; first try 9-14; runner-up 56-81%; 0-4 of 36-40 unfinished marbles
+parked; none out of frame; median 11.8-13.1 s; lead 1.8-2.6), on 48 seeds and
+on 64. Over those 64 seeds the pit held 63 marbles, on 46 of the 64, for a
+median of 1.5 s and 3.6 s at the ninetieth; the worst was 10.3 s, a three-
+marble pile-up where the one on top missed an opening and waited out another
+cycle. A new one is three steps: add a `_composed(...)`
 line to the registry with weight 0 (trial — it races when a task names it,
 never at random); run `factory stage-qa --stage <id> --calibrate --seeds 48`;
 if every gate passes, give it a weight.
@@ -158,18 +164,44 @@ What QA caught while the eleven were built, and the fix now in the kit:
   does not care what is on it, so a marble in the pit is going to be let go
   and when is arithmetic — and a marble still in the pit after
   `stage_qa.TRAP_HOLD_CYCLES` periods has had the floor swing out from under
-  it and stayed, so it is wedged and counts as parked again. On the trapdoor
-  stage the exemption is what the verdict turns on: 12 parked in 117 with
-  it, 16 in 117 without (48 seeds), against a gate of 12%.
+  it and stayed, so it is wedged and counts as parked again. When the pit was
+  on the critical path the exemption decided the verdict: 12 parked in 117
+  with it, 16 without (48 seeds, gate 12%). With the pit off the critical
+  path only 3 marbles in 138 are in one when the clip cuts, and turning the
+  exemption off changes no verdict on any seed set. It stays because it is
+  the right rule and costs nothing, not because it rescues a number.
 - **A door that comes back fast throws marbles.** The trap's hinge makes a
   pinch impossible — the one corner where the door meets static structure is
   the pivot, and a gap that opens from zero cannot close on anything — but
-  the closing sweep still bats whatever is left in the pit back up the feed
-  ramp, and a marble that has to run the ramp again makes no headway. At a
+  the closing sweep still bats whatever is left in the pit back up the frame,
+  and a marble that has to fall into the pit twice makes no headway. At a
   closing sweep of 0.22 of the cycle (tip 167-190 px/s) 21 of 119 unfinished
-  marbles were parked above the pit; at 0.30 (122-139 px/s, inside the
-  rocking planks' range) it is 12 of 117. Opening is free to be quick,
-  because the door drops away from whatever is on it.
+  marbles were parked above the pit; at 0.30 (85-95 px/s) it is 1-4 in 36-40.
+  Opening is free to be quick, because the door drops away from what is on it.
+- **The door has to stay away longer than the fall.** The one that made the
+  throw above happen on nearly every release. A marble the pit lets go is
+  still inside the quarter circle the door sweeps until it has fallen past
+  it, which from rest at gravity −30 takes about 2.6 s; while the open phase
+  was shorter than that, the door came back through the falling marble every
+  time. Five of the six throws measured over 16 seeds happened between −1.41
+  and −1.15 rad, in the first tenth of the closing sweep, and carried
+  marbles 84-150 px back up the frame. The open phase is now 2.9-3.2 s.
+- **A trap on the critical path costs the runner-up.** The first pit was fed
+  by a ramp from one frame wall, which took half the field into it: 2.1
+  marbles held a race, and on 9 of the 10 seeds that finished with no
+  runner-up at all the nearest non-winner had been in the pit. It was not
+  the long holds that did it — holds behind another marble and holds alone
+  measured the same, 1.8 s and 1.9 s in the median — it was the number of
+  them, because the clip cuts 2.8 s after the winner and even a 1 s hold
+  spends more than that. With the ramp gone and the pit's mouth the whole
+  catch, it holds 0.5-1.2 marbles a race and a runner-up crosses on 56-81%
+  of seeds against 38-69% before.
+- **A band that is a pit and otherwise air is a band marbles fall through.**
+  Taking the feed ramp out left the trap band nearly empty and the stage
+  finished in 7.0-10.6 s on 9 of 16 seeds, under the 10.6 s QC floor, burning
+  a retry each time. The section now fills the rest of its band with pegs at
+  the pegs section's own clearances, kept a marble clear of the pit and of
+  everything the door sweeps.
 
 The same run measured the hand-built stages for the first time. Two pass
 every gate (zigzag, funnels); the rest are on the QA page with the reason,
