@@ -524,9 +524,10 @@ def cmd_youtube(args) -> int:
         ch = channels.resolve(conn, args.channel)
     driver = yt.YouTubePublisher(ch)
     if args.action == "connect":
-        print(f"connecting {ch.id} — a browser will open; sign in as that channel's account")
+        print(f"connecting {ch.id} — sign in as the account that owns this channel, "
+              f"and pick the right channel on the 'Choose your account or a brand account' screen")
         try:
-            who = driver.connect()
+            who = driver.connect(open_browser=not args.no_browser, browser=args.browser)
         except Exception as exc:
             print(f"not connected: {exc}")
             return 1
@@ -887,6 +888,12 @@ def build_parser() -> argparse.ArgumentParser:
                        description="connect a channel to YouTube, check it, or forget the token")
     p.add_argument("action", nargs="?", default="status", choices=["status", "connect", "disconnect"])
     p.add_argument("--channel", help="which channel (default: the first active one)")
+    p.add_argument("--browser", choices=["chrome", "safari", "firefox", "edge"],
+                   help="open the sign-in in a private window of this browser, so Google asks "
+                        "which account to use instead of assuming the one already signed in")
+    p.add_argument("--no-browser", action="store_true",
+                   help="print the sign-in URL instead of opening a browser — paste it into the "
+                        "browser profile signed in to the channel's account")
     p.set_defaults(func=cmd_youtube)
 
     p = sub.add_parser("stage-qa", help="measure race stages over many seeds: stalls, parked marbles, runner-ups, pace, drama",

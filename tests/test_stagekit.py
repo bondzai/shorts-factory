@@ -22,7 +22,7 @@ BIG = W * stagekit.MARBLE_R  # largest marble radius the race builder makes
 
 def build(section, top=700.0, bottom=400.0, seed=1):
     space = pymunk.Space()
-    style = physics._Style()
+    style = physics.Style()
     segments = stagekit.SECTIONS[section](space, W, top, bottom, random.Random(seed), style)
     return style, segments
 
@@ -32,7 +32,7 @@ def build(section, top=700.0, bottom=400.0, seed=1):
 def test_one_registry_every_derived_name_agrees():
     ids = [st.id for st in physics.STAGE_SPECS]
     assert len(ids) == len(set(ids))
-    for derived in (physics.STAGES, physics.STAGE_GRAVITY, physics.STAGE_NOUN, physics.STAGE_BLURB, physics._STAGES):
+    for derived in (physics.STAGES, physics.STAGE_GRAVITY, physics.STAGE_NOUN, physics.STAGE_BLURB, physics.BUILDERS):
         assert set(derived) == set(ids)
     assert abs(sum(physics.STAGES.values()) - 1.0) < 1e-9
     assert set(physics.LIVE_STAGES) == {st.id for st in physics.STAGE_SPECS if st.weight > 0}
@@ -49,10 +49,10 @@ def test_a_trial_stage_renders_when_named_but_is_never_picked_at_random(monkeypa
     monkeypatch.setitem(physics.STAGES, trial, 0.0)
     picked = set()
     for seed in range(200):
-        sim = physics.PhysicsSandbox()._simulate(seed=seed, variant="marble_race", sim_w=W, sim_h=H, fps=30, max_frames=2)
+        sim = physics.simulate(seed=seed, variant="marble_race", sim_w=W, sim_h=H, fps=30, max_frames=2)
         picked.add(sim[6].stage)
     assert trial not in picked and len(picked) > 10
-    sim = physics.PhysicsSandbox()._simulate(seed=5, variant="marble_race", sim_w=W, sim_h=H, fps=30, max_frames=2, stage=trial)
+    sim = physics.simulate(seed=5, variant="marble_race", sim_w=W, sim_h=H, fps=30, max_frames=2, stage=trial)
     assert sim[6].stage == trial
 
 
@@ -61,7 +61,7 @@ def test_every_composed_stage_names_real_sections_and_describes_itself():
         if not st.composed:
             continue
         assert all(name in stagekit.SECTIONS for name, _ in st.parts)
-        text = st.describe(physics._Style(), [])
+        text = st.describe(physics.Style(), [])
         assert text.startswith("a stage of ") and ", then " in text
 
 
@@ -150,7 +150,7 @@ def test_a_marble_on_a_belt_moves_the_way_the_belt_runs():
 def test_composed_rockers_rock_about_a_tilt_and_legacy_ones_about_level():
     style, _ = build("rockers", seed=3)
     assert all(len(r) == 6 and abs(r[5]) >= 0.24 for r in style.rockers)
-    sim = physics.PhysicsSandbox()._simulate(seed=9000, variant="marble_race", sim_w=W, sim_h=H, fps=30, max_frames=10, stage="rockers")
+    sim = physics.simulate(seed=9000, variant="marble_race", sim_w=W, sim_h=H, fps=30, max_frames=10, stage="rockers")
     assert all(len(r) == 5 for r in sim[6].rockers)
 
 

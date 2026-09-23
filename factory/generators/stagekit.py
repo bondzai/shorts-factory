@@ -108,6 +108,9 @@ def _belt(space, a, b, speed: float, thickness: float) -> None:
 # The biggest marble the race builder can make, as a fraction of the width:
 # base radius up to 0.050 w, times the size spread's top of 1.06.
 MARBLE_R = 0.053
+# How far a rocking plank tips either way, in radians. Lives here because the
+# rockers section and both renderers need it and neither owns the other.
+ROCK_AMPLITUDE = 0.42
 
 
 def marble_room(w: float) -> float:
@@ -306,8 +309,6 @@ def rockers(space, w, top, bottom, rng, style):
     the hub is a real peg, and deflectors under each row send what a plank
     throws at a wall back to the middle (all three measured in the rockers
     stage, where marbles sat jittering against a wall at x = 0.06 w)."""
-    from .physics import ROCK_AMPLITUDE
-
     height = top - bottom
     rows = max(1, int(height // 150))
     row_gap = height / rows

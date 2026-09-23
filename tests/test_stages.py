@@ -19,7 +19,7 @@ SEEDS = (9000, 9053, 9106, 9159, 9212, 9265)
 
 def test_every_stage_is_registered_everywhere():
     names = set(physics.STAGES)
-    assert names == set(physics._STAGES) == set(physics.STAGE_GRAVITY) == set(physics.STAGE_NOUN) == set(physics.STAGE_BLURB)
+    assert names == set(physics.BUILDERS) == set(physics.STAGE_GRAVITY) == set(physics.STAGE_NOUN) == set(physics.STAGE_BLURB)
     assert names >= {"zigzag", "pegboard", "bumpers", "funnels", "gauntlet", "cascade"}
     assert set(physics.SPINNER_STAGES) <= names and set(physics.SPINNER_ROWS) == set(physics.SPINNER_STAGES)
     assert set(physics.WHEEL_STAGES) <= names and not (set(physics.WHEEL_STAGES) & set(physics.SPINNER_STAGES))
@@ -33,7 +33,7 @@ def test_each_stage_finishes_inside_the_window(sandbox, stage):
     cfg = settings.load().render
     floor, ceiling = float(settings.load().qc["min_seconds"]), float(cfg["max_seconds"])
     for seed in SEEDS:
-        r = physics.PhysicsSandbox()._round(seed, "marble_race", {"stage": stage}, cfg, W, H, FPS)
+        r = physics.run_round(seed, "marble_race", {"stage": stage}, cfg, W, H, FPS)
         assert r["winner"] is not None, (stage, seed)
         assert floor <= r["duration_s"] <= ceiling + 2, (stage, seed, r["duration_s"])
         assert r["style"].stage == stage
@@ -44,9 +44,9 @@ def test_spinning_bars_only_where_they_belong():
         sim = None
         for seed in SEEDS:
             try:
-                sim = physics.PhysicsSandbox()._simulate(seed=seed, variant="marble_race", sim_w=W, sim_h=H, fps=FPS, max_frames=30, stage=stage)
+                sim = physics.simulate(seed=seed, variant="marble_race", sim_w=W, sim_h=H, fps=FPS, max_frames=30, stage=stage)
                 break
-            except physics._Stalled:
+            except physics.Stalled:
                 continue
         assert sim is not None
         style = sim[6]
@@ -62,7 +62,7 @@ def test_spinning_bars_only_where_they_belong():
 
 
 def test_the_gauntlet_bars_are_gates_that_span_the_lane():
-    sim = physics.PhysicsSandbox()._simulate(seed=9000, variant="marble_race", sim_w=W, sim_h=H, fps=FPS, max_frames=30, stage="gauntlet")
+    sim = physics.simulate(seed=9000, variant="marble_race", sim_w=W, sim_h=H, fps=FPS, max_frames=30, stage="gauntlet")
     style = sim[6]
     left = min(a[0] for a, b in style.lane); right = max(a[0] for a, b in style.lane)
     for x, y, half, omega, phase in style.spinners:
@@ -75,8 +75,8 @@ def test_cascade_wall_gaps_clear_the_largest_marble():
     than a big marble. A gap must clear the largest radius twice over."""
     for seed in SEEDS:
         try:
-            sim = physics.PhysicsSandbox()._simulate(seed=seed, variant="marble_race", sim_w=W, sim_h=H, fps=FPS, max_frames=30, stage="cascade")
-        except physics._Stalled:
+            sim = physics.simulate(seed=seed, variant="marble_race", sim_w=W, sim_h=H, fps=FPS, max_frames=30, stage="cascade")
+        except physics.Stalled:
             continue
         balls, segments = sim[2], sim[3]
         biggest = max(b.radius for b in balls)
@@ -88,8 +88,8 @@ def test_cascade_wall_gaps_clear_the_largest_marble():
 def test_the_stage_text_names_every_stage():
     gen = physics.PhysicsSandbox()
     for stage in physics.STAGES:
-        style = physics._Style(); style.stage = stage; style.circles = [(0, 0, 1)] * 4
-        text = gen._stage_text({"style": style, "segments": [None] * 6})
+        style = physics.Style(); style.stage = stage; style.circles = [(0, 0, 1)] * 4
+        text = physics.stage_text({"style": style, "segments": [None] * 6})
         assert text and "{" not in text
 
 
@@ -139,10 +139,10 @@ def test_a_gated_stage_sometimes_gets_one_and_an_ungated_stage_never_does():
         for seed in seeds:
             for attempt in range(4):
                 try:
-                    sim = physics.PhysicsSandbox()._simulate(
+                    sim = physics.simulate(
                         seed=seed + attempt * 7919, variant="marble_race", sim_w=W, sim_h=H,
                         fps=FPS, max_frames=40, stage=stage)
-                except physics._Stalled:
+                except physics.Stalled:
                     continue
                 out += bool(sim[6].gates)
                 break
@@ -157,9 +157,9 @@ def test_a_gated_stage_sometimes_gets_one_and_an_ungated_stage_never_does():
 def test_the_throat_sits_in_the_run_in_and_clears_the_biggest_marble():
     for seed in [9000 + i * 53 for i in range(30)]:
         try:
-            sim = physics.PhysicsSandbox()._simulate(seed=seed, variant="marble_race", sim_w=W,
+            sim = physics.simulate(seed=seed, variant="marble_race", sim_w=W,
                                                      sim_h=H, fps=FPS, max_frames=40, stage="bumpers")
-        except physics._Stalled:
+        except physics.Stalled:
             continue
         balls, style = sim[2], sim[6]
         if not style.gates:
@@ -184,8 +184,8 @@ def test_the_marbles_are_near_enough_the_same_size():
 
 def test_a_throat_is_named_in_the_clip_text_when_there_is_one():
     gen = physics.PhysicsSandbox()
-    style = physics._Style()
+    style = physics.Style()
     style.stage, style.circles = "bumpers", [(0, 0, 1)] * 30
-    assert "throat" not in gen._stage_text({"style": style, "segments": []})
+    assert "throat" not in physics.stage_text({"style": style, "segments": []})
     style.gates.append(((0.0, 200.0), (100.0, 200.0)))
-    assert "throat" in gen._stage_text({"style": style, "segments": []})
+    assert "throat" in physics.stage_text({"style": style, "segments": []})

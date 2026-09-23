@@ -47,7 +47,7 @@ def test_every_crossing_is_recorded_not_only_the_first(sandbox):
     geometry does."""
     from factory import settings
 
-    r = physics.PhysicsSandbox()._round(33, "marble_race", {}, settings.load().render, W, H, FPS)
+    r = physics.run_round(33, "marble_race", {}, settings.load().render, W, H, FPS)
     winner, winner_frame, finishes = r["winner"], r["winner_frame"], r["finishes"]
     assert winner in finishes
     assert finishes[winner] == winner_frame
@@ -55,7 +55,7 @@ def test_every_crossing_is_recorded_not_only_the_first(sandbox):
 
 
 def _round(spinners=0, circles=0, segments=0):
-    style = physics._Style()
+    style = physics.Style()
     style.spinners = [(0, 0, 0, 0, 0)] * spinners
     style.circles = [(0, 0, 0)] * circles
     return {"style": style, "segments": [None] * segments, "margin_s": 0.04}
@@ -71,7 +71,7 @@ def test_the_opening_caption_asks_for_a_pick_and_never_states_the_course(sandbox
     bank = _bank(sandbox)
     assert "PICK ONE" in bank and len(bank) >= 5
     for r in (_round(spinners=4, circles=31), _round(circles=75), _round(segments=8)):
-        text = gen._default_hook("marble_race", r)
+        text = physics.default_hook("marble_race", r)
         assert text in bank
         assert not any(ch.isdigit() for ch in text)
         assert "DECIDED" not in text and "0.04" not in text
@@ -81,7 +81,7 @@ def test_the_caption_rotates_by_seed_and_is_fixed_by_it(sandbox):
     gen = physics.PhysicsSandbox()
     def hook(seed):
         r = _round(spinners=3); r["style"].seed = seed
-        return gen._default_hook("marble_race", r)
+        return physics.default_hook("marble_race", r)
     assert hook(7301) == hook(7301)
     assert len({hook(s) for s in range(40)}) > 1
 
@@ -90,15 +90,15 @@ def test_an_empty_bank_means_no_caption(sandbox, monkeypatch):
     from factory import settings
     raw = settings.load().raw
     monkeypatch.setitem(raw, "overlay", {**raw["overlay"], "marble_race": ""})
-    assert physics.PhysicsSandbox()._default_hook("marble_race", _round(spinners=2)) == ""
+    assert physics.default_hook("marble_race", _round(spinners=2)) == ""
 
 
 def test_the_funnel_is_left_alone(sandbox):
-    assert physics.PhysicsSandbox()._default_hook("funnel_drop", _round(spinners=2)) == ""
+    assert physics.default_hook("funnel_drop", _round(spinners=2)) == ""
 
 
 def test_a_caption_passed_in_wins_over_the_default(sandbox):
-    overlay = physics.PhysicsSandbox()._overlay("marble_race", W, H, FPS, text="HOLD ON")
+    overlay = physics.overlay("marble_race", W, H, FPS, text="HOLD ON")
     assert overlay[0] == "HOLD ON"
 
 
@@ -417,7 +417,7 @@ def test_a_clip_can_be_read_in_full_without_downloading(client, tmp_path):
 def test_a_chosen_backdrop_wins_over_the_theme_and_is_recorded():
     from factory.generators import physics
 
-    *_, style, _ = physics.PhysicsSandbox()._simulate(
+    *_, style, _ = physics.simulate(
         seed=4242, variant="marble_race", sim_w=540, sim_h=960, fps=30, max_frames=3,
         stage="zigzag", background="#102030")
     assert style.background == (16, 32, 48)
@@ -572,7 +572,7 @@ def test_the_opening_caption_is_drawn_big_enough_to_read_at_arm_s_length(sandbox
     from factory import settings
 
     gen = physics.PhysicsSandbox()
-    text, font, x, y, last = gen._overlay("marble_race", W, H, FPS, text="PICK ONE")
+    text, font, x, y, last = physics.overlay("marble_race", W, H, FPS, text="PICK ONE")
     assert font.size >= W * 0.10, font.size
     assert x >= 0 and last > 0
     assert float(settings.load().raw["overlay"]["size"]) >= 0.10
@@ -582,7 +582,7 @@ def test_the_closing_ask_exists_and_turns_off_when_emptied(sandbox, monkeypatch)
     from factory import settings
 
     gen = physics.PhysicsSandbox()
-    ask = gen._closing_ask(W, H, FPS)
+    ask = physics.closing_ask(W, H, FPS)
     assert ask is not None
     text, font, x, y, span = ask
     assert "COMMENT" in text.upper() and span > 0
@@ -591,7 +591,7 @@ def test_the_closing_ask_exists_and_turns_off_when_emptied(sandbox, monkeypatch)
 
     raw = settings.load().raw
     monkeypatch.setitem(raw, "overlay", {**raw["overlay"], "cta": ""})
-    assert gen._closing_ask(W, H, FPS) is None
+    assert physics.closing_ask(W, H, FPS) is None
 
 
 def test_the_closing_ask_cannot_appear_before_the_result(sandbox):
@@ -599,7 +599,7 @@ def test_the_closing_ask_cannot_appear_before_the_result(sandbox):
     telling the viewer the race is about to end."""
     import inspect
 
-    for renderer in (physics.PhysicsSandbox._frames_pil, physics.PhysicsSandbox._frames_pygame):
+    for renderer in (physics.frames_pil, physics.frames_pygame):
         source = inspect.getsource(renderer)
         assert "frame_index >= winner_frame" in source
         assert "frame_index - winner_frame" in source  # the ask's age, never negative

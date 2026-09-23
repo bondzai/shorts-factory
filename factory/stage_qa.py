@@ -173,12 +173,11 @@ def stuck(states, i: int) -> bool:
 def run(stage: str, seeds: range | list[int], *, gravity_value: float | None = None) -> Report:
     cfg = settings.load().render
     report = Report(stage=stage, gravity=gravity_value if gravity_value is not None else physics.STAGE_GRAVITY[stage])
-    gen = physics.PhysicsSandbox()
     with gravity(stage, gravity_value):
         for seed in seeds:
             report.seeds += 1
             try:
-                r = gen._round(seed, "marble_race", {"stage": stage}, cfg, W, H, FPS)
+                r = physics.run_round(seed, "marble_race", {"stage": stage}, cfg, W, H, FPS)
             except RuntimeError as exc:
                 report.failures.append(f"{seed}: {str(exc).split('(')[-1].rstrip(')')}")
                 continue

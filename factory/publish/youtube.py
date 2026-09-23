@@ -82,7 +82,25 @@ def _config() -> dict[str, Any]:
     return dict(settings.load().raw.get("publish", {}))
 
 
-def _credentials(token_path: Path, *, interactive: bool = False):
+def _open_in(browser: str, url: str) -> None:
+    """Open the consent page in a named browser, private window.
+
+    The default browser is signed in to whichever Google accounts it is
+    signed in to, and the consent screen then offers that account's
+    channels. A fresh private window is the only reliable way to be asked
+    which account to use.
+    """
+    import subprocess
+
+    apps = {"chrome": ("Google Chrome", "--incognito"), "safari": ("Safari", None),
+            "firefox": ("Firefox", "-private-window"), "edge": ("Microsoft Edge", "--inprivate")}
+    app, flag = apps.get(browser, (browser, None))
+    cmd = ["open", "-na", app, "--args"] + ([flag] if flag else []) + [url]
+    subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def _credentials(token_path: Path, *, interactive: bool = False, open_browser: bool = True,
+                 browser: str | None = None):
     """The channel's credentials, refreshed if stale.
 
     `interactive` is the difference between a background upload and the
@@ -116,7 +134,29 @@ def _credentials(token_path: Path, *, interactive: bool = False):
                 f"Analytics API enabled, and save it as {CLIENT_SECRETS}"
             )
         flow = InstalledAppFlow.from_client_secrets_file(str(CLIENT_SECRETS), SCOPES)
-        creds = flow.run_local_server(port=0, prompt="consent")
+        # open_browser=False prints the URL instead of opening one. The
+        # machine's default browser is signed in to whichever Google accounts
+        # it is signed in to, which is not always the one that owns the
+        # channel: the consent screen then offers the wrong brand accounts.
+        # Pasting the URL into the right browser profile fixes that.
+        if browser:
+            # run_local_server picks the port, so the URL only exists inside
+            # it: hand it a browser opener of our own.
+            import webbrowser
+
+            class _Named:
+                def open(self, url, *a, **k):
+                    _open_in(browser, url)
+                    return True
+
+            webbrowser.register(f"factory-{browser}", None, _Named(), preferred=True)
+        creds = flow.run_local_server(
+            port=0, prompt="consent", open_browser=open_browser or bool(browser),
+            authorization_prompt_message=(
+                "" if open_browser else
+                "Open this in the browser signed in to the account that owns the channel:\n\n{url}\n"
+            ),
+        )
     token_path.parent.mkdir(parents=True, exist_ok=True)
     token_path.write_text(creds.to_json())
     token_path.chmod(0o600)
@@ -170,9 +210,9 @@ class YouTubePublisher:
     def connected(self) -> bool:
         return self.token_path.exists()
 
-    def connect(self) -> dict[str, Any]:
+    def connect(self, *, open_browser: bool = True, browser: str | None = None) -> dict[str, Any]:
         """Run the consent flow. Only ever called by a person at the machine."""
-        _credentials(self.token_path, interactive=True)
+        _credentials(self.token_path, interactive=True, open_browser=open_browser, browser=browser)
         who = self.whoami()
         logs.event("youtube.connected", channel=self.channel.id, remote_channel=who.get("id"),
                    title=who.get("title"))
