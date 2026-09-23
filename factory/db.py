@@ -458,8 +458,26 @@ def claim_task(
     return conn.execute("SELECT * FROM tasks WHERE id = ?", (row["id"],)).fetchone()
 
 
-def claimed_make_clip(conn: sqlite3.Connection, channel_id: str) -> sqlite3.Row | None:
-    """The make-clip task an agent is holding on this channel, oldest first."""
+def claimed_make_clip(
+    conn: sqlite3.Connection, channel_id: str, task_id: int | None = None
+) -> sqlite3.Row | None:
+    """The make-clip task an agent is holding on this channel.
+
+    `task_id` is the caller's own task, and it is how two agents work the
+    same channel at once. Without it the oldest claimed task answers for
+    everybody: a second worker rendering its own task was told it had asked
+    for the first worker's stage, and its task failed with a stage it never
+    passed. A task id that is no longer claimed falls back, so a stale one
+    cannot wedge the caller.
+    """
+    if task_id is not None:
+        row = conn.execute(
+            """SELECT * FROM tasks WHERE id = ? AND channel_id = ? AND status = 'claimed'
+               AND kind = 'make-clip'""",
+            (task_id, channel_id),
+        ).fetchone()
+        if row is not None:
+            return row
     return conn.execute(
         """SELECT * FROM tasks WHERE channel_id = ? AND status = 'claimed'
            AND kind = 'make-clip' ORDER BY claimed_at LIMIT 1""",
@@ -467,15 +485,27 @@ def claimed_make_clip(conn: sqlite3.Connection, channel_id: str) -> sqlite3.Row 
     ).fetchone()
 
 
-def attach_clip_to_claimed_task(conn: sqlite3.Connection, channel_id: str, clip_id: str) -> int | None:
+def attach_clip_to_claimed_task(
+    conn: sqlite3.Connection, channel_id: str, clip_id: str, task_id: int | None = None
+) -> int | None:
     """When an agent renders while holding a make-clip task, that render is the
     task's clip. Attached at render time so the step tracker can show progress
-    before the agent reports; the agent's own finish_task confirms it."""
+    before the agent reports; the agent's own finish_task confirms it.
+
+    `task_id` is the caller's own task, for the same reason as above: without
+    it one worker's render is filed against another worker's task."""
     row = conn.execute(
         """SELECT id FROM tasks WHERE channel_id = ? AND status = 'claimed'
-           AND kind = 'make-clip' AND clip_id IS NULL ORDER BY claimed_at LIMIT 1""",
-        (channel_id,),
+           AND kind = 'make-clip' AND clip_id IS NULL
+           AND (? IS NULL OR id = ?) ORDER BY claimed_at LIMIT 1""",
+        (channel_id, task_id, task_id),
     ).fetchone()
+    if row is None and task_id is not None:
+        row = conn.execute(
+            """SELECT id FROM tasks WHERE channel_id = ? AND status = 'claimed'
+               AND kind = 'make-clip' AND clip_id IS NULL ORDER BY claimed_at LIMIT 1""",
+            (channel_id,),
+        ).fetchone()
     if row is None:
         return None
     conn.execute("UPDATE tasks SET clip_id = ? WHERE id = ?", (clip_id, row["id"]))

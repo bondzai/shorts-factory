@@ -10,3 +10,6 @@ client_secret*.json
 token.json
 .pytest_cache/
 channels/
+
+# Agent worktrees live here; they are checkouts, not content.
+.claude/worktrees/

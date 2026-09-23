@@ -80,6 +80,13 @@ def _clip_summary(row) -> dict[str, Any]:
     }
 
 
+# The task this server process is holding, per channel. One `factory mcp`
+# process is one agent, so this is that agent's own task — and it is what
+# lets two agents work one channel at once without answering for each
+# other's parameters.
+HELD: dict[str, int] = {}
+
+
 def agent_name(given: str) -> str:
     """One short lowercase word per agent. Sessions of the same tool used to
     call themselves five different things ("Claude (Opus 5) queue worker",
@@ -253,13 +260,14 @@ def build_server():
                 _, use = task_queue.held_params(conn, channel_id, {
                     "variant": variant, "seed": seed, "generator": generator,
                     "stage": stage or course, "background": background,
-                })
+                }, HELD.get(channel_id))
                 clip_id, frames, facts = pipeline.create_and_render(
                     conn, channel, variant=use["variant"], generator=use["generator"] or "physics",
                     seed=use["seed"], hook=hook,
                     params={k: v for k, v in (("stage", use.get("stage")), ("background", use.get("background"))) if v} or None,
                 )
-                task_id = db.attach_clip_to_claimed_task(conn, resolve_channel_id(conn, channel), clip_id)
+                task_id = db.attach_clip_to_claimed_task(
+                    conn, channel_id, clip_id, HELD.get(channel_id))
                 if task_id:
                     logs.event("task.step", channel=resolve_channel_id(conn, channel), task=task_id,
                                clip=clip_id, step="rendered")
@@ -546,6 +554,8 @@ def build_server():
             if row is None:
                 return {"task": None, "message": "the queue is empty — nothing to do"}
             text = tasks.instructions(conn, row)
+            if row["kind"] == "make-clip":
+                HELD[row["channel_id"]] = int(row["id"])
             logs.event("task.claimed", channel=row["channel_id"], task=row["id"], kind=row["kind"], by=agent)
             logs.event("mcp.call", actor="mcp", tool="next_task", task=row["id"])
             return {"task": tasks.as_dict(row), "instructions": text}
@@ -569,6 +579,8 @@ def build_server():
                                      error=error, clip_id=clip_id)
             except ValueError as exc:
                 raise ToolError(str(exc)) from None
+            if HELD.get(row["channel_id"]) == task_id:
+                del HELD[row["channel_id"]]
             logs.event("task.finished", channel=row["channel_id"], task=task_id, kind=row["kind"],
                        status=row["status"], by=row["claimed_by"], error=error)
             logs.event("mcp.call", actor="mcp", tool="finish_task", task=task_id)
