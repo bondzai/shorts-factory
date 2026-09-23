@@ -262,3 +262,28 @@ def test_a_twin_finish_is_named_in_the_clip_text_rather_than_a_throat():
     style.gates.append(((0.0, 200.0), (100.0, 200.0)))
     text = physics.stage_text({"style": style, "segments": []})
     assert "forks into two exits" in text and "throat in the run-in" not in text
+
+
+def test_a_trailing_marble_is_told_apart_from_a_stopped_one():
+    """Ten of thirteen clips were rejected for "one of the marbles never
+    finishes" — the normal case, because the clip cuts a second after the
+    runner-up. The facts now say which of the two it is."""
+    from types import SimpleNamespace
+
+    from factory.generators.physics import sandbox
+
+    fps = 30
+    names = ["red", "blue", "amber"]
+    balls = [SimpleNamespace(name=n, radius=28.0) for n in names]
+    frames = fps * 3
+    states = []
+    for i in range(frames):
+        states.append([
+            (100.0, 900.0 - i),          # red: crossed, and in finish_s
+            (200.0, 900.0 - i * 4),      # blue: travelling
+            (300.0, 500.0 + (i % 2)),    # amber: rattling in place, going nowhere
+        ])
+    running, stopped = sandbox.unfinished(
+        {"states": states, "balls": balls, "finish_s": {"red": 8.0}}, fps
+    )
+    assert running == ["blue"] and stopped == ["amber"]

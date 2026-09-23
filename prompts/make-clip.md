@@ -37,6 +37,28 @@ clip repeats. `looks_templated` means *this channel's own output*, not the genre
 - Duration must be between **{min_seconds}** and **{max_seconds}** seconds.
 - Loudness is normalised to **{target_lufs}** LUFS by the encoder.
 
+## What a finished race looks like, so you do not reject a good clip
+
+The clip is cut about a second after the **runner-up** crosses, not after the
+last marble. A marble still on its way down when it ends is the normal case:
+on a five-marble race, two or three finishing is what a good clip looks like.
+`finishes` lists only who crossed before the cut, so a short list is not a
+fault and "only two of the five finish" is not a reason to reject.
+
+The facts tell you which is which, so you never have to infer it:
+
+- `still_running_at_the_cut` — on their way down when it ended. Fine. Expected.
+- `stopped_before_the_end` — went nowhere for the last two seconds. **This**
+  is the defect: a marble parked on screen while the race carries on. One is
+  worth mentioning in `reasons`; more than one, or one parked in plain sight
+  in the sampled frames, is a fair reject.
+
+So the two questions worth asking of a race are: did a **runner-up** arrive,
+so a viewer who backed another marble got paid out — and is anything
+**stopped** on screen. A clip with no runner-up at all (`runner_up` null,
+`margin_s` null) is a runaway and a fair reject. A clip with three marbles
+still travelling when it cuts is not.
+
 ## Writing the title
 
 Everything here comes from this channel's own numbers, printed below. If those

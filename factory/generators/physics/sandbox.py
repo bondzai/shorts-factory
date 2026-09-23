@@ -7,6 +7,7 @@ the pieces in order for one clip and hands back what the pipeline measures.
 from __future__ import annotations
 
 import json
+import math
 import random
 from pathlib import Path
 from typing import Any
@@ -21,6 +22,37 @@ from .simulate import run_round
 from .text import closing_ask, default_hook, overlay, stage_text
 
 VARIANTS = ["marble_race", "funnel_drop"]
+
+# A clip cuts about a second after the runner-up crosses, so marbles still on
+# their way down when it ends are the normal case, not a fault. Ten of the
+# thirteen clips rendered on 2026-09-23 were rejected by the agent doing QC,
+# most of them for "one of the three marbles never finishes" — which the
+# facts, listing only who crossed, gave it no way to read any other way. So
+# the render answers the question the agent was actually asking.
+STOPPED_WINDOW_S = 2.0
+
+
+def unfinished(round_: dict, fps: int) -> tuple[list[str], list[str]]:
+    """Who had not crossed when the clip cut: the ones still racing, and the
+    ones that had stopped.
+
+    Still racing is measured the way stage QA measures a parked marble —
+    headway, not speed, because a marble rattling in place between two pegs
+    is moving and going nowhere. A marble that has covered less than its own
+    radius in the last two seconds has stopped.
+    """
+    states, balls = round_["states"], round_["balls"]
+    window = min(len(states) - 1, int(fps * STOPPED_WINDOW_S))
+    running: list[str] = []
+    stopped: list[str] = []
+    for i, ball in enumerate(balls):
+        if ball.name in round_["finish_s"]:
+            continue
+        (x0, y0), (x1, y1) = states[-1 - window][i], states[-1][i]
+        moved = math.hypot(x1 - x0, y1 - y0)
+        (running if moved > ball.radius else stopped).append(ball.name)
+    return running, stopped
+
 
 def generate(*, seed: int, variant: str, params: dict[str, Any], work_dir: Path) -> GeneratedClip:
     if variant not in VARIANTS:
@@ -114,7 +146,9 @@ def generate(*, seed: int, variant: str, params: dict[str, Any], work_dir: Path)
                 {"stage": r["style"].stage, "winner": r["winner"], "margin_s": r["margin_s"],
                  "runner_up": r["runner_up"], "finishes": r["finish_s"], "seconds": round(r["duration_s"], 2),
                  "obstacles": len(r["style"].circles) or len(r["segments"]), "spinners": len(r["style"].spinners),
-                 "gate": bool(r["style"].gates)}
+                 "gate": bool(r["style"].gates),
+                 "still_running_at_the_cut": unfinished(r, fps)[0],
+                 "stopped_before_the_end": unfinished(r, fps)[1]}
                 for r in rounds
             ],
             "winner": last["winner"],
@@ -128,6 +162,11 @@ def generate(*, seed: int, variant: str, params: dict[str, Any], work_dir: Path)
             "backdrop": "#%02x%02x%02x" % rounds[0]["style"].background,
             "sim_attempts": sum(r["attempts"] for r in rounds),
             "finishes": last["finish_s"],
+            # Everyone who had not crossed when it cut, and which kind they
+            # are: still on their way down, or stopped. Only the second is a
+            # fault (see `unfinished`).
+            "still_running_at_the_cut": unfinished(last, fps)[0],
+            "stopped_before_the_end": unfinished(last, fps)[1],
             "runner_up": last["runner_up"],
             "margin_s": last["margin_s"],
             "hook_text": hook_text,
