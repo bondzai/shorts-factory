@@ -257,9 +257,46 @@ def test_the_trap_door_lets_go_on_its_own_every_cycle():
         assert max(angles) == 0.0  # and it closes again
         # Only the closing sweep can bat a marble — opening drops away from
         # whatever is on the door — and its tip must stay inside the rocking
-        # planks' 80-145 px/s, or it throws marbles back up the feed ramp.
+        # planks' 80-145 px/s, or it throws marbles back up the frame.
         closing = [(angles[i + 1] - angles[i]) * 60 * bore for i in range(len(angles) - 1)]
         assert max(closing) <= 145, (seed, max(closing))
+        # And it must stay away long enough for the marble it let go to fall
+        # out of the arc it sweeps. While it did not, the door caught every
+        # marble the pit released and threw it back up the frame: the open
+        # phase has to outlast a fall of `bore` from rest at the lowest
+        # gravity a composed stage runs at.
+        fall = math.sqrt(2 * bore / stage_qa.G_MIN)
+        wide = sum(1 for a in angles if bore * (1 - math.cos(a)) >= 2 * BIG) / 60
+        assert wide >= fall, (seed, wide, fall)
+
+
+def test_the_trap_keeps_a_marble_clear_of_the_walls_and_of_its_own_pegs():
+    """Two pockets this section has made. A mouth lip 40 px from the frame
+    wall held a marble against it for the last eight seconds of a clip; and
+    the pegs that fill the rest of the band are the pegs section's, so they
+    keep its clearances from each other and from the pit."""
+    room = stagekit.marble_room(W)
+    for seed in range(12):
+        style, segments = build("trap", top=800, bottom=380, seed=seed)
+        hx, hy, bore, depth, _period, _phase = style.traps[0]
+        lips = [min(a[0], b[0]) for a, b in segments] + [max(a[0], b[0]) for a, b in segments]
+        for x in lips:
+            gap = min(x - 13.0, (W - 13.0) - x)
+            assert gap <= 0 or gap >= room, (seed, x, gap)
+        # no peg inside the pit, or within a marble of anything it sweeps
+        for x, y, r in style.circles:
+            if hy - bore - room <= y <= hy + depth + room:
+                assert not (hx - room <= x <= hx + bore + room), (seed, x, y)
+        rows: dict[float, list] = {}
+        for x, y, r in style.circles:
+            rows.setdefault(round(y, 3), []).append((x, r))
+        for pegs_in_row in rows.values():
+            pegs_in_row.sort()
+            for (x1, r1), (x2, r2) in zip(pegs_in_row, pegs_in_row[1:]):
+                assert x2 - x1 - r1 - r2 >= 2 * BIG * 1.05, (seed, x1, x2)
+        ys = sorted(rows)
+        for y1, y2 in zip(ys, ys[1:]):
+            assert y2 - y1 >= 66 - 1e-6, (seed, y1, y2)  # the three-peg cup
 
 
 def test_a_held_marble_is_not_parked_and_a_wedged_one_still_is():

@@ -179,12 +179,19 @@ def stuck(states, i: int, style=None) -> bool:
 # How long a marble may be in a trap's pit before the pit stops explaining it.
 # One period is one guaranteed opening: whatever the phase it landed on, the
 # door has gone from under it once. A quarter more is the fall clear, which at
-# gravity -30 is about 1.9 s against periods of 4.4-5.0 s. Taking the bound
-# away entirely changes no verdict on the trapdoor stage (parked 7/60 over 24
-# seeds and 12/117 over 48, either way), which is the point: it is the
-# backstop for a marble wedged in a pit, not the thing deciding the everyday
-# verdict. What decides that is being in a pit at all — without the
-# distinction the same 48 seeds park 16 of 117 and the stage fails.
+# gravity -30 is about 2.6 s against periods of 6.4-7.2 s.
+#
+# Worth being straight about what this is worth today. When the pit was fed
+# off a ramp and sat on the critical path it decided the verdict: the same 48
+# seeds parked 12 of 117 with the distinction and 16 of 117 without, which is
+# a pass and a fail. The pit was then taken off the critical path, and now so
+# few marbles are in one when the clip cuts — 3 of 138 over 64 seeds — that
+# turning the distinction off, or taking the bound away, changes no verdict
+# on any seed set measured. It stays because it is the right rule and it is
+# free: a marble a mechanism is holding is not a marble that is stuck, and a
+# stage with no trap takes the same path through `stuck` it always did. A
+# trap put back on the critical path, on this stage or another, would need
+# it again.
 TRAP_HOLD_CYCLES = 1.25
 
 

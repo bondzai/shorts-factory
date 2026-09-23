@@ -221,23 +221,30 @@ TRAP_SWING = 1.45  # rad; cos 1.45 = 0.12, so the door blocks an eighth of the b
 #   closed   the hold, and the shortest phase, because it is the only one a
 #            marble waits through.
 #   opening  quick: the door is out from under the marble in under a second.
-#   open     the longest. Falling clear of the pit at gravity -30 takes about
-#            1.9 s, and a marble the door shuts under is caught for another
-#            whole cycle — which is where every hold past four seconds came
-#            from when this phase was 0.34.
-#   closing  the slowest sweep, and the one that decides the stage. A door
-#            that comes back fast does not pinch — the hinge sees to that —
-#            but it bats whatever is still in the pit back up the feed ramp,
-#            and a marble that has to run the ramp again makes no headway:
-#            at 0.22 of the period (a tip peaking at 167-190 px/s) 21 of 119
-#            unfinished marbles were parked above the pit; at 0.30 (122-139
-#            px/s) 12 of 117. Opening is free to be quick because the door
-#            drops away from whatever is on it and cannot bat anything.
-TRAP_PHASES = (0.14, 0.16, 0.40, 0.30)  # closed, opening, open, closing
-# Per trap, from the seed. The shortest period that holds the numbers: a hold
-# is then 1.9 s in the median and 4.0 s at the ninetieth (48 seeds, 93 holds),
-# and the closing tip peaks at 122-139 px/s, inside the rockers' 80-145.
-TRAP_PERIOD = (4.4, 5.0)
+#   open     by far the longest, and the number the whole section turns on.
+#            A marble let go at the door plane is still inside the arc the
+#            door sweeps — radius `bore` about the hinge — until it has
+#            fallen past it, which from rest at gravity -30 takes about 2.6 s.
+#            While this phase was shorter than that, *every* marble the pit
+#            let go was still in the arc when the door started back, and the
+#            door caught it: 5 of the 6 throws measured over 16 seeds
+#            happened between -1.41 and -1.15 rad, in the first tenth of the
+#            closing sweep, and carried marbles 84-150 px back up the frame.
+#            A marble that has to fall into the pit twice makes no headway,
+#            which is what `stage_qa.stuck` is for, and rightly.
+#   closing  slow, because it is the only sweep that can bat anything: it
+#            cannot pinch — the hinge sees to that — but its tip meets a
+#            marble head on. At 0.22 of the period (a tip peaking at 167-190
+#            px/s) 21 of 119 unfinished marbles ended up parked above the
+#            pit. Opening is free to be quick: the door drops away from
+#            whatever is on it.
+TRAP_PHASES = (0.12, 0.13, 0.45, 0.30)  # closed, opening, open, closing
+# Per trap, from the seed. Set by the open phase above: at 0.45 of the period
+# the bore is clear for 2.9-3.2 s against the 2.6 s a marble needs to fall out
+# of the door's arc. The hold is the closed phase plus that fall, so it stays
+# a beat even though the cycle is long — and the closing tip peaks at 85-95
+# px/s, under half what it was when this section parked marbles.
+TRAP_PERIOD = (6.4, 7.2)
 
 
 def _ease(x: float) -> float:
@@ -649,6 +656,19 @@ def magnets(space, w, top, bottom, rng, style):
             _magnet(space, x, y, core)
             style.magnets.append((x, y, core, soft, reach, MAGNET_PULL))
     return []
+
+
+# Where the pit's mouth may sit, as a fraction of the width, before the
+# clearance below is applied. The first trap fed the pit off a long ramp from
+# one frame wall, which put it on the critical path: half the field went in,
+# and with 2.1 marbles held a race the nearest non-winner had been in the pit
+# on 9 of the 10 seeds that finished with no runner-up at all. The mouth is
+# now the whole catch — a marble has to fall into it — and it is placed off
+# to one side, so what the trap does is catch somebody rather than sort
+# everybody.
+TRAP_PLACE = (0.30, 0.44)
+
+
 def trap(space, w, top, bottom, rng, style):
     """A holding trap: a pit with a floor that swings away on a clock.
 
@@ -670,23 +690,34 @@ def trap(space, w, top, bottom, rng, style):
     * **The bore.** marble_room and a sixth. Below that the open door still
       blocks more than the air a marble needs; above it the pit stops catching
       anything, because a marble crosses it faster than it falls into it.
-    * **The depth.** 2.1 radii of the biggest marble. Marbles arrive off the
-      feed ramp at about 80 px/s and bounce at 0.30 x 0.46; at 1.5 radii they
-      came back out of the pit on the first bounce, and at 2.3 the fall clear
-      after the door opens added most of a second to every hold.
-    * **The lean.** The walls meet the mouth at 67 degrees rather than square,
-      for the reason the cascade's flat cap was cut: the first version ran the
-      feed ramp into the *top* of a vertical wall, and marbles stopped at the
-      knob where the two ends met, seen on a contact sheet rather than
-      reasoned about. Now the feed runs into a face that carries on downhill
-      into the pit and there is no knob on the way in, which is worth 12
-      parked marbles in 117 against 14 in 119 with the walls square.
+    * **The depth.** 2.1 radii of the biggest marble. Marbles drop in at
+      about 80 px/s and bounce at 0.30 x 0.46; at 1.5 radii they came back
+      out of the pit on the first bounce, and at 2.3 the fall clear after the
+      door opens added most of a second to every hold.
+    * **The lean.** Both walls meet the mouth at 67 degrees rather than
+      square, for the reason the cascade's flat cap was cut: a wall that ends
+      square ends in a knob, and a marble that arrives slowly balances on it.
+      A 67 degree face sheds one either into the pit or past it, and there is
+      nothing anywhere on the pit for a marble to come to rest on.
 
-    The feed ramp is deliberately one-sided: it takes whatever is on its half
-    of the frame into the pit and leaves the other half a clear bypass wider
-    than a marble. Funnelling the whole field in was tried first and is a
-    stall — four marbles queue on a closed door, nothing moves, and the
-    solver abandons the seed (`Stalled`) before the door opens.
+    **What the pit is not**: a funnel. The first version fed it off a long
+    ramp from one frame wall, which put it on the critical path — half the
+    field went in, 2.1 marbles were held a race, and on 9 of the 10 seeds
+    that finished with no runner-up at all the nearest non-winner had been in
+    the pit. The ramp was also where the parked marbles were: 5 in 39, none
+    of them in the pit, all of them on or beside the ramp. There is no ramp
+    now. The mouth is bore + two leans wide, a quarter of the frame, and it
+    is placed off centre (TRAP_PLACE), so a marble has to fall into it: the
+    trap catches somebody rather than sorting everybody, and both sides of it
+    are open bypass far wider than a marble.
+
+    The rest of the band is pegs, at the `pegs` section's own clearances and
+    kept a marble's room clear of the pit and of everything the door sweeps.
+    They are not decoration. A band that is a pit and otherwise empty air is
+    a band marbles fall straight through: the stage then finished in 7.0-10.6
+    s on 9 of 16 seeds, under the 10.6 s QC floor, and burned a retry on each
+    one. With the pegs in, the same seeds run 12-13 s and the field arrives
+    at the pit spread out rather than in a bunch.
     """
     room = marble_room(w)
     big = w * MARBLE_R
@@ -697,26 +728,27 @@ def trap(space, w, top, bottom, rng, style):
     # nothing solid may leave the band: that is what fixes the pit's height.
     fy = bottom + bore * math.sin(TRAP_SWING) + 4.0
     mouth = fy + depth
+    # A pit with no air above its mouth is a pit nothing can fall into. Rather
+    # than shrink it past what a marble needs, build nothing: compose() is
+    # free to give this section a small share, and a squeezed trap is the
+    # squeezed sieve all over again.
     if mouth > top - room * 0.5:
-        # The band cannot hold a pit and a feed above it. Rather than shrink
-        # the pit past what a marble needs, put nothing here: compose() is
-        # free to give this section a small share, and a squeezed trap is the
-        # squeezed sieve all over again.
         return []
-    side = rng.choice([-1, 1])  # which side of the frame feeds the pit
-    cx = w * (0.5 + side * rng.uniform(0.02, 0.10))
+    # A mouth lip closer to a frame wall than a marble is the pocket
+    # `_cornered` names, and it is not a near miss: at 0.20 w the left lip
+    # stood 40 px off the wall against a 52 px marble and one sat in the gap
+    # for the last eight seconds of a clip, dead still.
+    edge = 13.0 + room + bore / 2 + lean
+    cx = min(max(w * rng.uniform(*TRAP_PLACE), edge), w - edge)
+    if rng.random() < 0.5:
+        cx = w - cx  # either side of the frame, so the stage is not one-handed
     hinge = cx - bore / 2
-    # The far wall starts a little below the door so that a marble coming down
-    # its outside face passes the door's tip rather than landing on it.
+    # The near wall stops at the hinge — anything below it is inside the
+    # door's own sweep — while the far wall carries on a little past the
+    # door's tip, so a marble coming down its outside face falls clear
+    # instead of landing on the tip.
     segments = [((hinge - lean, mouth), (hinge, fy)),
                 ((hinge + bore, fy - big * 0.4), (hinge + bore + lean, mouth))]
-    near = cx - side * (bore / 2 + lean)  # the lip of the mouth the feed arrives at
-    # The feed: a ramp from the frame wall down to the near lip of the mouth,
-    # at the ramps section's slope. Shallower than 0.38 and marbles stop on
-    # it; the run is cut short of the wall rather than the slope flattened.
-    rise = top - mouth
-    run = min(rise / rng.uniform(0.38, 0.46), abs(near - (14.0 if side > 0 else w - 14.0)))
-    segments.append(((near - side * run, mouth + rise), (near, mouth)))
     for a, b in segments:
         _wall(space, a, b, thickness=style.thickness / 2)
     period = rng.uniform(*TRAP_PERIOD)
@@ -725,7 +757,48 @@ def trap(space, w, top, bottom, rng, style):
     body.angle = trap_angle(0.0, period, phase)
     style.traps.append((hinge, fy, bore, depth, period, phase))
     style.kinematics.append(("trapdoor", body, (period, phase)))
+    _pegs_around(space, w, top, bottom, rng, style, hinge, fy, bore, depth, lean)
     return segments
+
+
+def _pegs_around(space, w, top, bottom, rng, style, hinge, fy, bore, depth, lean) -> None:
+    """Fill the band around a pit with pegs, keeping a marble's room from it.
+
+    The clearances are the pegs section's, for the same reasons: rows 66 px
+    apart or more (the three-peg cup), a marble's diameter and a tenth
+    between pegs in a row (the cradle), and nothing that leaves a wall gap
+    too small to pass (the corner). The pit's keep-out is everything a marble
+    could be caught against — the mouth, the walls, and the quarter circle
+    the door sweeps below the hinge — grown by a marble's room.
+    """
+    room = marble_room(w)
+    through = w * MARBLE_R * 2 * 1.1
+    r = rng.uniform(6.5, 9.5)
+    height = top - bottom
+    # Tighter than the pegs section's 66-82 and 5-7, at the same floors. This
+    # band has a pit taking a quarter of it out, and the sparser field let
+    # marbles run the gap beside the pit and arrive at the throat together:
+    # over five 16-seed sets the loose density parked 6 of 37 on one of them
+    # against a 12% ceiling, and this one parks 0-4 of 36-40 on all five. It
+    # buys nothing on pace — first try is 12, 14, 9, 9, 13 either way — that
+    # is the pegs being here at all, not how many of them there are.
+    rows = max(1, int(height // rng.uniform(66, 72)) + 1)
+    cols = max(3, min(rng.randint(6, 7), int((w - 60.0) // (through + 2 * r))))
+    pitch = (w - 60.0) / cols
+    # The keep-out: the pit's own box, and the door's arc under the hinge.
+    keep_x = (hinge - lean - room - r, hinge + bore + lean + room + r)
+    keep_y = (fy - bore - room - r, fy + depth + room + r)
+    for i in range(rows):
+        y = top - height * i / max(rows - 1, 1) if rows > 1 else (top + bottom) / 2
+        offset = pitch / 2 if i % 2 else 0.0
+        for j in range(cols + (0 if i % 2 else 1)):
+            x = 30.0 + offset + j * pitch
+            if keep_x[0] <= x <= keep_x[1] and keep_y[0] <= y <= keep_y[1]:
+                continue
+            if _cornered(x, r, w, room):
+                continue
+            _peg(space, x, y, r)
+            style.circles.append((x, y, r))
 
 
 SECTIONS: dict[str, Callable] = {
