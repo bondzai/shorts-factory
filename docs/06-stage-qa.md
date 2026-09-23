@@ -8,27 +8,28 @@ A stage built from sections is given a weight — picked at random — only afte
 
 | stage | built from | status | gravity | finished | first try | runner-up | parked | out | median s | lead changes | comeback | verdict |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| `zigzag` | hand-built | live 10% | -600 | 48/48 | 32/48 | 98% | 3/49 | 0 | 14.9 | 6.3 | 69% | pass |
-| `pegboard` | hand-built | live 8% | -110 | 48/48 | 36/48 | 67% | 11/102 | 0 | 13.3 | 4.1 | 25% | pass |
-| `bumpers` | hand-built | live 9% | -95 | 47/48 | 26/48 | 21% | 77/146 | 0 | 14.3 | 4.2 | 38% | FAIL: runner-up 10/47; parked 77/146 |
-| `funnels` | hand-built | live 6% | -45 | 48/48 | 34/48 | 67% | 12/121 | 0 | 13.6 | 1.8 | 10% | pass |
-| `gauntlet` | hand-built | live 6% | -55 | 45/48 | 21/48 | 36% | 64/125 | 0 | 13.4 | 4.4 | 31% | FAIL: finishes 45/48; first try 21/48; runner-up 16/45; parked 64/125 |
-| `cascade` | hand-built | live 2% | -200 | 48/48 | 46/48 | 77% | 10/102 | 0 | 12.6 | 0.5 | 0% | FAIL: lead changes 0.5 |
-| `pinwheel` | hand-built | live 6% | -40 | 48/48 | 26/48 | 40% | 39/126 | 0 | 13.9 | 2.6 | 8% | FAIL: runner-up 19/48; parked 39/126 |
-| `sieve` | hand-built | live 6% | -60 | 48/48 | 22/48 | 79% | 2/108 | 0 | 11.9 | 2.5 | 15% | FAIL: first try 22/48 |
-| `pachinko` | hand-built | live 4% | -70 | 48/48 | 31/48 | 81% | 21/91 | 0 | 12.0 | 2.7 | 15% | FAIL: parked 21/91 |
-| `rockers` | hand-built | live 4% | -150 | 48/48 | 31/48 | 40% | 44/127 | 0 | 12.9 | 2.5 | 17% | FAIL: runner-up 19/48; parked 44/127 |
-| `drums` | hand-built | live 4% | -40 | 48/48 | 19/48 | 81% | 5/107 | 0 | 11.8 | 1.4 | 8% | FAIL: first try 19/48; lead changes 1.4 |
-| `arcade` | bumpers → spinners → pegs | trial | -30 | 47/48 | 15/48 | 57% | 11/109 | 0 | 12.0 | 1.1 | 0% | FAIL: first try 15/48; lead changes 1.1 |
-| `plinko` | pegs → wheel → pegs | live 3% | -31 | 48/48 | 30/48 | 67% | 5/111 | 0 | 13.1 | 1.5 | 27% | pass |
-| `switchback` | ramps → belts → ramps | live 3% | -60 | 48/48 | 46/48 | 75% | 13/117 | 0 | 12.9 | 1.8 | 8% | pass |
-| `seesaw` | rockers → pegs → funnel | live 3% | -30 | 48/48 | 47/48 | 67% | 7/105 | 0 | 13.7 | 1.9 | 10% | pass |
-| `rapids` | ramps → chutes → bumpers | live 3% | -30 | 48/48 | 36/48 | 69% | 5/99 | 0 | 12.8 | 1.9 | 17% | pass |
-| `carnival` | pegs → wheel → spinners → pegs | live 3% | -30 | 48/48 | 37/48 | 69% | 8/101 | 0 | 12.5 | 1.8 | 29% | pass |
-| `quarry` | sieve → funnel → pegs | live 3% | -30 | 48/48 | 47/48 | 62% | 3/107 | 0 | 14.3 | 2.5 | 23% | pass |
-| `tumble` | funnel → drums → pegs | live 3% | -30 | 48/48 | 31/48 | 75% | 3/95 | 0 | 11.6 | 2.2 | 10% | pass |
-| `labyrinth` | ramps → sieve → chutes | live 3% | -30 | 48/48 | 28/48 | 69% | 10/101 | 0 | 13.2 | 1.8 | 15% | pass |
-| `orchard` | pegs → rockers → pegs | live 3% | -30 | 48/48 | 43/48 | 60% | 11/108 | 0 | 13.5 | 2.1 | 35% | pass |
-| `pinball` | bumpers → rockers → funnel | live 3% | -30 | 48/48 | 26/48 | 50% | 13/122 | 0 | 13.3 | 2.0 | 6% | pass |
-| `gallery` | pegs → sieve → funnel | live 3% | -44 | 48/48 | 35/48 | 75% | 4/102 | 0 | 13.0 | 2.1 | 17% | pass |
-| `spillway` | chutes → pegs → funnel | live 3% | -30 | 48/48 | 42/48 | 65% | 1/105 | 0 | 13.3 | 2.1 | 6% | pass |
+| `zigzag` | hand-built | live 10% | -600 | 48/48 | 37/48 | 100% | 1/51 | 0 | 14.4 | 6.2 | 62% | pass |
+| `pegboard` | hand-built | live 8% | -110 | 48/48 | 41/48 | 98% | 14/83 | 0 | 14.6 | 3.9 | 35% | FAIL: parked 14/83 |
+| `bumpers` | hand-built | live 9% | -95 | 48/48 | 23/48 | 44% | 85/121 | 0 | 17.6 | 3.4 | 40% | FAIL: first try 23/48; parked 85/121 |
+| `funnels` | hand-built | live 6% | -45 | 48/48 | 42/48 | 96% | 8/90 | 0 | 13.4 | 1.7 | 15% | pass |
+| `gauntlet` | hand-built | live 6% | -55 | 48/48 | 34/48 | 42% | 59/133 | 0 | 15.6 | 4.0 | 27% | FAIL: parked 59/133 |
+| `cascade` | hand-built | live 2% | -200 | 48/48 | 42/48 | 90% | 18/101 | 0 | 13.8 | 0.9 | 4% | FAIL: parked 18/101; lead changes 0.9 |
+| `pinwheel` | hand-built | live 6% | -40 | 48/48 | 35/48 | 62% | 23/112 | 0 | 12.7 | 1.7 | 4% | FAIL: parked 23/112 |
+| `sieve` | hand-built | live 6% | -60 | 48/48 | 22/48 | 98% | 6/106 | 0 | 12.4 | 2.6 | 23% | FAIL: first try 22/48 |
+| `pachinko` | hand-built | live 4% | -70 | 48/48 | 34/48 | 96% | 18/78 | 0 | 12.0 | 3.0 | 6% | FAIL: parked 18/78 |
+| `rockers` | hand-built | live 4% | -150 | 48/48 | 39/48 | 77% | 32/97 | 0 | 14.2 | 3.3 | 27% | FAIL: parked 32/97 |
+| `drums` | hand-built | live 4% | -40 | 48/48 | 12/48 | 98% | 4/91 | 0 | 12.0 | 1.6 | 0% | FAIL: first try 12/48 |
+| `arcade` | bumpers → spinners → pegs | trial | -30 | 48/48 | 24/48 | 83% | 14/100 | 0 | 12.1 | 1.1 | 2% | FAIL: parked 14/100; lead changes 1.1 |
+| `plinko` | pegs → wheel → pegs | live 3% | -31 | 48/48 | 39/48 | 94% | 3/91 | 0 | 12.9 | 1.9 | 21% | pass |
+| `switchback` | ramps → belts → ramps | live 3% | -60 | 48/48 | 45/48 | 100% | 14/95 | 0 | 13.0 | 1.8 | 12% | FAIL: parked 14/95 |
+| `seesaw` | rockers → pegs → funnel | live 3% | -30 | 48/48 | 48/48 | 92% | 4/98 | 0 | 13.4 | 2.2 | 12% | pass |
+| `rapids` | ramps → chutes → bumpers | live 3% | -30 | 48/48 | 42/48 | 90% | 4/85 | 0 | 12.7 | 2.0 | 8% | pass |
+| `carnival` | pegs → wheel → spinners → pegs | live 3% | -30 | 48/48 | 37/48 | 94% | 9/102 | 0 | 12.8 | 1.4 | 15% | FAIL: lead changes 1.4 |
+| `quarry` | sieve → funnel → pegs | live 3% | -30 | 48/48 | 48/48 | 98% | 6/95 | 0 | 14.1 | 2.5 | 8% | pass |
+| `tumble` | funnel → drums → pegs | live 3% | -30 | 48/48 | 35/48 | 98% | 3/79 | 0 | 12.5 | 2.6 | 29% | pass |
+| `labyrinth` | ramps → sieve → chutes | live 3% | -30 | 48/48 | 38/48 | 92% | 6/99 | 0 | 12.4 | 1.4 | 4% | FAIL: lead changes 1.4 |
+| `orchard` | pegs → rockers → pegs | live 3% | -30 | 48/48 | 38/48 | 81% | 13/105 | 0 | 14.8 | 1.7 | 27% | FAIL: parked 13/105 |
+| `pinball` | bumpers → rockers → funnel | live 3% | -30 | 48/48 | 43/48 | 85% | 11/108 | 0 | 13.6 | 1.7 | 6% | pass |
+| `gallery` | pegs → sieve → funnel | live 3% | -44 | 48/48 | 39/48 | 90% | 4/96 | 0 | 14.0 | 1.6 | 23% | pass |
+| `spillway` | chutes → pegs → funnel | live 3% | -30 | 48/48 | 48/48 | 96% | 5/95 | 0 | 14.2 | 2.2 | 10% | pass |
+| `delta` | chutes → bumpers → pegs | trial | -30 | 48/48 | 48/48 | 85% | 0/112 | 0 | 15.5 | 2.1 | 4% | pass |

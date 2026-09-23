@@ -198,6 +198,52 @@ def test_a_long_caption_shrinks_to_fit_the_frame(sandbox):
     assert long[2] >= 0  # left edge inside the frame
 
 
+def test_the_tail_waits_long_enough_for_the_field_to_arrive():
+    """Five seeds an agent's QC rejected as "no race: only amber finishes".
+    Each had a winner and nothing else across the line inside the old 2.8 s
+    tail; the gap distribution said p90 was 5.61 s, so the tail is 7.0 s and
+    every one of them now shows the runner-up arrive."""
+    from factory import settings
+
+    cfg = dict(settings.load().render)
+    rejected = [("orchard", 281580509), ("tumble", 1679835290), ("gallery", 1864683274),
+                ("spillway", 1176307895), ("gallery", 1806722502)]
+    for stage, seed in rejected:
+        r = physics.run_round(seed, "marble_race", {"stage": stage}, cfg, W, H, FPS)
+        assert r["runner_up"] and r["margin_s"], (stage, seed)
+        # and the clip still fits the QC window it has to ship inside
+        assert 10.0 <= r["duration_s"] <= 60.0, (stage, seed, r["duration_s"])
+
+
+def test_a_field_at_rest_ends_the_round_instead_of_burning_the_race():
+    """Once the winner is home a stalled field means nothing more will cross,
+    so the round ends there. It used to raise Stalled and retry, throwing away
+    a race that had already been won: measured, the field comes to rest inside
+    the tail in 4% of races at a 5.0 s tail and 15% at 8.0 s."""
+    from factory import settings
+
+    cfg = dict(settings.load().render)
+    cut = physics.run_round(281580509, "marble_race", {"stage": "orchard"}, cfg, W, H, FPS,
+                            post_win_max_s=30.0)
+    # 30 s of tail is far more than any field keeps moving for, so this round
+    # can only have ended early -- and on its first attempt, not a retry.
+    assert cut["duration_s"] < 30.0
+    assert cut["attempts"] == 1
+
+
+def test_no_runner_up_reports_the_wait_that_was_watched(sandbox, tmp_path):
+    """QC quotes this sentence verbatim, so the seconds in it have to be the
+    ones on screen, not POST_WIN_MAX_S: a field at rest or the frame budget
+    ends the round early and the constant would claim a wait nobody saw."""
+    import re
+
+    clip = physics.generate(seed=4242, variant="marble_race",
+                            params={"stage": "gauntlet", "rounds": 1}, work_dir=tmp_path)
+    said = re.findall(r"no other marble crosses in the next ([\d.]+) seconds", clip.description)
+    for value in said:
+        assert float(value) <= physics.POST_WIN_MAX_S + 0.1, clip.description
+
+
 def test_a_photo_finish_is_not_written_as_zero_seconds():
     assert physics.seconds(0.04) == "0.04 seconds"
     assert physics.seconds(1.24) == "1.2 seconds"

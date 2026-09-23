@@ -19,6 +19,18 @@ A stage passes when every gate below holds. `calibrate` tunes gravity so the
 median finish lands mid-window; `run` measures; `report` writes the table
 docs/06-stage-qa.md shows. The registry's weight is what makes a stage live,
 and a stage is only given one after it passes here.
+
+Two of these gates are measured over the whole round, tail included, so they
+moved when POST_WIN_MAX_S went 2.8 -> 7.0 s even though no race changed shape:
+`stuck` looks at the last eight seconds, which a 7 s tail now nearly fills, so
+a marble that settles after the winner is home is counted where before the clip
+had already cut; and `_leads` samples a longer round in which the lead cannot
+change, while the longer tail also clears the QC floor more often and so
+retries fewer seeds, which changes which attempt gets measured. Five stages
+that passed on 48 seeds now fail on parked or lead changes (pegboard,
+switchback, orchard, carnival, labyrinth) while every stage gained runner-ups
+and none fails the runner-up gate any more. Judging drama and parking over the
+race rather than the tail is the fix; it is not done here.
 """
 
 from __future__ import annotations
@@ -72,6 +84,11 @@ class Report:
     others: int = 0
     out: int = 0
     durations: list[float] = field(default_factory=list)
+    # The gap winner -> second, per finished race, None when no second marble
+    # ever crossed. With the shipping cut this can be no larger than
+    # POST_WIN_MAX_S; `run(tail_s=...)` is how the uncut distribution behind
+    # that constant gets measured.
+    gaps: list[float | None] = field(default_factory=list)
     leads: list[int] = field(default_factory=list)
     comebacks: int = 0
     failures: list[str] = field(default_factory=list)
@@ -170,20 +187,41 @@ def stuck(states, i: int) -> bool:
     return before - recent < PARKED_PX
 
 
-def run(stage: str, seeds: range | list[int], *, gravity_value: float | None = None) -> Report:
+def run(stage: str, seeds: range | list[int], *, gravity_value: float | None = None,
+        tail_s: float | None = None, max_seconds: float | None = None,
+        cut_on_runner_up: bool = True) -> Report:
+    """Measure one stage over seeds.
+
+    `tail_s` stands in for POST_WIN_MAX_S for this run only, which is how a
+    candidate tail is costed before it is committed to.
+
+    `cut_on_runner_up=False` also lifts POST_WIN_S, the shorter cut that fires
+    once the second marble is home. That is only for measuring the uncut gap
+    distribution: leave it on to cost a tail, because the runner-up cut is
+    what keeps the median race from paying the whole tail. Measuring with it
+    off put the cost of a 5.0 s tail at +1.8 s a round when it is +0.2 s.
+    It needs `max_seconds` raised to match, or the race is truncated by the
+    frame budget before a long gap can be seen.
+    """
     cfg = settings.load().render
+    params = {"stage": stage}
+    if max_seconds is not None:
+        params["max_seconds"] = max_seconds
     report = Report(stage=stage, gravity=gravity_value if gravity_value is not None else physics.STAGE_GRAVITY[stage])
     with gravity(stage, gravity_value):
         for seed in seeds:
             report.seeds += 1
             try:
-                r = physics.run_round(seed, "marble_race", {"stage": stage}, cfg, W, H, FPS)
+                r = physics.run_round(seed, "marble_race", params, cfg, W, H, FPS,
+                                      post_win_max_s=tail_s,
+                                      post_win_s=None if cut_on_runner_up else tail_s)
             except RuntimeError as exc:
                 report.failures.append(f"{seed}: {str(exc).split('(')[-1].rstrip(')')}")
                 continue
             report.finished += 1
             report.first_try += r["attempts"] == 1
             report.runner_up += bool(r["runner_up"])
+            report.gaps.append(r["margin_s"])
             report.durations.append(r["duration_s"])
             states = r["states"]
             last = states[-1]

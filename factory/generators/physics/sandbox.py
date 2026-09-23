@@ -14,7 +14,7 @@ from typing import Any
 from ... import audio, settings
 from ... import render as encoder
 from ..base import GeneratedClip
-from .model import CLOSE_RACE_S, FINAL_CAPTION, POST_WIN_MAX_S, Style, seconds
+from .model import CLOSE_RACE_S, FINAL_CAPTION, Style, seconds
 from .registry import LIVE_STAGES, STAGES
 from .render import frames
 from .simulate import run_round
@@ -89,8 +89,15 @@ def generate(*, seed: int, variant: str, params: dict[str, Any], work_dir: Path)
             else:
                 label += f" down {stage_text(r)}"
             if r["winner"]:
+                # When nobody else comes home, say how long was actually
+                # watched, not POST_WIN_MAX_S. The two differ: a field that
+                # comes to rest ends the round early, and so does the frame
+                # budget, so the constant would claim a wait that was never
+                # simulated. QC quotes this sentence back verbatim, so it has
+                # to be a measurement rather than a setting.
+                waited = r["duration_s"] - r["winner_frame"] / fps
                 gap = (f", {seconds(r['margin_s'])} ahead of {r['runner_up']}" if r["runner_up"]
-                       else f"; no other marble crosses in the next {POST_WIN_MAX_S} seconds")
+                       else f"; no other marble crosses in the next {waited:.1f} seconds")
                 parts.append(f"{label}. The {r['winner']} marble reaches the bottom first, at "
                              f"{r['winner_frame'] / fps:.1f} seconds{gap}.")
             else:
