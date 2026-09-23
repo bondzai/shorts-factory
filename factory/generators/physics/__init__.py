@@ -33,8 +33,8 @@ from .addons import (FINISH_GATE_CHANCE, GATE_GAP, GATE_GAP_COMPOSED, GATE_HEIGH
 from .build import build_funnel, build_race  # noqa: F401
 from .model import (BACKGROUND, CLOSE_RACE_S, FINAL_CAPTION, IMPACT_DV, MAX_SPEED,  # noqa: F401
                     PALETTES, POST_WIN_MAX_S, POST_WIN_S, RACE_COLORS, RACE_GRAVITY,
-                    ROCK_AMPLITUDE, STALL_SPEED, STRUCTURE, SUBSTEPS, TIP_GAP, Ball, Stalled,
-                    Style, make_ball, parse_hex, pick, seconds, structure_for)
+                    ROCK_AMPLITUDE, STALL_SPEED, STRUCTURE, SUBSTEPS, TIP_GAP, TRAP_SWING, Ball,
+                    Stalled, Style, make_ball, parse_hex, pick, seconds, structure_for, trap_angle)
 from .registry import (BUILDERS, GATE_STAGES, LIVE_STAGES, SPINNER_ROWS, SPINNER_STAGES,  # noqa: F401
                        STAGE_BLURB, STAGE_BY_ID, STAGE_GRAVITY, STAGE_NOUN, STAGE_SPECS, STAGES,
                        TWIN_STAGES, WHEEL_STAGES, Stage)

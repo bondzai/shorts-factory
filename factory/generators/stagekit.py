@@ -166,6 +166,22 @@ def magnet_accel(dx, dy, soft: float, reach: float, peak: float):
     a = peak * shape
     r = math.sqrt(r2)
     return a * dx / r, a * dy / r
+def _trapdoor(space, x, y, length: float, thickness: float):
+    """The floor of a holding pit, hinged at (x, y) and reaching `length` to
+    the right. The segment starts at the body's origin so the body's angle
+    *is* the door's angle about its hinge — which is what makes the pinch
+    impossible: the one corner where the door meets static structure is the
+    hinge itself, and a gap that opens from zero cannot close on a marble."""
+    body = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
+    body.position = (x, y)
+    shape = pymunk.Segment(body, (0, 0), (length, 0), thickness)
+    # A door, not a bumper: 0.30 against the walls' 0.46. A marble dropped on
+    # a level door at gravity -30 still bounced 40 px at the walls' value,
+    # which is most of the way back out of the pit.
+    shape.elasticity = 0.30
+    shape.friction = 0.40
+    space.add(body, shape)
+    return body
 
 
 def _belt(space, a, b, speed: float, thickness: float) -> None:
@@ -190,6 +206,63 @@ MARBLE_R = 0.053
 # How far a rocking plank tips either way, in radians. Lives here because the
 # rockers section and both renderers need it and neither owns the other.
 ROCK_AMPLITUDE = 0.42
+
+
+# --- the holding trap's clock ------------------------------------------------------------
+#
+# The door swings down about its hinge and comes back, on a clock that runs
+# whatever the marbles do. Release is the mechanism's job, not the seed's: at
+# TRAP_SWING the door has left the pit's bore all but empty (see `trap`), so
+# there is nothing under a held marble to hold it. The phases are fractions of
+# one period — closed, swinging open, open, swinging shut.
+TRAP_SWING = 1.45  # rad; cos 1.45 = 0.12, so the door blocks an eighth of the bore when open
+# The four phases, measured rather than chosen:
+#
+#   closed   the hold, and the shortest phase, because it is the only one a
+#            marble waits through.
+#   opening  quick: the door is out from under the marble in under a second.
+#   open     the longest. Falling clear of the pit at gravity -30 takes about
+#            1.9 s, and a marble the door shuts under is caught for another
+#            whole cycle — which is where every hold past four seconds came
+#            from when this phase was 0.34.
+#   closing  the slowest sweep, and the one that decides the stage. A door
+#            that comes back fast does not pinch — the hinge sees to that —
+#            but it bats whatever is still in the pit back up the feed ramp,
+#            and a marble that has to run the ramp again makes no headway:
+#            at 0.22 of the period (a tip peaking at 167-190 px/s) 21 of 119
+#            unfinished marbles were parked above the pit; at 0.30 (122-139
+#            px/s) 12 of 117. Opening is free to be quick because the door
+#            drops away from whatever is on it and cannot bat anything.
+TRAP_PHASES = (0.14, 0.16, 0.40, 0.30)  # closed, opening, open, closing
+# Per trap, from the seed. The shortest period that holds the numbers: a hold
+# is then 1.9 s in the median and 4.0 s at the ninetieth (48 seeds, 93 holds),
+# and the closing tip peaks at 122-139 px/s, inside the rockers' 80-145.
+TRAP_PERIOD = (4.4, 5.0)
+
+
+def _ease(x: float) -> float:
+    """Smoothstep. A door that starts and stops dead flicks whatever is on it;
+    the sweep has to begin and end at rest."""
+    return x * x * (3.0 - 2.0 * x)
+
+
+def trap_angle(t: float, period: float, phase: float) -> float:
+    """Where a trap door is at time t: 0 level (holding), -TRAP_SWING open.
+
+    The one function the solver and both renderers read, so the door a viewer
+    sees is the door the marble sat on.
+    """
+    closed, opening, held, _closing = TRAP_PHASES
+    u = ((t / period) + phase) % 1.0
+    if u < closed:
+        return 0.0
+    u -= closed
+    if u < opening:
+        return -TRAP_SWING * _ease(u / opening)
+    u -= opening
+    if u < held:
+        return -TRAP_SWING
+    return -TRAP_SWING * (1.0 - _ease((u - held) / _closing))
 
 
 def marble_room(w: float) -> float:
@@ -576,12 +649,89 @@ def magnets(space, w, top, bottom, rng, style):
             _magnet(space, x, y, core)
             style.magnets.append((x, y, core, soft, reach, MAGNET_PULL))
     return []
+def trap(space, w, top, bottom, rng, style):
+    """A holding trap: a pit with a floor that swings away on a clock.
+
+    Every other section changes the order the marbles are in; this one stops
+    a marble. A lead built in the first five seconds is what makes the second
+    half of a clip worthless, and a marble that goes into the pit in front
+    comes out behind — the reset that keeps a race worth watching to the end.
+
+    The pit is three static pieces and one moving one: two walls a bore apart
+    at the bottom, leaning out to a wider mouth, and a door hinged at the foot
+    of the left wall. The door is kinematic and runs on `trap_angle`, so the
+    release is the mechanism's, not the seed's: at -TRAP_SWING the door
+    reaches only bore*cos(1.45) = an eighth of the bore across, leaving 0.88
+    of it open — more than a marble — and there is nothing else under the pit.
+    A pit that *usually* lets go would be the three-peg cup with extra steps.
+
+    Three things are sized rather than chosen:
+
+    * **The bore.** marble_room and a sixth. Below that the open door still
+      blocks more than the air a marble needs; above it the pit stops catching
+      anything, because a marble crosses it faster than it falls into it.
+    * **The depth.** 2.1 radii of the biggest marble. Marbles arrive off the
+      feed ramp at about 80 px/s and bounce at 0.30 x 0.46; at 1.5 radii they
+      came back out of the pit on the first bounce, and at 2.3 the fall clear
+      after the door opens added most of a second to every hold.
+    * **The lean.** The walls meet the mouth at 67 degrees rather than square,
+      for the reason the cascade's flat cap was cut: the first version ran the
+      feed ramp into the *top* of a vertical wall, and marbles stopped at the
+      knob where the two ends met, seen on a contact sheet rather than
+      reasoned about. Now the feed runs into a face that carries on downhill
+      into the pit and there is no knob on the way in, which is worth 12
+      parked marbles in 117 against 14 in 119 with the walls square.
+
+    The feed ramp is deliberately one-sided: it takes whatever is on its half
+    of the frame into the pit and leaves the other half a clear bypass wider
+    than a marble. Funnelling the whole field in was tried first and is a
+    stall — four marbles queue on a closed door, nothing moves, and the
+    solver abandons the seed (`Stalled`) before the door opens.
+    """
+    room = marble_room(w)
+    big = w * MARBLE_R
+    bore = room * 1.18
+    depth = big * 2.1
+    lean = depth * 0.42  # 67 degrees: past the 0.46 slope anything rests on
+    # The door hangs bore*sin(TRAP_SWING) below its hinge when open, and
+    # nothing solid may leave the band: that is what fixes the pit's height.
+    fy = bottom + bore * math.sin(TRAP_SWING) + 4.0
+    mouth = fy + depth
+    if mouth > top - room * 0.5:
+        # The band cannot hold a pit and a feed above it. Rather than shrink
+        # the pit past what a marble needs, put nothing here: compose() is
+        # free to give this section a small share, and a squeezed trap is the
+        # squeezed sieve all over again.
+        return []
+    side = rng.choice([-1, 1])  # which side of the frame feeds the pit
+    cx = w * (0.5 + side * rng.uniform(0.02, 0.10))
+    hinge = cx - bore / 2
+    # The far wall starts a little below the door so that a marble coming down
+    # its outside face passes the door's tip rather than landing on it.
+    segments = [((hinge - lean, mouth), (hinge, fy)),
+                ((hinge + bore, fy - big * 0.4), (hinge + bore + lean, mouth))]
+    near = cx - side * (bore / 2 + lean)  # the lip of the mouth the feed arrives at
+    # The feed: a ramp from the frame wall down to the near lip of the mouth,
+    # at the ramps section's slope. Shallower than 0.38 and marbles stop on
+    # it; the run is cut short of the wall rather than the slope flattened.
+    rise = top - mouth
+    run = min(rise / rng.uniform(0.38, 0.46), abs(near - (14.0 if side > 0 else w - 14.0)))
+    segments.append(((near - side * run, mouth + rise), (near, mouth)))
+    for a, b in segments:
+        _wall(space, a, b, thickness=style.thickness / 2)
+    period = rng.uniform(*TRAP_PERIOD)
+    phase = rng.random()
+    body = _trapdoor(space, hinge, fy, bore, style.thickness / 2)
+    body.angle = trap_angle(0.0, period, phase)
+    style.traps.append((hinge, fy, bore, depth, period, phase))
+    style.kinematics.append(("trapdoor", body, (period, phase)))
+    return segments
 
 
 SECTIONS: dict[str, Callable] = {
     "pegs": pegs, "bumpers": bumpers, "funnel": funnel, "ramps": ramps, "sieve": sieve,
     "drums": drums, "rockers": rockers, "spinners": spinners, "wheel": wheel, "chutes": chutes,
-    "belts": belts, "magnets": magnets,
+    "belts": belts, "magnets": magnets, "trap": trap,
 }
 
 # How a section reads in a sentence, for the render's plain description.
@@ -590,6 +740,7 @@ SECTION_WORDS = {
     "sieve": "a sieve of tilted bars", "drums": "spinning drums", "rockers": "rocking planks",
     "spinners": "spinning bars", "wheel": "a four-armed wheel", "chutes": "split-and-rejoin chutes",
     "belts": "conveyor belts", "magnets": "magnets that pull the marbles off line",
+    "trap": "a trapdoor pit that holds a marble and lets it go",
 }
 
 

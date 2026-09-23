@@ -87,6 +87,11 @@ def test_nothing_solid_outside_the_band(section):
             assert y + rise <= top + 1 and y - rise >= bottom - 1, (section, y, rise)
         for x, y, core, *_ in style.magnets:
             assert bottom - core - 1 <= y <= top + core + 1, (section, y)
+        for hx, hy, bore, depth, _period, _phase in style.traps:
+            # A door is drawn where it swings, not where it is built: the whole
+            # arc has to stay in the band or the section below gets a pocket.
+            assert hy - bore * math.sin(stagekit.TRAP_SWING) >= bottom - 1, (section, hy, bore)
+            assert hy + depth <= top + 1, (section, hy, depth)
 
 
 def test_pegs_leave_a_marble_between_them_and_no_corner_at_the_walls():
@@ -232,6 +237,53 @@ def test_composed_rockers_rock_about_a_tilt_and_legacy_ones_about_level():
     assert all(len(r) == 6 and abs(r[5]) >= 0.24 for r in style.rockers)
     sim = physics.simulate(seed=9000, variant="marble_race", sim_w=W, sim_h=H, fps=30, max_frames=10, stage="rockers")
     assert all(len(r) == 5 for r in sim[6].rockers)
+
+
+# --- the holding trap ------------------------------------------------------------------
+
+def test_the_trap_door_lets_go_on_its_own_every_cycle():
+    """Release is the mechanism's, not the seed's. Whatever the phase, within
+    one period the door has left the bore wider than a marble, and it comes
+    back level so the pit can catch again."""
+    for seed in range(8):
+        style, _ = build("trap", top=800, bottom=380, seed=seed)
+        assert len(style.traps) == 1
+        hx, hy, bore, depth, period, phase = style.traps[0]
+        assert bore >= stagekit.marble_room(W)  # a marble falls in and out with air
+        assert depth >= 2 * BIG                 # deep enough not to bounce straight out
+        angles = [stagekit.trap_angle(t / 60, period, phase) for t in range(int(period * 60) + 1)]
+        # The widest the bore ever gets, against the biggest marble's diameter.
+        assert bore * (1 - math.cos(min(angles))) >= 2 * BIG, (seed, min(angles))
+        assert max(angles) == 0.0  # and it closes again
+        # Only the closing sweep can bat a marble — opening drops away from
+        # whatever is on the door — and its tip must stay inside the rocking
+        # planks' 80-145 px/s, or it throws marbles back up the feed ramp.
+        closing = [(angles[i + 1] - angles[i]) * 60 * bore for i in range(len(angles) - 1)]
+        assert max(closing) <= 145, (seed, max(closing))
+
+
+def test_a_held_marble_is_not_parked_and_a_wedged_one_still_is():
+    """The distinction the QA harness has to make. Both marbles sit in the
+    same pit making no headway; what tells them apart is that the door has
+    already swung out from under the wedged one and it is still there."""
+    style = physics.Style()
+    style.traps.append((240.0, 500.0, 84.0, 60.0, 4.0, 0.0))
+    frames = 300  # ten seconds, so `stuck` has its two four-second windows
+
+    def states_for(pit_frames, x=280.0):
+        # Hovering just above the mouth, then in the pit: 20 px of headway in
+        # eight seconds, under the 25 px `stuck` asks for.
+        return [[(x, 578.0 if f < frames - pit_frames else 558.0)] for f in range(frames)]
+
+    held = states_for(50)
+    assert stage_qa.held(held, 0, style)
+    assert not stage_qa.stuck(held, 0, style)
+    wedged = states_for(frames)  # in the pit the whole clip: the door has opened under it
+    assert not stage_qa.held(wedged, 0, style)
+    assert stage_qa.stuck(wedged, 0, style)
+    elsewhere = states_for(50, x=60.0)  # same y, nowhere near a pit
+    assert stage_qa.stuck(elsewhere, 0, style)
+    assert stage_qa.stuck(held, 0, None)  # and a stage with no trap is judged as before
 
 
 # --- QA -----------------------------------------------------------------------------

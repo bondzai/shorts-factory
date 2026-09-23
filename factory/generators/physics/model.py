@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 import pymunk
 
 from .. import stagekit
-from ..stagekit import ROCK_AMPLITUDE  # noqa: F401  (re-exported: the renderers draw with it)
+from ..stagekit import ROCK_AMPLITUDE, TRAP_SWING, trap_angle  # noqa: F401  (re-exported: the renderers draw with them)
 
 SUBSTEPS = 4
 # Gravity is a dial, not a physical constant. The race runs slowly on purpose:
@@ -122,6 +122,7 @@ class Style:
     lane_wedges: list[tuple[tuple[float, float], tuple[float, float]]] = field(default_factory=list)  # gauntlet wall wedges beside each bar
     belts: list[tuple[tuple[float, float], tuple[float, float], float]] = field(default_factory=list)  # a, b, px/s along a→b
     magnets: list[tuple[float, float, float, float, float, float]] = field(default_factory=list)  # x, y, core, soft, reach, pull (x gravity)
+    traps: list[tuple[float, float, float, float, float, float]] = field(default_factory=list)  # hinge x, hinge y, bore, depth, period s, phase
 
 
 @dataclass

@@ -16,7 +16,7 @@ from ..stagekit import magnet_accel
 from .build import build_funnel, build_race
 from .model import (FUNNEL_GRAVITY, IMPACT_DV, MAX_ATTEMPTS, MAX_IMPACTS_PER_FRAME, MAX_SPEED, PACE_QUICKER,
                     PACE_SLOWER, POST_WIN_MAX_S, POST_WIN_S, RACE_GRAVITY, ROCK_AMPLITUDE,
-                    STALL_SPEED, SUBSTEPS, Stalled)
+                    STALL_SPEED, SUBSTEPS, Stalled, trap_angle)
 
 def run_round(seed, variant, params, cfg, sim_w, sim_h, fps, lineup=None) -> dict:
     """One simulated race, opened mid-action, with its finish arithmetic."""
@@ -116,6 +116,16 @@ def simulate(*, seed: int, variant: str, sim_w: int, sim_h: int, fps: int, max_f
                 t = frame / fps
                 body.angle = (rest[0] if rest else 0.0) + ROCK_AMPLITUDE * math.sin(omega * t + phase)
                 body.angular_velocity = ROCK_AMPLITUDE * omega * math.cos(omega * t + phase)
+            elif kind == "trapdoor":
+                # The door's angle is a piecewise clock, so its rate comes from
+                # where it will be next frame rather than from a derivative:
+                # the dwells are flat and the sweeps ease in and out, and
+                # pymunk only needs the rate to get the friction right on a
+                # marble sliding off a door that is already moving.
+                period, phase = params
+                t = frame / fps
+                body.angle = trap_angle(t, period, phase)
+                body.angular_velocity = (trap_angle(t + 1.0 / fps, period, phase) - body.angle) * fps
         for _ in range(SUBSTEPS):
             # Magnets are applied per substep, not per frame: the force depends
             # on where the marble is, and at four substeps a frame a marble

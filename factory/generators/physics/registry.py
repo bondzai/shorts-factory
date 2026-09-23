@@ -141,6 +141,13 @@ STAGE_SPECS: list[Stage] = [
     # deflection has something to argue with before the run-in.
     composed("lodestone", [("pegs", 1.0), ("magnets", 1.3), ("pegs", 1.0)], gravity=-30.0, noun="magnets",
               blurb="pegs, then magnets that pull the marbles off line, then more pegs", gate=True),
+    # The trap needs a band of its own: the pit is a marble's bore wide and
+    # 2.3 radii deep, the door hangs a bore below its hinge, and the feed ramp
+    # above it keeps the ramps section's slope. At a share of 1.0 against two
+    # neighbours there was no height left for the feed and the section built
+    # nothing. Trial until stage-qa passes it.
+    composed("trapdoor", [("pegs", 1.0), ("trap", 1.9), ("pegs", 1.0)], gravity=-30.0, noun="the trapdoor",
+              blurb="pegs, a trapdoor pit that holds a marble and lets it go, then more pegs"),
     # COMPOSED-STAGES-END
 ]
 

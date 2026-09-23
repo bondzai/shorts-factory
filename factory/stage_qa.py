@@ -10,7 +10,8 @@ viewer would notice:
   first try   it did so on the seed's first attempt (retries are a cost)
   runner-up   a second marble crosses before the clip cuts — the payoff
               for everyone who backed a different colour
-  parked      marbles that end the clip not moving and not finished
+  parked      marbles that end the clip not moving and not finished — but
+              not one a holding trap has hold of, which is `held`
   out         marbles outside the frame (a pinch that launched one)
   duration    the median finish, which gravity is tuned to
   lead        how often the leader changes — the drama
@@ -30,7 +31,7 @@ from dataclasses import dataclass, field
 from typing import Iterator
 
 from . import settings
-from .generators import physics
+from .generators import physics, stagekit
 
 W, H, FPS = 540, 960, 30
 
@@ -153,7 +154,7 @@ def _leads(states) -> tuple[int, int | None]:
     return changes, last_seen
 
 
-def stuck(states, i: int) -> bool:
+def stuck(states, i: int, style=None) -> bool:
     """Made no headway down the course in the last PARKED_S seconds.
 
     First this was "moved under 20 px in two seconds", which is a marble at
@@ -161,13 +162,69 @@ def stuck(states, i: int) -> bool:
     rocking plank and the wall, jiggled up and down by the plank for half a
     race, moving all the time and going nowhere. Headway is the lowest point
     reached, so a marble bouncing in place or pinched and shaken counts, and
-    one queueing slowly through a funnel throat does not."""
+    one queueing slowly through a funnel throat does not.
+
+    A marble sitting in a holding trap is the one exception, and it is not a
+    looser threshold — see `held`."""
     window = int(PARKED_S * FPS)
     if len(states) < 2 * window:
         return False
     recent = min(s[i][1] for s in states[-window:])
     before = min(s[i][1] for s in states[-2 * window:-window])
-    return before - recent < PARKED_PX
+    if before - recent >= PARKED_PX:
+        return False
+    return not held(states, i, style)
+
+
+# How long a marble may be in a trap's pit before the pit stops explaining it.
+# One period is one guaranteed opening: whatever the phase it landed on, the
+# door has gone from under it once. A quarter more is the fall clear, which at
+# gravity -30 is about 1.9 s against periods of 4.4-5.0 s. Taking the bound
+# away entirely changes no verdict on the trapdoor stage (parked 7/60 over 24
+# seeds and 12/117 over 48, either way), which is the point: it is the
+# backstop for a marble wedged in a pit, not the thing deciding the everyday
+# verdict. What decides that is being in a pit at all — without the
+# distinction the same 48 seeds park 16 of 117 and the stage fails.
+TRAP_HOLD_CYCLES = 1.25
+
+
+def _in_pit(point, trap, big: float) -> bool:
+    """Inside the pit's walls, between the door and the mouth."""
+    x, y = point
+    hx, hy, bore, depth, _period, _phase = trap
+    return hx - big <= x <= hx + bore + big and hy - big <= y <= hy + depth
+
+
+def held(states, i: int, style=None) -> bool:
+    """In a trap's pit when the clip cut, and for less than the one cycle it
+    takes the door to open underneath it.
+
+    A held marble and a parked one look identical in the last eight seconds:
+    both sit still and short of the line. What tells them apart is not how
+    long they have been still but *what they are sitting on*. A trap's door
+    runs on a clock that does not care what is on it (`stagekit.trap_angle`),
+    so a marble in the pit is going to be let go, and when is arithmetic:
+    inside one period, whatever phase it arrived on.
+
+    That is also what still catches a genuinely stuck marble. Past
+    TRAP_HOLD_CYCLES periods the floor has already swung away from under this
+    one and it did not leave — it is wedged against a pit wall, not held —
+    and it counts as parked again. Everywhere else on the course nothing
+    changes: a stage with no trap takes the same path it always did.
+    """
+    traps = list(getattr(style, "traps", ()) or ())
+    if not traps:
+        return False
+    big = W * stagekit.MARBLE_R
+    here = next((t for t in traps if _in_pit(states[-1][i], t, big)), None)
+    if here is None:
+        return False
+    inside = 0
+    for state in reversed(states):
+        if not _in_pit(state[i], here, big):
+            break
+        inside += 1
+    return inside <= here[4] * TRAP_HOLD_CYCLES * FPS
 
 
 def run(stage: str, seeds: range | list[int], *, gravity_value: float | None = None) -> Report:
@@ -185,7 +242,7 @@ def run(stage: str, seeds: range | list[int], *, gravity_value: float | None = N
             report.first_try += r["attempts"] == 1
             report.runner_up += bool(r["runner_up"])
             report.durations.append(r["duration_s"])
-            states = r["states"]
+            states, style = r["states"], r["style"]
             last = states[-1]
             for i, (x, y) in enumerate(last):
                 if not (-5 <= x <= W + 5 and -5 <= y <= H + 5):
@@ -193,7 +250,7 @@ def run(stage: str, seeds: range | list[int], *, gravity_value: float | None = N
                     continue
                 if y > 0.12 * H:  # above the line: did not finish
                     report.others += 1
-                    if stuck(states, i):
+                    if stuck(states, i, style):
                         report.parked += 1
             changes, ever_last = _leads(states)
             report.leads.append(changes)

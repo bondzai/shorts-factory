@@ -11,7 +11,7 @@ import random
 
 from PIL import Image, ImageDraw
 
-from .model import ROCK_AMPLITUDE, Style
+from .model import ROCK_AMPLITUDE, Style, trap_angle
 from .registry import STAGES
 
 def frames_pil(states, balls, segments, sim_w, sim_h, overlay=None, style=None,
@@ -60,6 +60,15 @@ def frames_pil(states, balls, segments, sim_w, sim_h, overlay=None, style=None,
                 angle = omega * t + k * 2.094
                 draw.line([(sx, sim_h - sy), (sx + math.cos(angle) * r * 0.9, sim_h - (sy + math.sin(angle) * r * 0.9))],
                           fill=tuple(min(255, c + 70) for c in style.structure), width=max(2, style.thickness // 2))
+        for hx, hy, bore, depth, period, phase in style.traps:
+            angle = trap_angle(t, period, phase)
+            ex, ey = hx + math.cos(angle) * bore, hy + math.sin(angle) * bore
+            # Brighter than the pit's own walls: the door is the part that
+            # moves, and a viewer has to read which one it is before it does.
+            draw.line([(hx, sim_h - hy), (ex, sim_h - ey)],
+                      fill=tuple(min(255, c + 60) for c in style.structure), width=style.thickness)
+            hub = style.thickness * 0.8
+            draw.ellipse([hx - hub, sim_h - hy - hub, hx + hub, sim_h - hy + hub], fill=style.structure)
         for sx, sy, half, omega, phase in style.spinners:
             angle = phase + omega * t
             dx, dy = math.cos(angle) * half, math.sin(angle) * half
