@@ -77,7 +77,9 @@ def enqueue(
     return ids
 
 
-def held_params(conn: sqlite3.Connection, channel_id: str, given: dict) -> tuple[int | None, dict]:
+def held_params(
+    conn: sqlite3.Connection, channel_id: str, given: dict, task_id: int | None = None
+) -> tuple[int | None, dict]:
     """What `render_clip` should actually use while a make-clip task is held.
 
     A task's parameters are the operator's decision, not a suggestion: an
@@ -86,7 +88,7 @@ def held_params(conn: sqlite3.Connection, channel_id: str, given: dict) -> tuple
     agent left out, and refuses anything the agent changed — the same way it
     overwrites a guessed duration with the measured one.
     """
-    task = db.claimed_make_clip(conn, channel_id)
+    task = db.claimed_make_clip(conn, channel_id, task_id)
     if task is None:
         return None, given
     wanted = json.loads(task["params_json"] or "{}")

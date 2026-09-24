@@ -98,6 +98,20 @@ refused, not just that it was.
 Every tool call is written to the event log with `actor: "mcp"`, so
 `factory logs --event mcp.` answers what the agent did without asking it.
 
+## Publishing to YouTube
+
+```bash
+pip install -e '.[youtube]'
+factory youtube connect --channel main   # a browser, once, per channel
+factory youtube status
+```
+
+Then set the channel's driver to `youtube` and press **Upload to YouTube**
+on Today. A clip goes up private with a `publishAt` for the next slot, its
+question is posted as a comment, and a retitle of a published clip is
+pushed to the video. Nothing uploads by itself, and agents cannot upload at
+all. See docs/07.
+
 ## Being told when a run finishes
 
 ```toml
@@ -107,8 +121,15 @@ on = ["run.finished", "run.failed"]
 ```
 
 ```bash
-factory notify   # post a test and report what the endpoint said
+factory notify   # post a test and report what each endpoint said
 ```
+
+Two sinks, both set in `.env`: `FACTORY_WEBHOOK_URL` (Discord, Slack, ntfy)
+and a Telegram bot (`FACTORY_TELEGRAM_TOKEN` + `FACTORY_TELEGRAM_CHAT_ID`).
+Telegram is the one that talks back: a clip that passes QC arrives as the
+video with Approve and Reject under it, and the bot answers `/status`,
+`/queue`, `/clip`, `/approve`, `/reject` and `/daily` while `factory serve`
+runs. See docs/02 for the three-step setup.
 
 Pointed away from this machine on purpose. The CLI, the web UI and the MCP
 server all write the same SQLite file, so none of them needs telling what the
@@ -263,8 +284,9 @@ title playbook says to use it.
 
 ## The console
 
-Eight screens, named for what you do on them: **Today** (decide, then
-upload), **Queue** (what agents will do next), **Clips**, **Results**,
+Seven screens, named for what you do on them: **Today** (decide, then
+upload), **Team** (every agent, and the workers), **Clips** (every piece of
+work from queued to published, and how the published ones did),
 **Activity**, **Bin**, **Settings**, **Docs**.
 
 Every screen follows one contract — title row, toolbar (search · filter

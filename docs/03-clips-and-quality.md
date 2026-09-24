@@ -56,10 +56,13 @@ it does: it starts with marbles at the top and ends with them at the bottom.
 What earns the replay is an ending worth seeing that comes round quickly,
 which is why the clip cuts about a second after the winner crosses.
 
-**The title** is the same hook written for the feed: lead with the pick, name
-the lineup, present tense — `Pick your marble: red, blue or green`. Naming
-every colour gives nothing away; naming one is a spoiler. Numbers only when
-they are the drama ("75 pegs" as scale), never as inventory.
+**The title** is the same hook written for the feed: lead with the pick, say
+how many and where, present tense, under 45 characters — `Pick one — five go
+down the plinko`. No colour list: in the Shorts feed the title sits on the
+playing video, where the marbles are already on screen, and the feed cuts a
+title at about 45 characters — on a five-marble race the list was exactly
+the part that got cut. Naming one colour is a spoiler by the server's rule.
+Numbers only when they are the drama ("75 pegs" as scale), never as inventory.
 
 **The pinned comment** asks the pick again after the fact — `Red, blue or
 green — which did you back?` — and stays true whatever happened.
@@ -74,7 +77,35 @@ different caption into the same race (same seed, only the pixels change).
 A title can change at any time, including after publishing. **Retitle** keeps
 the old title and the metrics at that moment, so the next numbers can be read
 as before/after rather than one blurred figure. On a manual channel the new
-title also has to be typed into Studio; the page says when.
+title also has to be typed into Studio; the page says when. YouTube's own
+A/B test (up to three titles on one video, decided by watch time) is the
+cleanest way to settle a wording question — colours or no colours, emoji or
+not — for this channel rather than in general.
+
+**Suggest titles**, on any clip, asks the Metadata brain for five ways in —
+one per angle — and shows only the ones the server let through:
+
+| angle | what it does to the thumb | e.g. |
+|---|---|---|
+| pick | the ritual: choose a marble, the count and the stage | `Pick one — five go down the plinko` |
+| curiosity | there is an outcome; it is not said | `Only one gets out. Which is yours?` |
+| stakes | a number that describes the scene, never the ending | `Fifty-four marbles, one throat` |
+| challenge | call it before the mechanism does | `Call it before the wheel does` |
+| series | one of a run, a reason to come back | `Run it back: same three, the drums` |
+
+Nothing the model says is trusted. Each idea goes through the same spoiler
+gate as an agent's title, the feed's 45-character line, the channel's emoji
+setting (`[titles] emoji`, off — the rules say none, and no number yet says
+otherwise), English only, and a repetition check: an idea that opens on the
+same three words as any of the last twenty titles is dropped, which is the
+"not the same title in different colours" the button exists for. What was
+dropped is listed with its reason, so two ideas instead of five says why.
+
+Choosing one is a retitle, so the old title and its numbers are kept — and
+the angle is kept with them (`angle: curiosity` in the history). When metrics
+arrive, that is how the channel learns which angle earns, instead of arguing
+about it. On an unpublished clip each idea can also carry a caption; choosing
+that re-renders the same race with the new opening words.
 
 ## Where the files are
 

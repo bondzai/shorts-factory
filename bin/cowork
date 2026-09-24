@@ -51,6 +51,13 @@ if [ -n "$unattended" ]; then
   # agent reaches for still asks, which with nobody present means it waits.
   # The prompt goes first: --allowedTools takes every argument after it as
   # another tool name, and swallowed the whole prompt the first time.
+  if [ "$agent" = "claude" ]; then
+    # Only the factory's MCP server is loaded: without --strict-mcp-config
+    # Claude Code brings every connector the operator has (Gmail, Drive, …)
+    # and prints that they need signing in, on every run.
+    mcp="{\"mcpServers\":{\"shorts-factory\":{\"command\":\"$factory\",\"args\":[\"mcp\"]}}}"
+    exec "$agent" "$prompt" --allowedTools "mcp__shorts-factory" --strict-mcp-config --mcp-config "$mcp"
+  fi
   exec "$agent" "$prompt" --allowedTools "mcp__shorts-factory"
 fi
 exec "$agent" "$prompt"

@@ -7,12 +7,12 @@ from factory.generators import physics
 W, H, FPS = 540, 960, 30
 
 
-def simulate(seed, variant="marble_race", frames=90, stage="zigzag"):
+def simulate(seed, variant="marble_race", frames=90, stage="zigzag", **kwargs):
     # Pinned to the zigzag stage: these tests are about ramps. The other
     # stages have their own tests below.
-    return physics.PhysicsSandbox()._simulate(
+    return physics.simulate(
         seed=seed, variant=variant, sim_w=W, sim_h=H, fps=FPS, max_frames=frames,
-        stage=stage if variant == "marble_race" else None,
+        stage=stage if variant == "marble_race" else None, **kwargs,
     )
 
 
@@ -46,20 +46,15 @@ def test_nothing_escapes_the_walls():
             assert -200 <= y <= H + 200
 
 
-def test_a_wedged_race_raises_rather_than_returning_a_dead_clip(monkeypatch):
-    # Force every marble to be seen as motionless.
-    monkeypatch.setattr(physics, "STALL_SPEED", 10_000.0)
-    with pytest.raises(physics._Stalled):
-        simulate(4242, frames=200)
+def test_a_wedged_race_raises_rather_than_returning_a_dead_clip():
+    # Every marble counts as motionless: the threshold is an argument, not a
+    # global to reach in and rebind.
+    with pytest.raises(physics.Stalled):
+        simulate(4242, frames=200, stall_speed=10_000.0)
 
 
 def test_a_settled_funnel_just_ends():
-    monkeypatch_speed = physics.STALL_SPEED
-    try:
-        physics.STALL_SPEED = 10_000.0
-        states, *_ = simulate(4242, variant="funnel_drop", frames=200)
-    finally:
-        physics.STALL_SPEED = monkeypatch_speed
+    states, *_ = simulate(4242, variant="funnel_drop", frames=200, stall_speed=10_000.0)
     assert 0 < len(states) < 200
 
 
@@ -110,7 +105,7 @@ def test_a_stage_finishing_under_the_qc_floor_is_refused(monkeypatch):
 
     raw = settings.load().raw
     monkeypatch.setitem(raw, "qc", {**raw["qc"], "min_seconds": 999})
-    with pytest.raises(physics._Stalled, match="floor"):
+    with pytest.raises(physics.Stalled, match="floor"):
         simulate(4242, frames=600)
 
 
@@ -139,12 +134,13 @@ def test_an_unknown_stage_names_the_known_ones():
 
 
 def test_the_seed_picks_the_stage_when_none_is_given():
+    # 22 stages, some at a 2-3% share: a few hundred seeds to see them all.
     seen = set()
-    for seed in range(40):
-        *_, style, _ = physics.PhysicsSandbox()._simulate(
-            seed=seed, variant="marble_race", sim_w=W, sim_h=H, fps=FPS, max_frames=3)
+    for seed in range(400):
+        *_, style, _ = physics.simulate(
+            seed=seed, variant="marble_race", sim_w=W, sim_h=H, fps=FPS, max_frames=1)
         seen.add(style.stage)
-    assert seen == set(physics.STAGES)
+    assert seen == set(physics.LIVE_STAGES)
 
 
 def test_the_theme_dresses_the_race(monkeypatch):
@@ -163,10 +159,10 @@ def test_the_final_is_run_by_the_marbles_that_ran_the_heat():
     from factory import settings
 
     gen = physics.PhysicsSandbox(); cfg = settings.load().render
-    heat = gen._round(7100, "marble_race", {}, cfg, W, H, FPS)
+    heat = physics.run_round(7100, "marble_race", {}, cfg, W, H, FPS)
     lineup = [(b.name, b.color) for b in heat["balls"]]
     other = [c for c in physics.STAGES if c != heat["style"].stage][0]
-    final = gen._round(7100 + 104729, "marble_race", {"stage": other}, cfg, W, H, FPS, lineup=lineup)
+    final = physics.run_round(7100 + 104729, "marble_race", {"stage": other}, cfg, W, H, FPS, lineup=lineup)
     assert [b.name for b in final["balls"]] == [b.name for b in heat["balls"]]
     assert final["style"].stage != heat["style"].stage
 
@@ -176,15 +172,18 @@ def test_spinners_live_only_in_the_bumper_field():
     24 never finished; among pegs it reads as a glitch. Measured, then pinned."""
     for stage in physics.STAGES:
         *_, style, _ = simulate(4242, frames=3, stage=stage)
-        assert bool(style.spinners) == (stage in physics.SPINNER_STAGES or stage in physics.WHEEL_STAGES), stage
+        spec = physics.STAGE_BY_ID[stage]
+        wanted = (stage in physics.SPINNER_STAGES or stage in physics.WHEEL_STAGES
+                  or any(name in ("spinners", "wheel") for name, _ in spec.parts))
+        assert bool(style.spinners) == wanted, stage
 
 
 def test_opening_mid_action_shifts_every_clock_together():
     from factory import settings
 
     gen = physics.PhysicsSandbox(); cfg = dict(settings.load().render)
-    whole = gen._round(4242, "marble_race", {"skip_start_s": 0}, cfg, W, H, FPS)
-    cut = gen._round(4242, "marble_race", {"skip_start_s": 1.0}, cfg, W, H, FPS)
+    whole = physics.run_round(4242, "marble_race", {"skip_start_s": 0}, cfg, W, H, FPS)
+    cut = physics.run_round(4242, "marble_race", {"skip_start_s": 1.0}, cfg, W, H, FPS)
     assert len(cut["states"]) == len(whole["states"]) - FPS
     assert cut["winner_frame"] == whole["winner_frame"] - FPS
     assert cut["margin_s"] == whole["margin_s"]
@@ -193,15 +192,61 @@ def test_opening_mid_action_shifts_every_clock_together():
 
 def test_a_long_caption_shrinks_to_fit_the_frame(sandbox):
     gen = physics.PhysicsSandbox()
-    short = gen._overlay("marble_race", W, H, FPS, text="RED BY 0.4s")
-    long = gen._overlay("marble_race", W, H, FPS, text="FINAL · RUN IT BACK · SAME THREE MARBLES")
+    short = physics.overlay("marble_race", W, H, FPS, text="RED BY 0.4s")
+    long = physics.overlay("marble_race", W, H, FPS, text="FINAL · RUN IT BACK · SAME THREE MARBLES")
     assert long[1].size < short[1].size
     assert long[2] >= 0  # left edge inside the frame
 
 
+def test_the_tail_waits_long_enough_for_the_field_to_arrive():
+    """Five seeds an agent's QC rejected as "no race: only amber finishes".
+    Each had a winner and nothing else across the line inside the old 2.8 s
+    tail; the gap distribution said p90 was 5.61 s, so the tail is 7.0 s and
+    every one of them now shows the runner-up arrive."""
+    from factory import settings
+
+    cfg = dict(settings.load().render)
+    rejected = [("orchard", 281580509), ("tumble", 1679835290), ("gallery", 1864683274),
+                ("spillway", 1176307895), ("gallery", 1806722502)]
+    for stage, seed in rejected:
+        r = physics.run_round(seed, "marble_race", {"stage": stage}, cfg, W, H, FPS)
+        assert r["runner_up"] and r["margin_s"], (stage, seed)
+        # and the clip still fits the QC window it has to ship inside
+        assert 10.0 <= r["duration_s"] <= 60.0, (stage, seed, r["duration_s"])
+
+
+def test_a_field_at_rest_ends_the_round_instead_of_burning_the_race():
+    """Once the winner is home a stalled field means nothing more will cross,
+    so the round ends there. It used to raise Stalled and retry, throwing away
+    a race that had already been won: measured, the field comes to rest inside
+    the tail in 4% of races at a 5.0 s tail and 15% at 8.0 s."""
+    from factory import settings
+
+    cfg = dict(settings.load().render)
+    cut = physics.run_round(281580509, "marble_race", {"stage": "orchard"}, cfg, W, H, FPS,
+                            post_win_max_s=30.0)
+    # 30 s of tail is far more than any field keeps moving for, so this round
+    # can only have ended early -- and on its first attempt, not a retry.
+    assert cut["duration_s"] < 30.0
+    assert cut["attempts"] == 1
+
+
+def test_no_runner_up_reports_the_wait_that_was_watched(sandbox, tmp_path):
+    """QC quotes this sentence verbatim, so the seconds in it have to be the
+    ones on screen, not POST_WIN_MAX_S: a field at rest or the frame budget
+    ends the round early and the constant would claim a wait nobody saw."""
+    import re
+
+    clip = physics.generate(seed=4242, variant="marble_race",
+                            params={"stage": "gauntlet", "rounds": 1}, work_dir=tmp_path)
+    said = re.findall(r"no other marble crosses in the next ([\d.]+) seconds", clip.description)
+    for value in said:
+        assert float(value) <= physics.POST_WIN_MAX_S + 0.1, clip.description
+
+
 def test_a_photo_finish_is_not_written_as_zero_seconds():
-    assert physics._seconds(0.04) == "0.04 seconds"
-    assert physics._seconds(1.24) == "1.2 seconds"
+    assert physics.seconds(0.04) == "0.04 seconds"
+    assert physics.seconds(1.24) == "1.2 seconds"
 
 
 def test_the_final_caption_states_the_structure_not_the_heat_result():
@@ -217,4 +262,4 @@ def test_running_out_of_frames_with_no_winner_is_a_stall_not_a_clip(sandbox):
     from factory import settings
     cfg = settings.load().render
     with pytest.raises(RuntimeError, match="no winner"):
-        physics.PhysicsSandbox()._round(4242, "marble_race", {"stage": "bumpers", "max_seconds": 0.5}, cfg, W, H, FPS)
+        physics.run_round(4242, "marble_race", {"stage": "bumpers", "max_seconds": 0.5}, cfg, W, H, FPS)

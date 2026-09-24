@@ -209,6 +209,39 @@ def test_a_held_task_fixes_the_render_parameters(sandbox):
         assert "do not change the seed" in tasks.instructions(conn, task)
 
 
+def test_two_agents_on_one_channel_each_answer_for_their_own_task(sandbox):
+    """Two workers on main: the second was told it had asked for the first
+    worker's stage, and its task failed with a stage it never passed. The
+    held task is the caller's own, not the oldest claimed on the channel."""
+    from factory import tasks
+    with db.connect() as conn:
+        db.migrate(conn)
+        channels.create(conn, name="Main", channel_id="main")
+        tasks.enqueue(conn, "main", "make-clip", {"stage": "plinko"})
+        tasks.enqueue(conn, "main", "make-clip", {"stage": "switchback"})
+        conn.commit()
+        first = db.claim_task(conn, "worker-a", channel_id="main")
+        second = db.claim_task(conn, "worker-b", channel_id="main")
+
+        _, use = tasks.held_params(conn, "main", {"stage": "switchback"}, second["id"])
+        assert use["stage"] == "switchback"
+        _, use = tasks.held_params(conn, "main", {"stage": None}, second["id"])
+        assert use["stage"] == "switchback"
+        with pytest.raises(ValueError, match="asks for stage='plinko'"):
+            tasks.held_params(conn, "main", {"stage": "switchback"}, first["id"])
+
+        # Each render is filed against the task that asked for it.
+        assert db.attach_clip_to_claimed_task(conn, "main", "clip-b", second["id"]) == second["id"]
+        assert db.attach_clip_to_claimed_task(conn, "main", "clip-a", first["id"]) == first["id"]
+        assert db.get_task(conn, second["id"])["clip_id"] == "clip-b"
+
+        # A caller that names no task still gets the old answer, and a stale
+        # id falls back rather than wedging the caller.
+        db.finish_task(conn, first["id"], ok=True)
+        _, use = tasks.held_params(conn, "main", {"stage": None}, first["id"])
+        assert use["stage"] == "switchback"
+
+
 def test_a_named_seed_is_rendered_as_named_even_if_a_binned_clip_had_it(sandbox, monkeypatch):
     """Three tasks asked for seed 7301 and got random races: the server
     re-rolled any seed a clip had ever carried, including binned ones."""
@@ -222,7 +255,7 @@ def test_a_named_seed_is_rendered_as_named_even_if_a_binned_clip_had_it(sandbox,
         def fake_stage(conn_, ch, clip_id, params, by):
             seen["seed"] = db.get(conn_, clip_id)["seed"]
             raise RuntimeError("stop here")
-        monkeypatch.setattr(pipeline, "_render_stage", fake_stage)
+        monkeypatch.setattr(pipeline.building, "render_stage", fake_stage)
         with pytest.raises(RuntimeError, match="stop here"):
             pipeline.create_and_render(conn, "main", variant="marble_race", seed=7301)
         assert seen["seed"] == 7301
@@ -247,3 +280,12 @@ def test_a_task_tells_the_agent_which_channel_it_is_on(sandbox):
         assert "make-clip on hodl" in text
         work = playbooks.render("work", "hodl")
         assert 'channel="hodl"' in work and "works `hodl`" not in work
+
+
+def test_an_agents_name_is_one_lowercase_word():
+    from factory.mcp import agent_name
+
+    assert agent_name("Claude (Opus 5) queue worker") == "claude"
+    assert agent_name("claude-opus-5-queue-main") == "claude"
+    assert agent_name("Codex") == "codex"
+    assert agent_name("") == "agent"

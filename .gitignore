@@ -5,7 +5,11 @@ __pycache__/
 *.pyc
 *.egg-info/
 .env
-client_secrets.json
+# Both spellings: Google names the download client_secret_*.json
+client_secret*.json
 token.json
 .pytest_cache/
 channels/
+
+# Agent worktrees live here; they are checkouts, not content.
+.claude/worktrees/

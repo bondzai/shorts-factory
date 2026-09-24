@@ -9,9 +9,10 @@ import { Toasts } from "./ui";
 import { Logo } from "./ui/Logo";
 import { useTheme, type Theme } from "./lib/theme";
 import { Today } from "./screens/Today";
-import { Work } from "./screens/Work";
-import { Clips, ClipDrawer } from "./screens/Clips";
-import { Results } from "./screens/Results";
+import { Team } from "./screens/Team";
+import { Clips } from "./screens/Clips";
+import { Bin } from "./screens/Bin";
+import { ClipDrawer } from "./ui/ClipDrawer";
 import { Activity } from "./screens/Activity";
 import { Settings, AddChannel } from "./screens/Settings";
 import { Docs } from "./screens/Docs";
@@ -19,8 +20,8 @@ import type { Channel, Snap } from "./lib/types";
 
 const VIEWS = [
   { id: "today", name: "Today", meaning: "decide, then upload" },
-  { id: "clips", name: "Clips", meaning: "queued, rendering, made" },
-  { id: "results", name: "Results", meaning: "how published clips did" },
+  { id: "team", name: "Team", meaning: "who is doing what, right now" },
+  { id: "clips", name: "Clips", meaning: "queued, rendering, made, published" },
   { id: "activity", name: "Activity", meaning: "what ran, and what happened" },
   { id: "bin", name: "Bin", meaning: "what you threw away" },
   { id: "settings", name: "Settings", meaning: "this channel and its rules" },
@@ -53,7 +54,8 @@ export default function App() {
   const reload = useCallback(async () => { await loadChannels(); await refresh(); }, [loadChannels, refresh]);
 
   if (channels && !channels.length) return <div className="main"><div className="content"><p className="empty">No channels yet.</p><AddChannel onDone={reload} /></div></div>;
-  const view = route.view === "queue" ? "clips" : VIEWS.some((v) => v.id === route.view) ? route.view : "today";
+  useEffect(() => { if (route.view === "results") navigate("clips", { phase: "published" }); }, [route.view, navigate]);
+  const view = ["queue", "results"].includes(route.view) ? "clips" : VIEWS.some((v) => v.id === route.view) ? route.view : "today";
   const queueCount = snap ? snap.queue.length + snap.approved.length : 0;
   const taskCount = (snap?.tasks?.queued || 0) + (snap?.tasks?.claimed || 0);
   const screenProps = { channelId: channelId!, refresh: reload, route, navigate, onOpen: setOpenClip };
@@ -64,7 +66,7 @@ export default function App() {
         <div className="brand"><Logo />shorts factory</div>
         {VIEWS.map((v) => (
           <a key={v.id} href={`#/${v.id}`} aria-current={view === v.id ? "page" : undefined}>
-            <span className="name">{v.name}{v.id === "today" && queueCount > 0 && <span className="count">{queueCount}</span>}{v.id === "clips" && taskCount > 0 && <span className="count" title="queued or rendering">{taskCount}</span>}</span>
+            <span className="name">{v.name}{v.id === "today" && queueCount > 0 && <span className="count">{queueCount}</span>}{v.id === "clips" && taskCount > 0 && <span className="count" title="queued or rendering">{taskCount}</span>}{v.id === "team" && (snap?.tasks?.claimed || 0) > 0 && <span className="count" title="agents working">{snap?.tasks?.claimed}</span>}</span>
             <span className="meaning">{v.meaning}</span>
           </a>
         ))}
@@ -77,9 +79,9 @@ export default function App() {
           {openClip && <ClipDrawer id={openClip} close={() => setOpenClip(null)} refresh={reload} sound={sound} />}
           {!snap ? <p className="empty">{error ? `cannot reach the server: ${error}` : "loading…"}</p>
             : view === "today" ? <Today snap={snap} {...screenProps} sound={sound} setSound={setSound} />
-            : view === "clips" ? <Work snap={snap} {...screenProps} />
-            : view === "bin" ? <Clips {...screenProps} bin />
-            : view === "results" ? <Results {...screenProps} />
+            : view === "team" ? <Team navigate={navigate} onOpen={setOpenClip} channelId={channelId!} />
+            : view === "clips" ? <Clips snap={snap} {...screenProps} />
+            : view === "bin" ? <Bin {...screenProps} />
             : view === "activity" ? <Activity {...screenProps} />
             : view === "docs" ? <Docs page={route.params.get("page") || ""} setPage={(id) => navigate("docs", { page: id })} />
             : <Settings snap={snap} channelId={channelId!} refresh={reload} tab={route.params.get("tab") || "channel"} setTab={(id) => navigate("settings", { tab: id })} />}

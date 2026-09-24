@@ -39,11 +39,17 @@ SCHEMA: list[dict[str, Any]] = [
      "help": "Two or three words that make the viewer pick a marble, separated by |; one is chosen per seed."},
     {"section": "publish", "key": "best_time", "type": "text", "label": "Upload time (local)",
      "help": "HH:MM in the timezone below. 06:00 Bangkok is US evening, the highest-CPM slot."},
+    {"section": "publish", "key": "youtube_privacy", "type": "select", "options": ["scheduled", "private", "public"],
+     "label": "YouTube upload", "help": "scheduled = private now, public at the slot above. public uploads straight out."},
+    {"section": "publish", "key": "youtube_post_comment", "type": "select", "options": [True, False],
+     "label": "Post the clip's question as a comment", "help": "The API cannot pin it; pin it in Studio."},
     {"section": "publish", "key": "timezone", "type": "text", "label": "Your timezone",
      "help": "An IANA name such as Asia/Bangkok."},
     {"section": "notify", "key": "daily_at", "type": "text", "label": "Daily reminder (local time)",
      "help": "HH:MM; a Discord/Slack line with how many approved clips wait for upload. Empty disables."},
     {"section": "overlay", "key": "funnel_drop", "type": "text", "label": "Default funnel caption"},
+    {"section": "overlay", "key": "ball_battle", "type": "text", "label": "Arena captions",
+     "help": "For ball_battle, separated by |; one is chosen per seed."},
     {"section": "overlay", "key": "size", "type": "number", "min": 0.05, "max": 0.2, "step": 0.005,
      "label": "Caption size", "help": "As a fraction of the frame's width. Bigger is easier to read in the second a viewer gives it."},
     {"section": "overlay", "key": "cta", "type": "text", "label": "Closing ask",
@@ -55,6 +61,8 @@ SCHEMA: list[dict[str, Any]] = [
     {"section": "retention", "key": "published_days", "type": "number", "min": -1, "max": 3650, "step": 1,
      "label": "Keep published files (days)"},
     {"section": "render", "key": "fps", "type": "select", "options": [24, 30, 60], "label": "Frames per second"},
+    {"section": "render", "key": "engine", "type": "select", "options": ["pil", "pygame"],
+     "label": "Renderer", "help": "pygame draws motion on every object (squash, trails, sparks, glow); pil is the original look."},
     {"section": "render", "key": "render_scale", "type": "select", "options": [0.5, 1.0],
      "label": "Render scale", "help": "0.5 simulates at half size and upscales; 1.0 is sharper and about twice as slow."},
     {"section": "render", "key": "max_seconds", "type": "number", "min": 10, "max": 120, "step": 1,
@@ -64,6 +72,15 @@ SCHEMA: list[dict[str, Any]] = [
     {"section": "render", "key": "skip_start_s", "type": "number", "min": 0, "max": 3, "step": 0.1,
      "label": "Open mid-action (s dropped from the start)",
      "help": "The swipe decision is made in the first two seconds; marbles leaving the gate are the dullest part."},
+    {"section": "llm", "key": "metadata_source", "type": "select", "options": ["agent", "template"],
+     "label": "Who writes the title", "help": "template: from the facts and the channel's own rules, no model, no cost. "
+     "agent: the Metadata brain on Settings \u2192 Brains (local or API)."},
+    {"section": "llm", "key": "image_long_edge", "type": "number", "min": 256, "max": 1920, "step": 64,
+     "label": "Frames sent to a brain (px, long edge)",
+     "help": "Sampled frames are shrunk to this before any model sees them. 512 is plainly legible; 768 leaves room."},
+    {"section": "titles", "key": "emoji", "type": "select", "options": [False, True],
+     "label": "Emoji in suggested titles", "help": "The channel's rules say none. Off until a number says otherwise; "
+     "when on, the Title brain may end a title with one and the server stops refusing them."},
     {"section": "analyst", "key": "min_published_for_rules", "type": "number", "min": 1, "max": 500, "step": 1,
      "label": "Clips before the Analyst may propose rules"},
 ]
@@ -115,6 +132,29 @@ def load_env() -> int:
             os.environ[key] = value
             loaded += 1
     return loaded
+
+
+def coerce(field: dict, value):
+    """A value on its way into a setting, checked against the schema entry.
+
+    The page and the command line both take settings from a human, so the
+    rule about what a number or a choice may be lives here with the schema
+    rather than in either of them.
+    """
+    if field["type"] == "number":
+        try:
+            value = float(value)
+        except (TypeError, ValueError):
+            raise ValueError(f"{field['label']}: not a number") from None
+        if "min" in field and value < field["min"] or "max" in field and value > field["max"]:
+            raise ValueError(f"{field['label']}: must be between {field['min']} and {field['max']}")
+        return int(value) if float(value).is_integer() and field.get("step", 1) == 1 else value
+    if field["type"] == "select":
+        for option in field["options"]:
+            if str(option) == str(value):
+                return option
+        raise ValueError(f"{field['label']}: must be one of {field['options']}")
+    return str(value)
 
 
 @dataclass(frozen=True)

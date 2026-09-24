@@ -8,6 +8,7 @@ dependencies = [
     "openai>=1.30",
     "pydantic>=2.7",
     "pymunk>=6.6",
+    "pygame-ce>=2.5",
     "pillow>=10.3",
     "numpy>=1.26",
     "fastapi>=0.110",

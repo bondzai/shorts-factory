@@ -144,9 +144,29 @@ def model_for(agent: str | None) -> str:
     return resolve(agent)[1]
 
 
+def local_models(p: Provider) -> list[str] | None:
+    """What a keyless endpoint on this machine is serving, or None when it is
+    not answering at all. Only asked of local providers: an API's model list
+    is its business, and a key check already says whether it will answer.
+
+    Without this, `factory brains` said "ok" for ollama with the server down
+    and the model never pulled, and the first clip found out the hard way."""
+    if p.kind != "openai" or p.api_key_env or not p.base_url:
+        return None
+    try:
+        import urllib.request
+
+        with urllib.request.urlopen(p.base_url.rstrip("/") + "/models", timeout=2) as r:
+            data = json.load(r).get("data") or []
+        return [m.get("id", "") for m in data]
+    except Exception:
+        return None
+
+
 def readiness() -> dict[str, dict[str, Any]]:
     """Per agent: where it would run and whether that can work right now."""
     out = {}
+    served: dict[str, list[str] | None] = {}
     for agent in AGENTS:
         try:
             p, model = resolve(agent)
@@ -158,6 +178,14 @@ def readiness() -> dict[str, dict[str, Any]]:
             why = f"{p.api_key_env or 'credentials'} not set in .env"
         elif agent in NEEDS_VISION and not p.vision:
             why = f"{p.id} cannot see images; {agent} judges frames"
+        elif p.kind == "openai" and not p.api_key_env:
+            if p.id not in served:
+                served[p.id] = local_models(p)
+            have = served[p.id]
+            if have is None:
+                why = f"{p.id} is not answering at {p.base_url}"
+            elif model not in have and model.split(":")[0] not in {h.split(":")[0] for h in have}:
+                why = f"{p.id} does not have {model}; pull it first (have: {', '.join(have) or 'nothing'})"
         out[agent] = {"ok": why is None, "provider": p.id, "model": model, "why": why,
                       "free": p.free or (p.kind == "openai" and not p.api_key_env)}
     return out
@@ -235,14 +263,45 @@ def _record(agent: str | None, usage: Any, cost: float, p: Provider, model: str,
 
 # --- content ------------------------------------------------------------------
 
+def shrink(png: bytes, long_edge: int) -> bytes:
+    """A sampled frame, no bigger than it needs to be to be judged.
+
+    The render's frames are 1080x1920 and 180-270 KB each; four of them are a
+    megabyte of base64 in one request, and a model turns each into two or
+    three thousand tokens before it has read a word. At 288x512 every marble,
+    peg and the caption are still plain to see (looked at, not assumed), the
+    file is 40 KB, and the image is a tenth of the tokens. The default sits
+    above that with room to spare. Flat colour, so PNG stays smaller than
+    JPEG and has no artefacts to misread as a marble."""
+    from io import BytesIO
+
+    from PIL import Image, UnidentifiedImageError
+
+    try:
+        im = Image.open(BytesIO(png))
+    except (UnidentifiedImageError, OSError):
+        return png  # not a picture we can read: shrinking is a saving, not a gate
+    with im:
+        if max(im.size) <= long_edge:
+            return png
+        ratio = long_edge / max(im.size)
+        small = im.resize((round(im.width * ratio), round(im.height * ratio)), Image.LANCZOS)
+        out = BytesIO()
+        small.save(out, format="PNG", optimize=True)
+        return out.getvalue()
+
+
 def image_blocks(pngs: list[bytes]) -> list[dict[str, Any]]:
     """PNG bytes -> image content blocks, for agents that need to see the render.
 
     Anthropic's shape; `_to_openai_content` translates when the provider needs it.
+    Every image is shrunk first (see `shrink`) — the same frames go to every
+    provider, so this is where the saving applies to all of them.
     """
+    long_edge = int(settings.load().llm.get("image_long_edge", 768))
     return [
         {"type": "image", "source": {"type": "base64", "media_type": "image/png",
-                                     "data": base64.standard_b64encode(png).decode("ascii")}}
+                                     "data": base64.standard_b64encode(shrink(png, long_edge)).decode("ascii")}}
         for png in pngs
     ]
 

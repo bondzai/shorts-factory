@@ -8,6 +8,11 @@ width = 1080
 height = 1920
 fps = 30
 render_scale = 0.5
+# Which renderer draws a physics clip: "pil" is the original still-frame
+# drawing; "pygame" adds motion to every object — squash on impact, trails,
+# sparks, glowing spinners, a burst and rings at the finish. The physics is
+# identical either way; only the drawing differs.
+engine = "pygame"
 max_seconds = 22
 # Seconds of the simulation dropped from the front, so frame one already has
 # marbles bouncing rather than leaving the gate. The swipe decision is made in
@@ -37,6 +42,8 @@ cta = "COMMENT YOUR PICK"
 cta_seconds = 1.3
 marble_race = "PICK ONE | PICK YOUR MARBLE | CALL IT NOW | WHICH ONE IS YOURS? | ONLY ONE GETS OUT | DON'T BLINK | BET ON ONE"
 funnel_drop = ""
+# The arena: four balls, health bars, last one standing. Same job — pick a side.
+ball_battle = "PICK A FIGHTER | PICK YOUR FIGHTER | WHO SURVIVES? | LAST ONE STANDING | BACK ONE | CALL THE WINNER"
 
 [notify]
 # Where to tell YOU that a run finished. Slack, Discord, ntfy and any endpoint
@@ -70,6 +77,40 @@ min_hook_strength = 3
 [llm]
 # Default for any agent without its own entry below.
 model = "claude-opus-5"
+# Who writes a clip's title, description and pinned question.
+#   template  from the facts and the channel's rules; no model, no cost, no
+#             wait. What the rules already fix, and what the agents were
+#             writing anyway.
+#   agent     the Metadata brain below — for taste, or for a generator the
+#             template does not know (it only writes marble races).
+metadata_source = "template"
+# Sampled frames are shrunk to this long edge before any brain sees them.
+# 1080x1920 was 2-3 thousand tokens an image; 768 is a fifth of that and
+# every marble is still plain to see.
+image_long_edge = 768
+
+# The brains a clip can use. A local one costs nothing and needs no key;
+# `factory brains` shows which are ready, `factory brains --test ollama`
+# does one round trip. The Settings -> Brains page edits the same list.
+[[llm.providers]]
+id = "anthropic"
+kind = "anthropic"
+api_key_env = "ANTHROPIC_API_KEY"
+vision = true
+json_mode = "schema"
+models = ["claude-opus-5", "claude-sonnet-5", "claude-haiku-4-5"]
+
+[[llm.providers]]
+id = "ollama"
+kind = "openai"
+base_url = "http://localhost:11434/v1"
+vision = true
+json_mode = "object"
+free = true
+# QC and (when on) Metadata look at frames, so they need a model that can:
+# qwen2.5vl:7b is the one that fits in 16 GB with room for the render.
+# Idea and Analyst read text only; a text model is faster.
+models = ["qwen2.5vl:7b", "qwen2.5:7b", "llama3.1:8b"]
 
 [llm.agents]
 # The four agents are not the same job. Analyst reasons about a table of
@@ -78,10 +119,17 @@ model = "claude-opus-5"
 # step the cheap ones down and watch `factory cost --by agent` and the
 # retention numbers together — a QC that got worse shows up as clips you
 # reject by hand.
-idea = "claude-opus-5"
-metadata = "claude-opus-5"
-qc = "claude-opus-5"
-analyst = "claude-opus-5"
+# provider/model. A bare model name means anthropic. To make clips without
+# spending a token — Claude and Codex kept for development only — point the
+# four at ollama once its models are pulled (`ollama pull qwen2.5vl:7b`):
+#   idea = "ollama/qwen2.5:7b"        metadata = "ollama/qwen2.5vl:7b"
+#   qc = "ollama/qwen2.5vl:7b"        analyst = "ollama/qwen2.5:7b"
+# With metadata_source = "template", the Metadata brain is only used for a
+# generator the template does not write.
+idea = "ollama/qwen2.5vl:7b"
+metadata = "ollama/qwen2.5vl:7b"
+qc = "ollama/qwen2.5vl:7b"
+analyst = "ollama/qwen2.5vl:7b"
 
 [llm.pricing]
 # USD per million tokens, [input, output]. A model missing here is billed at
@@ -95,11 +143,29 @@ default = [5.0, 25.0]
 # "" picks by calendar (see factory/themes.py); a theme id forces it.
 force = ""
 
+[titles]
+# Suggested titles (the button on a clip). The rules say no emoji; this is
+# the switch for the day a number says otherwise.
+emoji = false
+
 [analyst]
 min_published_for_rules = 30
 
 [publish]
 driver = "manual"
+# --- the youtube driver (factory youtube connect). Uploads are private with a
+# publishAt, so a clip goes public at the slot below and never a minute before.
+#   scheduled  private now, public at the next slot        (the default)
+#   private    private, and you flip it in Studio
+#   public     straight to public — on purpose, or not at all
+youtube_privacy = "scheduled"
+youtube_category_id = "24"          # 24 = Entertainment
+youtube_language = "en"
+youtube_made_for_kids = false       # required by YouTube; false for this channel
+youtube_notify_subscribers = true
+# Post the clip's question as a top comment. The API cannot pin it; pinning is
+# two taps in Studio, and the comment is there waiting when you do.
+youtube_post_comment = true
 # When to upload, in your local time, chosen for the audience: 06:00 in
 # Bangkok is 18:00-19:00 in New York, the evening slot with the highest CPM.
 # "Copy for upload" prints the next slot, and the daily reminder fires just
