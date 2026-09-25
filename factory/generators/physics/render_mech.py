@@ -78,6 +78,94 @@ def surface_colour(kind: str, structure) -> tuple[int, int, int]:
     return mix(structure, SURFACE_COLOURS.get(kind, structure), 0.7)
 
 
+def zone_shown(mech: dict, z: dict, frame: int) -> bool:
+    """A zone that `appear`s is drawn only while its clock is on."""
+    return not z.get("appear") or bool(clock_at(mech, z.get("when"), frame))
+
+
+# --- dice (World 6) ---------------------------------------------------------------------
+#
+# A die is drawn as a face, never inferred: the clock says which face and
+# whether it is still rolling, so a redraw draws the shipped die. While it
+# rolls it tumbles (turned, hopping) through faces the mechanic drew from the
+# seed; once set it sits square; "lit" rings it (the path it chose), "dim"
+# fades it (the ones it did not).
+DIE_BODY = (246, 244, 236)
+DIE_PIP = (34, 34, 44)
+DIE_EDGE = (34, 34, 44)
+DIE_LIT = (255, 206, 84)
+PIP_AT = {1: [(0, 0)], 2: [(-1, -1), (1, 1)], 3: [(-1, -1), (0, 0), (1, 1)],
+          4: [(-1, -1), (1, -1), (-1, 1), (1, 1)], 5: [(-1, -1), (1, -1), (0, 0), (-1, 1), (1, 1)],
+          6: [(-1, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (1, 1)]}
+
+
+def dice(mech: dict, frame: int, layer: str, sim_h: float):
+    """Every die showing now on `layer`, in screen coordinates: a list of
+    (corners, pips, pip_r, body, edge, ring) — the body's four corners, the
+    pip centres, and the ring colour for a lit die (or None)."""
+    out = []
+    for e in mech.get("effects") or ():
+        if e["kind"] != "die" or (e.get("layer") or "top") != layer:
+            continue
+        value = clock_at(mech, e.get("clock"), frame) if e.get("clock") else e.get("value")
+        if value is None or value is False:
+            continue
+        face, state = (value.get("f"), value.get("s", "set")) if isinstance(value, dict) else (value, "set")
+        face = int(face)
+        if face not in PIP_AT:
+            continue
+        x, y = e.get("at") or (60.0, 880.0)
+        size = float(e.get("size") or 56.0)
+        sx, sy = x, sim_h - y
+        angle = 0.0
+        if state == "roll":
+            # Tumbling: turned and hopping, deterministic from the frame.
+            angle = math.sin(frame * 0.55) * 0.6 + frame * 0.35
+            sy -= abs(math.sin(frame * 0.45)) * size * 0.22
+        tint = (e.get("tints") or {}).get(str(face))
+        body = tuple(tint) if tint else DIE_BODY
+        edge = DIE_EDGE
+        if state == "dim":
+            body, edge = mix(body, (128, 128, 128), 0.55), mix(edge, (128, 128, 128), 0.5)
+        c, s = math.cos(angle), math.sin(angle)
+        h = size / 2
+        corners = [(sx + c * dx - s * dy, sy + s * dx + c * dy) for dx, dy in ((-h, -h), (h, -h), (h, h), (-h, h))]
+        step = size * 0.26
+        pips = [(sx + c * px * step - s * py * step, sy + s * px * step + c * py * step) for px, py in PIP_AT[face]]
+        out.append((corners, pips, max(1.5, size * 0.085), body, edge, DIE_LIT if state == "lit" else None))
+    return out
+
+
+def pil_dice(draw, mech: dict, frame: int, layer: str, sim_h: float) -> None:
+    for corners, pips, r, body, edge, ring in dice(mech, frame, layer, sim_h):
+        if ring:
+            cx = sum(p[0] for p in corners) / 4
+            cy = sum(p[1] for p in corners) / 4
+            span = max(abs(p[0] - cx) for p in corners) + 5
+            draw.rectangle([cx - span, cy - span, cx + span, cy + span], outline=ring, width=4)
+        draw.polygon(corners, fill=body, outline=edge)
+        for x, y in pips:
+            draw.ellipse([x - r, y - r, x + r, y + r], fill=edge)
+
+
+def pg_dice(surface, mech: dict, frame: int, layer: str, sim_h: float) -> None:
+    import pygame
+
+    from .. import fx
+
+    for corners, pips, r, body, edge, ring in dice(mech, frame, layer, sim_h):
+        if ring:
+            cx = sum(p[0] for p in corners) / 4
+            cy = sum(p[1] for p in corners) / 4
+            span = max(abs(p[0] - cx) for p in corners) + 5
+            fx.soft(surface, cx, cy, span * 1.2, (*ring, 70))
+            pygame.draw.rect(surface, ring, (int(cx - span), int(cy - span), int(2 * span), int(2 * span)), 4)
+        pygame.draw.polygon(surface, body, corners)
+        pygame.draw.polygon(surface, edge, corners, 2)
+        for x, y in pips:
+            fx.disc(surface, x, y, r, edge)
+
+
 def countdowns(mech: dict, frame: int):
     """(text, x, y) for each countdown effect showing a value now (physics coords)."""
     out = []
@@ -99,7 +187,7 @@ def pil_under(draw, style, mech: dict, frame: int, t: float, sim_h: float) -> No
     bg, st = style.background, style.structure
     for z in mech.get("zones") or ():
         pts = zone_points(z, sim_h)
-        if len(pts) < 3:
+        if len(pts) < 3 or not zone_shown(mech, z, frame):
             continue
         if z.get("out"):
             active = z.get("when") is None or bool(clock_at(mech, z["when"], frame))
@@ -121,6 +209,7 @@ def pil_under(draw, style, mech: dict, frame: int, t: float, sim_h: float) -> No
         a, b = s["a"], s["b"]
         draw.line([(a[0], sim_h - a[1]), (b[0], sim_h - b[1])],
                   fill=surface_colour(s["kind"], st), width=style.thickness)
+    pil_dice(draw, mech, frame, "under", sim_h)
 
 
 def pil_over(draw, style, mech: dict, frame: int, sim_h: float, colours: dict) -> None:
@@ -165,6 +254,8 @@ def pil_top(image, style, mech: dict, frame: int, sim_w: int, sim_h: int):
     if blackout(mech, frame):
         veil = Image.new("RGB", image.size, mix(style.background, (0, 0, 0), 0.6))
         image = Image.blend(image, veil, 0.82)
+    if any(e["kind"] == "die" for e in mech.get("effects") or ()):
+        pil_dice(ImageDraw.Draw(image), mech, frame, "top", sim_h)
     shown = countdowns(mech, frame)
     if shown:
         from ...brand import _font  # lazily, as text.py does
@@ -187,7 +278,7 @@ def pg_under(surface, style, mech: dict, frame: int, t: float, sim_h: float) -> 
     bg, st = style.background, style.structure
     for z in mech.get("zones") or ():
         pts = zone_points(z, sim_h)
-        if len(pts) < 3:
+        if len(pts) < 3 or not zone_shown(mech, z, frame):
             continue
         if z.get("out"):
             active = z.get("when") is None or bool(clock_at(mech, z["when"], frame))
@@ -209,6 +300,7 @@ def pg_under(surface, style, mech: dict, frame: int, t: float, sim_h: float) -> 
         a, b = s["a"], s["b"]
         fx.capped_line(surface, (a[0], sim_h - a[1]), (b[0], sim_h - b[1]), style.thickness,
                        surface_colour(s["kind"], st))
+    pg_dice(surface, mech, frame, "under", sim_h)
 
 
 def pg_over(surface, style, mech: dict, frame: int, sim_h: float, colours: dict) -> None:
@@ -261,6 +353,7 @@ def pg_top(surface, style, mech: dict, frame: int, sim_w: int, sim_h: int) -> No
         veil = pygame.Surface((sim_w, sim_h), pygame.SRCALPHA)
         veil.fill((*mix(style.background, (0, 0, 0), 0.6), int(255 * 0.82)))
         surface.blit(veil, (0, 0))
+    pg_dice(surface, mech, frame, "top", sim_h)
     for text, x, y in countdowns(mech, frame):
         key = (text, int(sim_w * 0.09), tuple(style.caption))
         if key not in _TEXT_CACHE:

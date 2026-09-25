@@ -29,7 +29,7 @@ disagree, and two of its rules decided most of the conversion:
 | polarity-swap | L21–L30 | 2 | 8 | 0 | Oct 13 (L22) |
 | halloween-maze | L31–L40 | 2 | 7 | 1 | Oct 22 |
 | ice-sand | L41–L50 | 0 | 9 | 1 | Nov 1 |
-| dice | L51–L60 | 0 | 10 | 0 | Nov 11 |
+| dice | L51–L60 | 9 | 0 | 1 | Nov 11 (built; docs/06 "World 6") |
 | arena | L61–L70 | 0 | 10 | 0 | Nov 21 |
 | repel | L71–L80 | 0 | 10 | 0 | Dec 1 |
 | colour-gates | L81–L90 | 0 | 10 | 0 | Dec 11 |
@@ -208,16 +208,6 @@ one; trapdoor exists but fails QA today (lead changes 1.4).
 | L47 | Nov 10 | ice-sand | sand dunes (hidden hills in the floor) | — |
 | L48 | Nov 11 | ice-sand | ice bowl with a sand exit chute | — |
 | L50 | Nov 13 | ice-sand | terrain gauntlet composite, plus a non-racing purple marble on the sidelines | — |
-| L51 | Nov 14 | dice | dice gate (seeded choice of one of three paths) | — |
-| L52 | Nov 15 | dice | dice-set random start grid | — |
-| L53 | Nov 16 | dice | dice removes one obstacle per run | — |
-| L54 | Nov 17 | dice | three dice gates on one track | — |
-| L55 | Nov 18 | dice | dice-set round count, one to three (the sandbox runs at most two) | — |
-| L56 | Nov 19 | dice | dice gates forced to the hardest path | — |
-| L57 | Nov 20 | dice | dice-rolled surface per section (needs the ice-sand sections) | — |
-| L58 | Nov 21 | dice | dice-picked handicap (one marble starts early) | — |
-| L59 | Nov 22 | dice | handicap: one named marble starts from the back with no dice help | — |
-| L60 | Nov 23 | dice | composite final: dice paths, rounds, surfaces and grid | — |
 | L61 | Nov 24 | arena | shrinking walls, last one standing | — |
 | L62 | Nov 25 | arena | centre hill, king-of-the-hill scoring | — |
 | L63 | Nov 26 | arena | shrinking arena with trapdoors, seven entrants | — |
@@ -277,6 +267,16 @@ one; trapdoor exists but fails QA today (lead changes 1.4).
 | L39 | needs_input | — | stage, fan_idea | Operator picks the passing stage nearest the winning idea, sets params.stage and drops section; if nothing fits, set status blocked. |
 | L40 | ready | zigzag | — | 4-way sprint -> zigzag, the fastest stage. The plan's per-world points reset does not exist (standings run all season). |
 | L49 | needs_input | — | stage, fan_idea, credit | Operator sets params.stage to the passing stage nearest the winning idea (drop section) and posts the credit; blocked if nothing fits. |
+| L51 | ready | dicetrack | — | section dice-gate-paths: a die (faces one to three) at the gate's throat picks the lane; the field waits until it lands. |
+| L52 | ready | dicegrid | — | section dice-start-grid: every marble rolls; the highest starts at the front of a grid that drops at once. |
+| L53 | ready | diceblock | — | section dice-remove-obstacle: six blockers, each with a die face; the die removes one. traps -> blockers. |
+| L54 | ready | dicetriple | — | section dice-gates-duel: three dice gates, one die each; the lanes are short drops (three full gates do not fit the frame). |
+| L55 | ready | dicegrid | — | section dice-round-count, rounds 3: the heat's die (one to three) sets how many rounds run; later rounds race the same stage. |
+| L56 | ready | dicetrack | — | section loaded-dice: the die always lands on the lane with the shelves, the same for every marble. |
+| L57 | ready | dicesurface | — | section dice-surface: three ramp bands, each with a painted die (ice, sand, plain) on the core's surface zones, not World 5's sections. |
+| L58 | ready | plinko | — | section handicap-start: start cups numbered left to right; the die picks one, which goes early (head_start_s, 1.2 s). |
+| L59 | needs_input | dicegrid | back_marker | section handicap-back-start: a rolled grid, the back marker last with no die. Operator sets operator_input.back_marker and params.mechanics.back_marker to the standings leader at plan time. |
+| L60 | ready | dicefinal | — | section dice-final, rounds 3: rolled grid, a round die in the heat, a path die and a surface die at the gate. |
 | L91 | needs_input | zigzag | seeds | World 1 track -> zigzag (L01's stage) under the Christmas theme. Seed 1 vs seed 8. Seeds come from standings at plan time; do not hard-code names. A six-marble cast cannot fill the plan's eight seeds, so the operator decides byes or guests. |
 | L97 | needs_input | — | seeds, stage | Losers of L95 and L96. Operator sets params.stage to the fan-chosen passing stage (drop section). Seeds come from standings at plan time; do not hard-code names. A six-marble cast cannot fill the plan's eight seeds, so the operator decides byes or guests. |
 

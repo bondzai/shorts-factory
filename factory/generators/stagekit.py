@@ -817,6 +817,261 @@ SECTION_WORDS = {
 }
 
 
+# --- World 6: dice track ------------------------------------------------------------------
+#
+# The dice sections are geometry only. What a die does to them — which path
+# opens, which blocker goes, when the start gate lets go — is the level's
+# mechanic (physics/worlds/dice.py), which reads what these record on
+# `style.dice` and registers the doors on the round's rig. A gap a mechanic
+# never closes is open, so a dice stage raced without its mechanic is still a
+# stage that drains.
+
+
+def dice_record(style) -> dict:
+    """What the dice sections built, for the mechanic. Not a Style field, so
+    never stored: the renderers draw the doors and dice the rig records."""
+    rec = getattr(style, "dice", None)
+    if rec is None:
+        rec = {"gates": [], "runway": None, "blocks": [], "bands": []}
+        style.dice = rec
+    return rec
+
+
+# A dice gate's lanes, from easy to hard. The die picks a lane; which lane
+# holds which is the seed's, so every face of the die can be the hard one.
+LANE_KINDS = ("open", "pegs", "shelves")
+GATE_WAIT = 1.45  # s a gate holds the leader with no die: what a die takes to roll and land
+GATE_SLOPE = 0.48  # the funnel's walls (the funnel section's floor, 0.45, plus air)
+
+
+def _waited(y: float, wait: float):
+    """A gate's plain clock: "idle" (shut) until the leader is below y, then
+    True (shut, holding) for `wait` seconds, then False (open)."""
+    state: dict = {"at": None}
+
+    def fn(f):
+        if state["at"] is None:
+            if f.leader is None or f.positions[f.leader][1] >= y:
+                return "idle"
+            state["at"] = f.t
+        return f.t - state["at"] < wait
+
+    return fn
+FLAP_SLOPE = 0.45  # a flap that sends the field to a side lane: steeper than anything rests on
+
+
+def _dice_gate(space, w, top, lane_bottom, rng, style, *, slope=GATE_SLOPE, flap=FLAP_SLOPE, depth=1.0,
+               fill=True):
+    """One dice gate: a funnel to a centre throat with a hold door across it,
+    two flaps under the throat, and three lanes. The mechanic makes one flap
+    solid (left or right lane) or neither (the middle lane falls straight
+    through): the throat gathers the whole field, so wherever a marble
+    arrives from, it takes the lane the die chose.
+
+    Sizes, all from the marble: the throat is the funnel section's (0.21 w,
+    past the arch width); the middle lane is the throat and 30 px each side;
+    a flap's high end starts past the throat's far lip, so nothing that comes
+    through can miss it, and its low end runs 34 px past the divider so a
+    marble rolling off it falls clear of the divider's top; each divider's
+    top sits on its flap's line, so a solid flap has no seam to catch on."""
+    thick = style.thickness / 2
+    cx, g = w / 2, w * 0.21
+    room = marble_room(w)
+    run = cx - g / 2 - 14.0
+    y_throat = top - run * slope
+    d = g / 2 + 30.0  # the middle lane's half width
+    hi_x = g / 2 + 6.0  # how far past the centre a flap's high end starts
+    lo_x = d + 34.0  # how far the other way its low end reaches
+    if y_throat - room * depth - (hi_x + lo_x) * flap < lane_bottom:
+        return []  # no room for a gate: build none rather than one that leaves the band (as trap does)
+    segments = [((14.0, top), (cx - g / 2, y_throat)), ((w - 14.0, top), (cx + g / 2, y_throat))]
+    for a, b in segments:
+        _wall(space, a, b, thickness=thick)
+    # A solid flap and the throat's far lip make a second throat; 18 px under
+    # the throat left it 65 px across and the field queued there for seconds.
+    y_hi = y_throat - room * depth
+    y_lo = y_hi - (hi_x + lo_x) * flap
+    y_div = y_hi - (hi_x + d) * flap - 2.0
+    # The doors that make each lane the only way down, one set per face: a
+    # side lane is its flap plus a fence from the far lip down to the flap's
+    # high end (with the flap that deep, a marble would otherwise slip out
+    # under the far lip); the middle lane is a chute from both lips to the
+    # divider tops. The mechanic makes one set solid.
+    lip_l, lip_r = (cx - g / 2, y_throat), (cx + g / 2, y_throat)
+    paths = [
+        [((cx + hi_x, y_hi), (cx - lo_x, y_lo)), (lip_r, (cx + hi_x, y_hi))],
+        [(lip_l, (cx - d, y_div)), (lip_r, (cx + d, y_div))],
+        [((cx - hi_x, y_hi), (cx + lo_x, y_lo)), (lip_l, (cx - hi_x, y_hi))],
+    ]
+    for x in (cx - d, cx + d):
+        _wall(space, (x, y_div), (x, lane_bottom), thickness=thick)
+        segments.append(((x, y_div), (x, lane_bottom)))
+    lanes = [(7.0, cx - d), (cx - d, cx + d), (cx + d, w - 7.0)]
+    kinds = list(LANE_KINDS)
+    rng.shuffle(kinds)
+    if fill:
+        for (x0, x1), kind in zip(lanes, kinds):
+            segments += _lane(space, w, x0, x1, y_lo - room * 0.9, lane_bottom + room * 0.3, kind, rng, style)
+    # The doors are the section's, so a gate is a gate with or without a die:
+    # the hold shuts the throat until the leader has waited there GATE_WAIT s,
+    # and every lane door is open, so the field takes the middle lane. A dice
+    # mechanic re-clocks them (physics/worlds/dice.py).
+    from .mechanics import rig_of  # mechanics imports this module lazily; this way round is safe
+
+    rig = rig_of(style)
+    rec = dice_record(style)
+    name = f"gate{len(rec['gates'])}_plain"
+    hold = ((cx - g / 2, y_throat), (cx + g / 2, y_throat))
+    rig.clock(name, _waited(y_throat + 60.0, GATE_WAIT))
+    rig.clock(name + "_wait", lambda f, _n=name: bool(f.value(_n)) and f.value(_n) != "idle")
+    rig.hold(name + "_wait")
+    rig.door(space, *hold, closed=name)
+    hold_door = rig.doors[-1]
+    if not any(n == "dice_never" for n, _ in rig.clocks):
+        rig.clock("dice_never", lambda f: False)
+    path_doors = []
+    for doors in paths:
+        path_doors.append([])
+        for a, b in doors:
+            rig.door(space, a, b, closed="dice_never")
+            path_doors[-1].append(rig.doors[-1])
+    rec["gates"].append({
+        "top": top, "throat": y_throat, "hold": hold, "hold_door": hold_door, "path_doors": path_doors,
+        "plain": name, "paths": paths, "lanes": lanes, "kinds": kinds if fill else ["open"] * 3,
+        "lane_top": y_div, "lane_bottom": lane_bottom, "flap_low": y_lo,
+        # Where the gate's die sits: under the left funnel wall, clear of every path.
+        "die": (54.0, top - 74.0 * slope - 50.0),
+        "marks": [((x0 + x1) / 2, y_div - 26.0) for x0, x1 in lanes],
+    })
+    return segments
+
+
+def _lane(space, w, x0, x1, top, bottom, kind, rng, style):
+    """A lane's contents. `open` is a clear drop; `pegs` a column of single
+    pegs down the lane's middle (a peg leaves a marble's room either side);
+    `shelves` alternate shelves from the lane's walls — the long way down,
+    with a marble's room at every tip and under every shelf."""
+    room = marble_room(w)
+    thick = style.thickness / 2
+    segments = []
+    if kind == "pegs":
+        r, y, k = 8.0, top - 10.0, 0
+        while y > bottom + 10.0:
+            x = (x0 + x1) / 2 + (6.0 if k % 2 else -6.0)
+            _peg(space, x, y, r)
+            style.circles.append((x, y, r))
+            y -= 78.0
+            k += 1
+    elif kind == "shelves":
+        span = (x1 - x0) - room * 1.08
+        if span < 30:
+            return segments
+        drop = span * 0.42
+        pitch = drop + room * 1.05
+        y, left = top, rng.random() < 0.5
+        while y - drop > bottom:
+            a, b = (((x0 + 3.0, y), (x0 + 3.0 + span, y - drop)) if left
+                    else ((x1 - 3.0, y), (x1 - 3.0 - span, y - drop)))
+            _wall(space, a, b, thickness=thick)
+            segments.append((a, b))
+            y -= pitch
+            left = not left
+    return segments
+
+
+def dicegate(space, w, top, bottom, rng, style):
+    """One dice gate filling the band: funnel, hold, flaps, three lanes."""
+    return _dice_gate(space, w, top, bottom, rng, style)
+
+
+def dicetriple(space, w, top, bottom, rng, style):
+    """Three dice gates stacked in one band, for a small field (a duel):
+    shallower funnels and flaps (still past the 0.37 anything rests on) and
+    lanes that are only a drop, so three fit where one full gate would."""
+    each = (top - bottom) / 3
+    segments = []
+    for k in range(3):
+        t = top - k * each
+        segments += _dice_gate(space, w, t, t - each + 10.0, rng, style, slope=0.40, flap=0.40, depth=0.6,
+                               fill=False)
+    return segments
+
+
+RUNWAY_SLOPE = 0.20
+
+
+def runway(space, w, top, bottom, rng, style):
+    """A start grid: a ramp rising to the right, slope 0.40 (the ramps
+    section's), with a lip at its low end, across the middle of the frame.
+    It is only a place: the mechanic makes it a door, lines the field up on
+    it front (low, against the lip) to back, and drops the whole ramp at
+    once, so the back of the grid starts highest and has the longest way
+    down. Not against a wall: the pegs keep a marble's room from the walls,
+    and a front marble let go there fell the height of the frame untouched.
+    A stage raced without a mechanic has no ramp here at all."""
+    slope = RUNWAY_SLOPE
+    run = min(w * 0.68, (top - bottom) / slope)
+    # Which side the front is on is the seed's: whatever the bands below do
+    # to one side of the frame, it is not always the front's side.
+    side = 1 if rng.random() < 0.5 else -1
+    x_lo = w * 0.16 if side > 0 else w * 0.84
+    low = (x_lo, top - run * slope)
+    dice_record(style)["runway"] = {"a": (x_lo + side * run, top), "b": low, "slope": slope,
+                                    "lip": (low, (x_lo, low[1] + 40.0))}
+    return []
+
+
+def diceblock(space, w, top, bottom, rng, style):
+    """Six blockers in three rows of two — a floating pair, a pair off the
+    walls draining inward, a floating pair — each a tilted bar registered as
+    a door that is always shut, so a die (the level's mechanic) can take one
+    away and a race without one still has all six. The gaps beside a
+    floating bar and past a wall bar's tip are the sieve's tip gap or more;
+    rows are a marble's room apart past the tilt."""
+    from .mechanics import rig_of  # mechanics imports this module lazily; this way round is safe
+    tip_gap = max(0.15 * w, marble_room(w))
+    span = 130.0
+    tilt = span * 0.36
+    if top - bottom < 2 * (tilt + marble_room(w)):
+        return []
+    blocks = []
+    for i, y in enumerate((top - tilt / 2, (top + bottom) / 2, bottom + tilt / 2)):
+        if i == 1:
+            reach = min(span, (w - 14.0 - tip_gap * 2.5) / 2)
+            blocks.append(((7.0, y + tilt / 2), (7.0 + reach, y - tilt / 2)))
+            blocks.append(((w - 7.0, y + tilt / 2), (w - 7.0 - reach, y - tilt / 2)))
+        else:
+            gap = (w - 14.0 - 2 * span) / 3
+            first = 1 if rng.random() < 0.5 else -1
+            for k, s in enumerate((first, -first)):
+                x0 = 7.0 + gap + k * (span + gap)
+                blocks.append(((x0, y + s * tilt / 2), (x0 + span, y - s * tilt / 2)))
+    rig = rig_of(style)
+    record = []
+    for a, b in blocks:
+        rig.door(space, a, b, thickness=style.thickness / 2)
+        record.append((a, b, rig.doors[-1]))  # the mechanic sets a door's clock and colour
+    dice_record(style)["blocks"] = record
+    return []
+
+
+def surfaceramps(space, w, top, bottom, rng, style):
+    """The ramps section, with its band recorded so a die can roll its surface."""
+    segments = ramps(space, w, top, bottom, rng, style)
+    dice_record(style)["bands"].append((top, bottom))
+    return segments
+
+
+# Appended to the tables above rather than written into them.
+SECTIONS.update({"dicegate": dicegate, "dicetriple": dicetriple, "runway": runway, "diceblock": diceblock,
+                 "surfaceramps": surfaceramps})
+SECTION_WORDS.update({
+    "dicegate": "a dice gate that opens one of three paths", "dicetriple": "three dice gates",
+    "runway": "a start ramp behind a gate", "diceblock": "six blockers a die can remove",
+    "surfaceramps": "zigzag ramps whose surface a die rolls",
+})
+
+
 def compose(parts: list[tuple[str, float]], *, top_frac: float = 0.90, bottom_frac: float = 0.20):
     """A stage builder from sections stacked top to bottom.
 

@@ -94,6 +94,7 @@ class _Zone:
     first_only: bool = False
     victim: int | None = None
     show: bool = True
+    appear: bool = False  # drawn only while `when` is truthy (a surface a die rolls)
 
     def contains(self, x: float, y: float) -> bool:
         if self.rect is not None:
@@ -166,6 +167,12 @@ class Rig:
         self.hooks: list[Callable[[Frame], None]] = []
         self.magnet_clock: str | None = None
         self.finish_y: float | None = FINISH_Y
+        # Clocks that hold the field on purpose (a start gate, a dice hold):
+        # while one is truthy a field at rest is waiting, not stalled.
+        self.holds: list[str] = []
+        # A mechanic may cut the clip to fewer rounds than `params.rounds`
+        # (a die that sets the round count); read by sandbox.race_rounds.
+        self.clip_rounds: int | None = None
         fmt = self.params.get("format")
         self.elimination = fmt in ("elimination", "last_standing")
         self.win = str(self.params.get("win") or ("last_standing" if fmt == "last_standing" else "first_across"))
@@ -206,7 +213,7 @@ class Rig:
         """Anything registered. A rig that is not live changes nothing."""
         return bool(self.clocks or self.zones or self.surfaces or self.breakables or self.doors
                     or self.walls or self.forces or self.effects or self.hooks or self.magnet_clock
-                    or self.finish_y != FINISH_Y or self.elimination)
+                    or self.finish_y != FINISH_Y or self.elimination or self.holds)
 
     def _pt(self, p) -> tuple[float, float]:
         return (float(p[0]), float(p[1]))
@@ -251,6 +258,17 @@ class Rig:
         move kinematic bodies or call `emit`; it may not read identities to
         decide a result (docs/08 rule 2.4)."""
         self.hooks.append(fn)
+
+    def hold(self, clock: str) -> str:
+        """The field is held on purpose while `clock` is truthy (a closed
+        start gate, a die still rolling): the stall check does not count
+        those frames, because marbles waiting behind a door are not wedged."""
+        self.holds.append(clock)
+        return clock
+
+    @property
+    def holding(self) -> bool:
+        return any(self.values.get(c) for c in self.holds)
 
     def emit(self, kind: str, index: int | None = None, **data) -> None:
         """An Event at the current frame (its kind is the section's to name)."""
@@ -298,16 +316,18 @@ class Rig:
 
     def zone(self, rect=None, *, poly=None, kind: str = "sand", damping: float | None = None,
              friction: float | None = None, first_only: bool = False, when: str | None = None,
-             event: str | None = None, show: bool = True) -> None:
+             event: str | None = None, show: bool = True, appear: bool = False) -> None:
         """A region that drags whoever is in it: `damping` (1/s, default the
         surface's) on velocity every substep, and the marble's own friction
         set to `friction` while inside. `first_only`: only the first marble to
-        enter is ever affected (a cobweb), with `event` when it is caught."""
+        enter is ever affected (a cobweb), with `event` when it is caught.
+        `appear`: drawn only while `when` is truthy, so a surface that is
+        rolled for mid-race is not on screen before the roll."""
         spec = SURFACES.get(kind, {})
         self.zones.append(_Zone(kind=kind, rect=self._rect(rect), poly=self._poly(poly), when=when,
                                 damping=float(damping if damping is not None else spec.get("damping") or 0.0),
                                 friction=friction if friction is not None else None,
-                                first_only=first_only, event=event, label=kind, show=show))
+                                first_only=first_only, event=event, label=kind, show=show, appear=appear))
 
     def breakable(self, space, a, b, *, kind: str = "thin_ice", hold: tuple[float, float] = (0.8, 2.0),
                   thickness: float = 5.0) -> Any:
@@ -367,9 +387,12 @@ class Rig:
     def effect(self, kind: str, **data) -> None:
         """A render effect: "blackout" (clock=...: marbles hidden while it is
         truthy, sound goes on), "countdown" (clock=..., at=(x, y): the clock's
-        value drawn as a number). Both renderers draw them."""
-        if kind not in ("blackout", "countdown"):
-            raise ValueError(f"no effect {kind!r}; have blackout, countdown")
+        value drawn as a number), "die" (clock=... or value=..., at=(x, y),
+        size=px, layer="top"|"under", tints={face: rgb}: a die face; the
+        clock's value is None (not drawn), a face number, or {"f": face,
+        "s": "roll"|"set"|"lit"|"dim"}). Both renderers draw them."""
+        if kind not in ("blackout", "countdown", "die"):
+            raise ValueError(f"no effect {kind!r}; have blackout, countdown, die")
         if "at" in data:
             data["at"] = list(self._pt(data["at"]))
         self.effects.append({"kind": kind, **data})
@@ -617,7 +640,8 @@ class Rig:
                 clocks[name] = [[p[0] - skip, p[1]] for p in kept]
             mech["clocks"] = clocks
         zones = [{"kind": z.kind, "out": z.out, "when": z.when,
-                  **({"rect": list(z.rect)} if z.rect else {"poly": [list(p) for p in z.poly or []]})}
+                  **({"rect": list(z.rect)} if z.rect else {"poly": [list(p) for p in z.poly or []]}),
+                  **({"appear": True} if z.appear else {})}
                  for z in self.zones if z.show]
         if zones:
             mech["zones"] = zones

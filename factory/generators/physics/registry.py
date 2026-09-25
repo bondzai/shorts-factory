@@ -12,6 +12,7 @@ from typing import Any
 
 from .. import stagekit
 from . import stages
+from .worlds import dice
 
 @dataclass(frozen=True)
 class Stage:
@@ -154,6 +155,24 @@ STAGE_SPECS: list[Stage] = [
     composed("trapdoor", [("pegs", 0.8), ("trap", 1.6), ("bumpers", 0.8)], gravity=-30.0, noun="the trapdoor",
               blurb="pegs, a trapdoor pit that holds a marble and lets it go, then bumpers",
               gate=True),
+    # World 6, the dice track (trial; docs/06 "World 6" has their QA). The dice
+    # sections are geometry; the dice themselves are the levels' mechanics.
+    composed("dicetrack", [("dicegate", 2.2), ("pegs", 1.0)], gravity=-34.0, noun="dice gate",
+             blurb="a dice gate that opens one of three lanes, then pegs"),
+    composed("dicegrid", [("runway", 0.8), ("pegs", 1.0), ("sieve", 1.3), ("funnel", 1.0)], gravity=-40.0,
+             noun="start grid", blurb="a start grid that drops at once, then pegs, a sieve and a funnel"),
+    composed("diceblock", [("diceblock", 1.8), ("funnel", 0.8)], gravity=-40.0, noun="blockers",
+             blurb="six blockers a die can remove, then a funnel"),
+    Stage("dicetriple", stagekit.compose([("dicetriple", 1.0)], top_frac=0.93, bottom_frac=0.15), -150.0,
+          "dice gates", "three dice gates, one under the other",
+          # One section holding three gates (a band each would lose two margins
+          # apiece, and three gates only just fit the frame without them).
+          lambda style, segments: "a stage of " + ", then ".join(["a dice gate"] * 3),
+          parts=(("dicetriple", 1.0),)),
+    composed("dicesurface", [("surfaceramps", 1.0), ("surfaceramps", 1.0), ("surfaceramps", 1.0)], gravity=-60.0,
+             noun="ramps", blurb="three bands of zigzag ramps, each with a surface a die rolls"),
+    composed("dicefinal", [("runway", 0.8), ("dicegate", 2.0), ("pegs", 0.6)], gravity=-60.0, noun="dice gate",
+             blurb="a start ramp behind a gate, a dice gate into three lanes, then pegs"),
     # COMPOSED-STAGES-END
 ]
 
@@ -198,6 +217,18 @@ class Mechanic:
 # world's WP7 lands one.
 MECHANIC_SPECS: list[Mechanic] = [
     # MECHANICS-BEGIN
+    # World 6, the dice track (physics/worlds/dice.py).
+    Mechanic("dice-gate-paths", dice.dice_gate_paths, stage="dicetrack", blurb="a die picks one of three lanes"),
+    Mechanic("dice-start-grid", dice.dice_start_grid, stage="dicegrid", blurb="every marble rolls; high roll starts in front"),
+    Mechanic("dice-remove-obstacle", dice.dice_remove_obstacle, stage="diceblock", blurb="a die removes one of six blockers"),
+    Mechanic("dice-gates-duel", dice.dice_gates_duel, stage="dicetriple", blurb="three dice gates, each picks a lane"),
+    Mechanic("dice-round-count", dice.dice_round_count, stage="dicegrid", blurb="a die sets how many rounds, one to three"),
+    Mechanic("loaded-dice", dice.loaded_dice, stage="dicetrack", blurb="every die lands on the hardest lane"),
+    Mechanic("dice-surface", dice.dice_surface, stage="dicesurface", blurb="a die rolls each band's surface: ice, sand or plain"),
+    Mechanic("handicap-start", dice.handicap_start, stage="plinko", blurb="a die picks one marble to start early"),
+    Mechanic("handicap-back-start", dice.handicap_back_start, stage="dicegrid",
+             blurb="a rolled grid; the level's back marker starts last with no die"),
+    Mechanic("dice-final", dice.dice_final, stage="dicefinal", blurb="rolled grid, rounds, path and surface"),
     # MECHANICS-END
 ]
 MECHANICS: dict[str, Mechanic] = {m.id: m for m in MECHANIC_SPECS}

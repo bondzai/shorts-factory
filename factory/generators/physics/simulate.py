@@ -105,6 +105,7 @@ def run_round(seed, variant, params, cfg, sim_w, sim_h, fps, lineup=None, *,
         "winner": winner, "winner_frame": winner_frame, "finishes": finishes, "finish_s": finish_s,
         "runner_up": runner_up, "margin_s": margin_s, "duration_s": duration_s, "attempts": attempt + 1,
         "format": fmt, "gone": gone, "mech_events": mech_events, "stage_picked": not stage,
+        "clip_rounds": rig.clip_rounds if rig is not None else None,
         "win_by": ("survival" if winner is not None and winner not in finishes else "finish") if winner else None,
     }
 
@@ -248,7 +249,7 @@ def simulate(*, seed: int, variant: str, sim_w: int, sim_h: int, fps: int, max_f
         # Everything coming to rest ends the pour, but in a race it means a
         # marble is wedged and the clip is dead.
         moving = [b for k, b in enumerate(balls) if rig.alive[k]] if live else balls
-        if moving and max(b.body.velocity.length for b in moving) < stall_speed:
+        if moving and max(b.body.velocity.length for b in moving) < stall_speed and not (live and rig.holding):
             stalled += 1
         else:
             stalled = 0
