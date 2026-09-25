@@ -131,6 +131,12 @@ A door gives each marble a collision bit, so a race holds at most 12
 Gate lights, surface textures and outward magnet chevrons need no effect
 call: they come with the door, the zone, the polarity clock.
 
+The presentation (`[presentation]`, physics `present.py`) sits over all of
+this and reads the same recording: no fire and no chip for a marble that is
+`hidden` (eliminated, or in a blackout), the eliminated at the foot of the
+leaderboard, dimmed, and no progress bar on a race with `no_finish_line`.
+A section needs to do nothing for it.
+
 ## Level params
 
 | param | what it does |

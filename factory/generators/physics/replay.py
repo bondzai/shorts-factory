@@ -19,6 +19,7 @@ import numpy as np
 from ... import audio
 from ...series import trace
 from .. import fx
+from . import present
 from .model import Style
 from .render import frames
 from .text import closing_ask, overlay
@@ -54,7 +55,11 @@ def style_from(data: dict[str, Any]) -> Style:
 
 
 def write(work_dir: Path, *, variant: str, seed: int, fps: int, sim_w: int, sim_h: int,
-          rounds: list[dict], captions: list[str | None], ask: bool, outcome) -> Path:
+          rounds: list[dict], captions: list[str | None], ask: bool, outcome,
+          presentation: dict | None = None, maps: list | None = None) -> Path:
+    """`presentation` (present.trace_meta) and `maps` (one time map per round)
+    only when the presentation is on; without them the trace is the one a
+    race always wrote."""
     balls = rounds[0]["balls"]
     arrays = {f"round{i}_positions": np.asarray(r["states"], dtype=np.float64).reshape(len(r["states"]), len(balls), 2)
               for i, r in enumerate(rounds)}
@@ -80,35 +85,50 @@ def write(work_dir: Path, *, variant: str, seed: int, fps: int, sim_w: int, sim_
         "outcome": outcome.model_dump(mode="json") if outcome is not None else None,
         "engine": fx.engine(),
     }
+    if presentation is not None:
+        meta["presentation"] = presentation
+        for i, tm in enumerate(maps):
+            arrays[f"round{i}_timemap"] = np.asarray(tm, dtype=np.float64)
     return trace.write(work_dir, arrays, meta)
 
 
-def _round_frames(arrays, meta, n: int) -> Iterator[bytes]:
+def _round_frames(arrays, meta, n: int, raw: bool = False) -> Iterator[bytes]:
     fps, sim_w, sim_h = meta["fps"], meta["sim_w"], meta["sim_h"]
     r = meta["rounds"][n]
     balls = [Marble(name, tuple(int(c) for c in colour), float(radius))
              for name, colour, radius in zip(meta["entrant_ids"], arrays["colors"], arrays["radii"][n])]
     states = [[(float(x), float(y)) for x, y in frame] for frame in arrays[f"round{n}_positions"]]
-    return frames(states, balls, [_tuples(s) for s in r["segments"]], sim_w, sim_h,
-                  overlay=overlay(meta["variant"], sim_w, sim_h, fps, text=r["overlay"]) if r["overlay"] else None,
-                  style=style_from(r["style"]),
-                  # Older traces kept a flag; newer ones keep the words.
-                  ask=(closing_ask(sim_w, sim_h, fps, text=meta["ask"] if isinstance(meta["ask"], str) else None)
-                       if meta["ask"] else None),
-                  winner_frame=r["winner_frame"], winner=r["winner"],
-                  impacts=[audio.Impact(*im) for im in r["impacts"]], fps=fps, engine=meta["engine"])
+    caption = overlay(meta["variant"], sim_w, sim_h, fps, text=r["overlay"]) if r["overlay"] else None
+    # Older traces kept a flag; newer ones keep the words.
+    ask = (closing_ask(sim_w, sim_h, fps, text=meta["ask"] if isinstance(meta["ask"], str) else None)
+           if meta["ask"] else None)
+    style = style_from(r["style"])
+    presented = meta.get("presentation") is not None and not raw
+    source = frames(states, balls, [_tuples(s) for s in r["segments"]], sim_w, sim_h,
+                    overlay=None if presented else caption, style=style, ask=None if presented else ask,
+                    winner_frame=r["winner_frame"], winner=r["winner"],
+                    impacts=[audio.Impact(*im) for im in r["impacts"]], fps=fps, engine=meta["engine"])
+    if not presented:
+        return source
+    pres = meta["presentation"]
+    return present.compose(source, present.view_from_trace(arrays, meta, n), arrays[f"round{n}_timemap"],
+                           present.hud(pres["config"], caption, ask, style, n), sim_w, sim_h, fps,
+                           pres["config"]["fire"], pres["rounds"][n]["moments"])
 
 
-def redraw(trace_dir: Path) -> Iterator[bytes]:
-    """Every frame the render encoded, at sim size, from the trace alone."""
+def redraw(trace_dir: Path, raw: bool = False) -> Iterator[bytes]:
+    """Every frame the render encoded, at sim size, from the trace alone.
+    `raw`: without the presentation — the race as the renderer drew it, every
+    source frame once, with the caption and ask it drew before (long-form)."""
     arrays, meta = trace.read(trace_dir)
     for n in range(len(meta["rounds"])):
-        yield from _round_frames(arrays, meta, n)
+        yield from _round_frames(arrays, meta, n, raw=raw)
 
 
 def redraw_frame(trace_dir: Path, round_index: int, frame: int) -> bytes:
     """One frame. The pygame renderer carries animation state (squash, sparks,
     confetti) from frame to frame, so this draws the round up to `frame`:
-    cheap early in a round, a round's worth of drawing at its end."""
+    cheap early in a round, a round's worth of drawing at its end. With a
+    presentation, `frame` counts the round's shipped (output) frames."""
     arrays, meta = trace.read(trace_dir)
     return next(itertools.islice(_round_frames(arrays, meta, round_index), frame, None))

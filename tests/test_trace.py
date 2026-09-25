@@ -63,7 +63,9 @@ def test_a_redraw_is_the_shipped_frame(no_ffmpeg, tmp_path, engine):
     settings.load().raw["render"]["engine"] = engine
     clip = _race(tmp_path, cast=CAST)
     shipped = {i: f for i, f in no_ffmpeg["frames"].items() if f is not None}
-    heat = len(trace.read(clip.trace_path)[0]["round0_positions"])
+    arrays = trace.read(clip.trace_path)[0]
+    # Shipped frames per round: the presentation's time map when there is one.
+    heat = len(arrays["round0_timemap"] if "round0_timemap" in arrays else arrays["round0_positions"])
     # Five spread over the clip, at least one in each round.
     picks = sorted(shipped)[:: max(1, len(shipped) // SAMPLES)][:SAMPLES]
     assert any(i < heat for i in picks) and any(i >= heat for i in picks)

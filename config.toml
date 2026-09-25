@@ -45,6 +45,31 @@ funnel_drop = ""
 # The arena: four balls, health bars, last one standing. Same job — pick a side.
 ball_battle = "PICK A FIGHTER | PICK YOUR FIGHTER | WHO SURVIVES? | LAST ONE STANDING | BACK ONE | CALL THE WINNER"
 
+[presentation]
+# How a marble race is *shown*, over a simulation it never changes
+# (factory/generators/physics/present.py). The first three seconds decide the
+# swipe, and a wide real-time race opens on marbles the size of a fingernail;
+# this cold-opens tight on the pack, slows the first hit, pulls out, punches in
+# on lead changes and ends slowed and tight on the line, framed like the first
+# frame so the loop reads as one shot. Races only; the funnel and the arena
+# are untouched. false renders exactly what it did before this block existed.
+enabled = true
+# Camera zoom for the cold open and the finish (1 = the whole stage).
+zoom = 1.9
+# Speed of the opening hit's half second (0.4 = two and a half times slower).
+slowmo = 0.4
+# Speed right after it, while the camera pulls out; back to 1.0 by ~3 s.
+reveal_speed = 1.3
+# Zoom of the quick push-in on each lead change (at most one per 1.5 s).
+punch = 1.25
+# Speed of the ~0.8 s around the winner's crossing. If the clip would run past
+# [qc] max_seconds, this window shrinks first.
+finish_slowmo = 0.5
+# Flames in each marble's colour, longer the faster it goes.
+fire = true
+# The live order down the left and the leader's progress bar across the top.
+leaderboard = true
+
 [notify]
 # Where to tell YOU that a run finished. Slack, Discord, ntfy and any endpoint
 # that accepts a JSON POST all work — the payload carries a plain `text` line

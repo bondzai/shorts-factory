@@ -18,7 +18,7 @@ from ...series import story
 from ...series.outcome import Outcome
 from ..base import GeneratedClip
 from . import outcome as physics_outcome
-from . import replay
+from . import present, replay
 from .build import TRAITS
 from .model import CLOSE_RACE_S, FINAL_CAPTION, Style, seconds
 from .registry import LIVE_STAGES, STAGES
@@ -217,10 +217,21 @@ def generate(*, seed: int, variant: str, params: dict[str, Any], work_dir: Path)
         overlays.append(overlay(variant, sim_w, sim_h, fps, text=caption))
     # The closing ask's own words ride in the trace, so a redraw says the same.
     ask = closing_ask(sim_w, sim_h, fps, text=params.get("ask_text"))
+
+    # The presentation (present.py): what is shown when. Races only, and
+    # only when [presentation] is on; off, every line below runs as it did.
+    pres = present.config() if variant == "marble_race" else None
+    plan = views = None
+    if pres is not None:
+        labels = present.labels_for(rounds[0]["balls"], params.get("cast"))
+        views = [present.view_of(r, labels) for r in rounds]
+        qc = settings.load().qc
+        plan = present.direct(views, fps, sim_w, sim_h, pres, float(qc["max_seconds"]), float(qc["min_seconds"]))
+        plan["meta"] = present.trace_meta(pres, labels, rounds, plan)
     trace_path = replay.write(
         clip_dir, variant=variant, seed=rendered_seed, fps=fps, sim_w=sim_w, sim_h=sim_h, rounds=rounds,
         captions=[o[0] if o else None for o in overlays], ask=ask[0] if ask else None,
-        outcome=outcome)
+        outcome=outcome, presentation=plan["meta"] if plan else None, maps=plan["maps"] if plan else None)
 
     impacts: list[audio.Impact] = []
     offset = 0.0
@@ -228,15 +239,28 @@ def generate(*, seed: int, variant: str, params: dict[str, Any], work_dir: Path)
         impacts += [audio.Impact(im.t + offset, im.strength, im.index, im.pan) for im in r["impacts"]]
         offset += r["duration_s"]
     duration_s = offset
-    wav = audio.render_wav(impacts, duration_s, clip_dir / "audio.wav")
+    if plan is None:
+        wav = audio.render_wav(impacts, duration_s, clip_dir / "audio.wav")
+    else:
+        # Every impact heard when it is seen: re-timed through the time map.
+        shown, sounds = present.soundtrack(rounds, plan, fps)
+        duration_s = plan["output_s"]
+        wav = audio.render_wav(shown, duration_s, clip_dir / "audio.wav", sounds=sounds)
 
     def all_frames():
-        for r, overlay in zip(rounds, overlays):
-            yield from frames(r["states"], r["balls"], r["segments"], sim_w, sim_h,
-                                    overlay=overlay, style=r["style"],
-                                    ask=ask,
-                                    winner_frame=r["winner_frame"], winner=r["winner"],
-                                    impacts=r["impacts"], fps=fps)
+        for n, (r, overlay) in enumerate(zip(rounds, overlays)):
+            if plan is None:
+                yield from frames(r["states"], r["balls"], r["segments"], sim_w, sim_h,
+                                        overlay=overlay, style=r["style"],
+                                        ask=ask,
+                                        winner_frame=r["winner_frame"], winner=r["winner"],
+                                        impacts=r["impacts"], fps=fps)
+                continue
+            raw = frames(r["states"], r["balls"], r["segments"], sim_w, sim_h, overlay=None, style=r["style"],
+                         ask=None, winner_frame=r["winner_frame"], winner=r["winner"],
+                         impacts=r["impacts"], fps=fps)
+            yield from present.compose(raw, views[n], plan["maps"][n], present.hud(pres, overlay, ask, r["style"], n),
+                                       sim_w, sim_h, fps, pres["fire"], plan["meta"]["rounds"][n]["moments"])
 
     silent = encoder.encode_frames(
         all_frames(), out_path=clip_dir / "video.mp4",
@@ -344,6 +368,9 @@ def generate(*, seed: int, variant: str, params: dict[str, Any], work_dir: Path)
             "story_attempts": story_attempts,
             "story_seed": rendered_seed,
             **({"cast": [e["id"] for e in params["cast"]]} if params.get("cast") else {}),
+            # What the viewer is shown when (present.py), on the output clock;
+            # everything above stays in the race's own (source) seconds.
+            **({"presentation": present.facts(plan)} if plan else {}),
         },
         outcome=outcome,
         trace_path=trace_path,
@@ -372,9 +399,12 @@ class PhysicsSandbox:
     def generate(self, *, seed: int, variant: str, params: dict[str, Any], work_dir: Path) -> GeneratedClip:
         return generate(seed=seed, variant=variant, params=params, work_dir=work_dir)
 
-    def redraw(self, trace_dir: Path) -> Iterator[bytes]:
-        """The frames the render encoded, at sim size, from a trace alone."""
-        return replay.redraw(trace_dir)
+    def redraw(self, trace_dir: Path, raw: bool = False) -> Iterator[bytes]:
+        """The frames the render encoded, at sim size, from a trace alone.
+        `raw`: the race without its presentation — every source frame once,
+        real time, no camera — as a clip with the presentation off would
+        have shipped it (the long-form is a different edit)."""
+        return replay.redraw(trace_dir, raw=raw)
 
     def redraw_frame(self, trace_dir: Path, round_index: int, frame: int) -> bytes:
         return replay.redraw_frame(trace_dir, round_index, frame)
