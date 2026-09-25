@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { clock, fmt, when } from "../lib/format";
-import { Page, Card, StepStrip } from "../ui";
+import { Card, ErrorNote, StepStrip } from "../ui";
 import { Orb } from "../ui/Orb";
 import { Workers } from "./Workers";
 import type { Task } from "../lib/types";
@@ -33,7 +33,7 @@ export function Team({ navigate, onOpen, channelId }: { navigate: (v: string, p?
     const id = setInterval(load, 3000);
     return () => { alive = false; clearInterval(id); };
   }, []);
-  if (!view) return <Page title="The team"><p className="empty">{error || "loading…"}</p></Page>;
+  if (!view) return error ? <ErrorNote message={`Could not load the team: ${error}`} /> : <p className="empty">Loading…</p>;
   const t = view.totals;
   const ago = (iso: string | null) => {
     if (!iso) return "never";
@@ -42,8 +42,8 @@ export function Team({ navigate, onOpen, channelId }: { navigate: (v: string, p?
   };
 
   return (
-    <Page title="The team" lead="Every agent on every channel: what it holds now, how far along, what it finished today. Your own desk is the deciding."
-      action={<span className="hint">{t.working} in flight · {t.queued} queued · {t.to_decide} for you · {t.to_upload} to upload</span>}>
+    <>
+      <p className="page-lead">{t.working} in flight · {t.queued} queued · {t.to_decide} waiting for you · {t.to_upload} to publish</p>
       <div className="team">
         <div className="stack">
           <Workers channels={view.channels.map((c) => ({ id: c.id, name: c.name, queued: c.phases.queued || 0 }))} channelId={channelId} />
@@ -69,11 +69,11 @@ export function Team({ navigate, onOpen, channelId }: { navigate: (v: string, p?
                 <span className="l">{f.channel && <span className="badge">{f.channel}</span>} {f.line}{f.clip && <button className="link" onClick={() => onOpen(f.clip!)}>open</button>}</span>
               </div>
             ))}
-            {!view.feed.length && <p className="empty">Quiet.</p>}
+            {!view.feed.length && <p className="empty">Nothing has happened yet today.</p>}
           </div>
         </Card>
       </div>
-    </Page>
+    </>
   );
 }
 

@@ -1,15 +1,15 @@
-// One list for everything the channel is making: a task until it has a
-// clip, the clip from then on, and its numbers once it is published. What was
-// asked for, what came of it and how it did are the same row at different
-// stages, so they live on the same screen. Filter to published and the
-// screen adds the summary of how the channel is doing.
+// Clips: the library. One list for everything the channel is making: a task
+// until it has a clip, the clip from then on, and its numbers once it is
+// published. One search, one status filter (the bin is one of the statuses),
+// and a module filter only when there is more than one module to pick.
 import { useCallback, useEffect, useState } from "react";
 import { api, q, send } from "../lib/api";
-import { num, pct, when, download } from "../lib/format";
+import { num, pct, when, download, phaseWord, phaseTone, PHASE_ORDER } from "../lib/format";
 import { act, toast } from "../lib/toast";
 import { useList } from "../lib/useList";
 import { useQuery } from "../lib/route";
-import { Page, Toolbar, SearchBox, Chips, DataTable, Pagination, Badge, Card, Modal, StepStrip, Field, Column } from "../ui";
+import { Page, Toolbar, SearchBox, DataTable, Pagination, Badge, Card, Modal, StepStrip, Field, Column } from "../ui";
+import { BinList } from "./Bin";
 import type { Route } from "../lib/route";
 import type { Clip, Snap, Task, TaskKind } from "../lib/types";
 
@@ -18,25 +18,23 @@ interface Analytics { n_with_metrics: number; n_published: number; views_90d: nu
 type Row = (Clip & { row_kind: "clip"; phase: string; key: string }) | (Task & { row_kind: "task"; phase: string; key: string });
 interface WorkPage { items: Row[]; total: number; page: number; page_size: number; phases: { id: string; count: number }[]; modules: Record<string, string[]>; binned: number; kinds: Record<string, TaskKind>; stages: { id: string; blurb: string }[] }
 
-const PHASE: Record<string, { word: string; tone?: "ok" | "no" | "key" }> = {
-  queued: { word: "queued" }, rendering: { word: "rendering", tone: "key" }, to_review: { word: "to review", tone: "key" },
-  approved: { word: "approved", tone: "ok" }, published: { word: "published", tone: "ok" }, rejected: { word: "rejected", tone: "no" },
-  failed: { word: "failed", tone: "no" }, cancelled: { word: "cancelled" }, done: { word: "done" },
-};
-const phaseWord = (s: string) => PHASE[s]?.word || s;
+type Nav = (v: string, p?: Record<string, string | number | undefined>) => void;
 
 export function Clips({ snap, channelId, refresh, onOpen, route, navigate }: {
-  snap: Snap; channelId: string; refresh: () => Promise<void>; onOpen: (id: string) => void; route: Route; navigate: (v: string, p?: Record<string, string | number | undefined>) => void;
+  snap: Snap; channelId: string; refresh: () => Promise<void>; onOpen: (id: string) => void; route: Route; navigate: Nav;
 }) {
   const query = useQuery(route, navigate);
-  const list = useList<Row>("/api/work", route, { channel: channelId, phase: query.get("phase"), variant: query.get("variant") }, [snap.tasks?.queued, snap.tasks?.claimed, snap.tasks?.done, snap.tasks?.failed, snap.counts?.awaiting_approval, snap.counts?.approved]);
+  const phase = query.get("phase");
+  const inBin = phase === "binned";
+  const list = useList<Row>("/api/work", route, { channel: channelId, phase, variant: query.get("variant"), ...(inBin ? { page_size: 1 } : {}) },
+    [snap.tasks?.queued, snap.tasks?.claimed, snap.tasks?.done, snap.tasks?.failed, snap.counts?.awaiting_approval, snap.counts?.approved]);
   const body = list.data as WorkPage | null;
   const [modal, setModal] = useState<"add" | "handoff" | null>(null);
   const [picked, setPicked] = useState<Set<string | number>>(new Set());
   useEffect(() => setPicked(new Set()), [list.data]);
-  const rows = body?.items || [];
+  const rows = inBin ? [] : body?.items || [];
   const keys = rows.map((r) => r.key);
-  const published = query.get("phase") === "published";
+  const published = phase === "published";
   const [numbers, setNumbers] = useState<Analytics | null>(null);
   const loadNumbers = useCallback(() => {
     if (!published) return Promise.resolve();
@@ -52,17 +50,17 @@ export function Clips({ snap, channelId, refresh, onOpen, route, navigate }: {
   const cancel = (id: number) => act(() => api(`/api/tasks/${id}`, { method: "DELETE" }), { ok: "Cancelled", after });
 
   const columns: Column<Row>[] = [
-    { key: "title", label: "What", sortable: true, render: (r) => r.row_kind === "clip"
-        ? <><Title c={r} after={after} /><div className="hint">{r.id} · {r.generator}/{r.variant} · seed {r.seed}{r.title_history?.length ? ` · retitled ${r.title_history.length}×` : ""}{r.reject_reason && <> · <span className="no-text">{r.reject_reason.slice(0, 80)}</span></>}</div></>
-        : <><div><b>{r.kind}</b> <span className="dim small">{Object.entries(r.params).map(([k, v]) => `${k}=${v}`).join(" ")}</span></div>
+    { key: "title", label: "What", sortable: true, render: (r) => <><span className="narrow-only"><Badge tone={phaseTone(r.phase)}>{phaseWord(r.phase)}</Badge></span>{r.row_kind === "clip"
+        ? <><Title c={r} after={after} /><div className="hint">{r.id} · {r.variant} · seed {r.seed}{r.title_history?.length ? ` · retitled ${r.title_history.length}×` : ""}{r.reject_reason && <> · <span className="no-text">{r.reject_reason.slice(0, 80)}</span></>}</div></>
+        : <><div><b>{r.params?.level_id ? `Level ${r.params.level_id}` : r.kind}</b> <span className="dim small">{r.params?.level_id ? r.kind : Object.entries(r.params).map(([k, v]) => `${k}=${typeof v === "object" ? "…" : v}`).join(" ")}</span></div>
             <div className="hint">#{r.id} · {r.meaning}{r.claimed_by ? ` · ${r.claimed_by}` : ""}{r.error ? <> · <span className="no-text">{r.error.slice(0, 80)}</span></> : r.result?.summary ? ` · ${r.result.summary.slice(0, 80)}` : ""}</div>
-            {r.status === "claimed" && <StepStrip steps={r.steps} />}</> },
-    { key: "phase", label: "Phase", sortable: true, render: (r) => <Badge tone={PHASE[r.phase]?.tone}>{phaseWord(r.phase)}</Badge> },
-    { key: "views", label: "Views", sortable: true, align: "right", render: (r) => r.row_kind === "clip" ? num(r.views) : "" },
-    { key: "avg_view_pct", label: "Viewed", sortable: true, align: "right", render: (r) => r.row_kind === "clip" ? pct(r.avg_view_pct) : "" },
-    { key: "swipe_away_pct", label: "Swiped", sortable: true, align: "right", render: (r) => r.row_kind === "clip" ? pct(r.swipe_away_pct) : "" },
-    { key: "created_at", label: "Made", sortable: true, render: (r) => <span className="dim small">{when(r.created_at)}</span> },
-    { key: "actions", label: "", render: (r) => <span className="row" style={{ whiteSpace: "nowrap" }}>
+            {r.status === "claimed" && <StepStrip steps={r.steps} />}</>}</> },
+    { key: "phase", label: "Status", sortable: true, wide: true, render: (r) => <Badge tone={phaseTone(r.phase)}>{phaseWord(r.phase)}</Badge> },
+    { key: "views", label: "Views", sortable: true, align: "right", wide: true, render: (r) => r.row_kind === "clip" ? num(r.views) : "" },
+    { key: "avg_view_pct", label: "Viewed", sortable: true, align: "right", wide: true, render: (r) => r.row_kind === "clip" ? pct(r.avg_view_pct) : "" },
+    { key: "swipe_away_pct", label: "Swiped", sortable: true, align: "right", wide: true, render: (r) => r.row_kind === "clip" ? pct(r.swipe_away_pct) : "" },
+    { key: "created_at", label: "Made", sortable: true, wide: true, render: (r) => <span className="dim small nowrap">{when(r.created_at)}</span> },
+    { key: "actions", label: <span className="sr-only">Actions</span>, render: (r) => <span className="row actions">
         {r.row_kind === "clip" ? <>
           <button className="sm" onClick={() => onOpen(r.id)}>View</button>
           {r.has_video ? <button className="sm" onClick={() => download(r.id)}>Download</button> : <span className="hint">no file</span>}
@@ -73,27 +71,50 @@ export function Clips({ snap, channelId, refresh, onOpen, route, navigate }: {
   ];
   const sortKey = query.get("sort"), dir = query.get("dir");
   const onSort = (k: string) => query.set({ sort: k, dir: sortKey === k && dir !== "asc" ? "asc" : "desc", page: 1 });
+  const counts = Object.fromEntries((body?.phases || []).map((p) => [p.id, p.count]));
+  const modules = Object.values(body?.modules || {}).flat();
+  const anyFilter = !!(query.get("q") || phase || query.get("variant"));
 
   return (
-    <Page title="Everything this channel is making"
-      lead={`One row per piece of work, from queued to published — with views on the ones that got there. Tick rows to act on them; binned clips are under Bin${body?.binned ? ` (${body.binned} there now)` : ""}.`}
+    <Page title="Clips"
+      lead="Everything this channel has asked for, made and published. Open a row for the video and its details."
       action={<div className="row"><button className="primary" onClick={() => setModal("add")}>Add work</button><button onClick={() => setModal("handoff")}>Hand off to an agent</button></div>}>
       {modal === "add" && body && <Modal title="Add work" onClose={() => setModal(null)}><AddWork snap={snap} channelId={channelId} kinds={body.kinds} stages={body.stages || []} after={async () => { setModal(null); await after(); }} /></Modal>}
       {modal === "handoff" && <Modal title="Hand the queue to an agent" onClose={() => setModal(null)}><HandOff snap={snap} channelId={channelId} refresh={refresh} /></Modal>}
       {published && <Numbers a={numbers} />}
-      <Toolbar total={body?.total}>
-        <button className="sm" disabled={!pickedClips.length} onClick={() => bulk("/api/clips/bin", { ids: pickedClips })}>Move to bin {pickedClips.length || ""}</button>
-        <button className="sm" disabled={!pickedTasks.length} onClick={() => bulk("/api/tasks/delete", { ids: pickedTasks }, `Remove ${pickedTasks.length} task(s) from the queue?`)}>Remove task {pickedTasks.length || ""}</button>
-        <button className="sm ghost" onClick={() => bulk("/api/tasks/clear", { channel: channelId }, "Remove every done, failed and cancelled task on this channel?")}>Clear finished tasks</button>
-        <SearchBox value={query.get("q")} onChange={(v) => query.set({ q: v, page: 1 })} placeholder="search titles, ids, parameters, who" />
-        <Chips options={(body?.phases || []).map((s) => ({ value: s.id, label: `${phaseWord(s.id)} ${s.count}` }))} value={query.get("phase")} onChange={(v) => query.set({ phase: v, page: 1 })} all="any phase" />
-        <Chips options={Object.values(body?.modules || {}).flat().map((v) => ({ value: v }))} value={query.get("variant")} onChange={(v) => query.set({ variant: v, page: 1 })} all="any variant" />
+      <Toolbar total={inBin ? undefined : body?.total}>
+        <SearchBox value={query.get("q")} onChange={(v) => query.set({ q: v, page: 1 })} placeholder="Search titles, ids, levels" />
+        <label className="row"><span className="sr-only">Status</span>
+          <select value={phase} onChange={(e) => query.set({ phase: e.target.value, page: 1, sort: undefined })}>
+            <option value="">Any status</option>
+            {PHASE_ORDER.filter((p) => counts[p] || p === phase).map((p) => <option key={p} value={p}>{phaseWord(p)} ({counts[p] || 0})</option>)}
+            <option value="binned">In the bin ({body?.binned ?? 0})</option>
+          </select></label>
+        {modules.length > 1 && <label className="row"><span className="sr-only">Module</span>
+          <select value={query.get("variant")} onChange={(e) => query.set({ variant: e.target.value, page: 1 })}>
+            <option value="">Any module</option>{modules.map((m) => <option key={m} value={m}>{m}</option>)}
+          </select></label>}
+        {anyFilter && <button className="sm ghost" onClick={() => navigate("clips")}>Clear filters</button>}
       </Toolbar>
-      <DataTable columns={columns} rows={rows as (Row & { id: string | number })[]} loading={list.loading} sort={sortKey} dir={dir} onSort={onSort}
-        onRow={(r) => { if (r.row_kind === "clip") onOpen(r.id as string); }}
-        selectable selected={picked} onSelect={(id) => setPicked((p) => { const s = new Set(p); s.has(id) ? s.delete(id) : s.add(id); return s; })}
-        onSelectAll={() => setPicked((p) => p.size === keys.length ? new Set() : new Set(keys))} empty="Nothing yet. Press Add work." />
-      {body && <Pagination page={body.page} pageSize={body.page_size} total={body.total} onPage={(p) => query.set({ page: p })} onPageSize={(s) => query.set({ page_size: s, page: 1 })} />}
+      {inBin ? <BinList channelId={channelId} refresh={refresh} onOpen={onOpen} route={route} navigate={navigate} /> : <>
+        {(pickedClips.length > 0 || pickedTasks.length > 0) && (
+          <div className="selection" role="region" aria-label="Selection">
+            <span>{picked.size} selected</span>
+            {pickedClips.length > 0 && <button className="sm" onClick={() => bulk("/api/clips/bin", { ids: pickedClips })}>Move {pickedClips.length} to the bin</button>}
+            {pickedTasks.length > 0 && <button className="sm" onClick={() => bulk("/api/tasks/delete", { ids: pickedTasks }, `Remove ${pickedTasks.length} task(s) from the queue?`)}>Remove {pickedTasks.length} task{pickedTasks.length === 1 ? "" : "s"}</button>}
+            <button className="sm ghost right" onClick={() => setPicked(new Set())}>Clear</button>
+          </div>
+        )}
+        <DataTable label="Clips" columns={columns} rows={rows as (Row & { id: string | number })[]} loading={list.loading} sort={sortKey} dir={dir} onSort={onSort}
+          onRow={(r) => { if (r.row_kind === "clip") onOpen(r.id as string); }}
+          selectable selected={picked} onSelect={(id) => setPicked((p) => { const s = new Set(p); s.has(id) ? s.delete(id) : s.add(id); return s; })}
+          onSelectAll={() => setPicked((p) => p.size === keys.length ? new Set() : new Set(keys))}
+          empty={anyFilter ? <>Nothing matches. <button className="link" onClick={() => navigate("clips")}>Clear filters</button></> : "Nothing yet. Plan levels on Today or Season, or press Add work."} />
+        {body && <div className="row wrap">
+          <Pagination page={body.page} pageSize={body.page_size} total={body.total} onPage={(p) => query.set({ page: p })} onPageSize={(s) => query.set({ page_size: s, page: 1 })} />
+          {(counts.done || counts.failed || counts.cancelled) ? <button className="sm ghost right" onClick={() => bulk("/api/tasks/clear", { channel: channelId }, "Remove every done, failed and cancelled task on this channel?")}>Clear finished tasks</button> : null}
+        </div>}
+      </>}
     </Page>
   );
 }
@@ -114,7 +135,7 @@ function Numbers({ a }: { a: Analytics | null }) {
         <div className="tile"><div className="label">Best clip</div><div className="value">{num(a.best?.views)}</div><div className="sub">{a.best?.variant || "\u2014"}</div></div>
       </div>
       <Card title="Views per clip, in publish order" hint="One clip usually carries a channel. Watch for the tall bar, not the average.">
-        <div className="row" style={{ alignItems: "flex-end", gap: 4, height: 120 }}>{a.series.map((s, i) => <div key={i} title={`${s.title} \u00b7 ${num(s.views)} views`} className="grow" style={{ height: `${Math.max(2, (s.views / max) * 100)}%`, background: s.views === max ? "var(--key)" : "#2b2b38", borderRadius: 2 }} />)}</div>
+        <div className="row" style={{ alignItems: "flex-end", gap: 4, height: 120 }}>{a.series.map((s, i) => <div key={i} title={`${s.title} \u00b7 ${num(s.views)} views`} className="grow" style={{ height: `${Math.max(2, (s.views / max) * 100)}%`, background: s.views === max ? "var(--key)" : "var(--line)", borderRadius: 2 }} />)}</div>
       </Card>
       <Card title="Viewed, by variant" hint="n is shown because at this sample size n is most of the argument.">
         {a.by_variant.map((g) => <div key={g.key} className="mb-3"><div className="row small"><span className="grow">{g.key}</span><span>{pct(g.retained_median)}</span><span className="hint">n={g.n}</span></div><div className="meter"><span style={{ width: `${Math.max(2, g.retained_median || 0)}%` }} /></div></div>)}
@@ -232,7 +253,7 @@ function HandOff({ snap, channelId, refresh }: { snap: Snap; channelId: string; 
       <pre className="captured" style={{ maxHeight: 260 }}>{text || "loading…"}</pre>
       {snap.agents?.available
         ? <div className="row mt-3"><button onClick={() => act(() => send("/api/tasks/work", { channel: channelId }), { after: refresh })} disabled={snap.job?.running}>Run with built-in agents</button><span className="hint">does every make-clip task in the queue, in a job</span></div>
-        : <div className="hint mt-3">Or let the console run the agent for you: <a href="#/team">Team → Workers</a> starts Claude Code or Codex on this queue, with an auto mode that watches for new work.</div>}
+        : <div className="hint mt-3">Or let the console run the agent for you: <a href="#/agents">Agents → Workers</a> starts Claude Code or Codex on this queue, with an auto mode that watches for new work.</div>}
     </div>
   );
 }
