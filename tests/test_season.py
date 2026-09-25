@@ -319,7 +319,9 @@ def fake_render(monkeypatch):
             (work_dir / "clip.mp4").write_bytes(b"v")
             (work_dir / "trace.npz").write_bytes(b"n")
             (work_dir / "trace.json").write_text("{}")
-            out = outcome(state["order"])
+            out = outcome(state["order"], fmt=state.get("fmt", "race"), statuses=state.get("statuses"))
+            if state.get("teams"):
+                out.facts["teams"] = state["teams"]
             return GeneratedClip(video_path=work_dir / "clip.mp4", duration_s=20.0, description="a race",
                                  facts={"outcome": out.model_dump(mode="json"), "story_attempts": 3},
                                  outcome=out, trace_path=work_dir / "trace.json")
@@ -480,6 +482,47 @@ def test_elimination_scores_entrants_outlasted_and_scoring_toml_overrides(chan):
     assert standings.scoring(CH, "cup").points(race, final=False, guests=set())["tide"] == 10
     with pytest.raises(ValueError):
         standings.scoring(CH, "league")
+
+
+TEAMS = {"blaze.1": "blaze", "blaze.2": "blaze", "tide.1": "tide", "tide.2": "tide"}
+
+
+def test_a_team_race_scores_the_persona_by_sum_or_best(chan):
+    race = outcome(["blaze.1", "tide.1", "blaze.2", "tide.2"])
+    race.facts["teams"] = TEAMS
+    assert standings.scoring(CH).points(race, final=False, guests=set()) == {"blaze": 4, "tide": 2}
+    elim = outcome(["tide.1", "blaze.1", "tide.2", "blaze.2"], fmt="elimination",
+                   statuses={"blaze.1": "eliminated", "tide.2": "eliminated", "blaze.2": "eliminated"})
+    elim.facts["teams"] = TEAMS
+    # outlasted, never counting a teammate: tide.1 2, blaze.1 1, tide.2 1, blaze.2 0
+    assert standings.scoring(CH).points(elim, final=False, guests=set()) == {"tide": 3, "blaze": 1}
+    (chan / "channels" / CH / "scoring.toml").write_text('[teams]\nmode = "best"\n')
+    best = standings.scoring(CH)
+    assert best.points(race, final=True, guests=set()) == {"blaze": 6, "tide": 4}
+    assert best.points(elim, final=False, guests=set()) == {"tide": 2, "blaze": 1}
+    (chan / "channels" / CH / "scoring.toml").write_text('[teams]\nmode = "most"\n')
+    with pytest.raises(ValueError, match="sum or best"):
+        standings.scoring(CH)
+
+
+def test_team_standings_count_a_persona_once_and_equal_recompute(chan, fake_render):
+    with db.connect() as conn:
+        fake_render["teams"] = TEAMS
+        a = render_level(conn, "L01", fake_render, ["tide.1", "blaze.1", "blaze.2", "tide.2"])
+        fake_render["teams"] = None
+        b = render_level(conn, "L02", fake_render, ["blaze", "tide", "volt"])
+        for step in (lambda: pipeline.approve(conn, a), lambda: pipeline.approve(conn, b),
+                     lambda: pipeline.reject(conn, a, "no"), lambda: pipeline.restore(conn, a),
+                     lambda: pipeline.approve(conn, a)):
+            step()
+            before, after = recomputed(conn)
+            assert before == after
+        rows = {r["entrant_id"]: r for r in table_now(conn)}
+        assert "blaze.1" not in rows and "tide.2" not in rows
+        # L01 teams, summed: tide 3 + 0, blaze 2 + 1; L02: blaze 3, tide 2, volt 1
+        assert rows["tide"]["points"] == 5 and rows["blaze"]["points"] == 6
+        assert rows["tide"]["races"] == 2 and rows["tide"]["wins"] == 1 and rows["blaze"]["wins"] == 1
+        assert standings.h2h(conn, CH, "s0", "blaze", "tide") == (1, 1)
 
 
 def test_a_second_clip_for_a_counted_level_cannot_be_approved(chan, fake_render):

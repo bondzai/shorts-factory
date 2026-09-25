@@ -123,22 +123,51 @@ def cmd_stage_qa(args) -> int:
         print(f"no stage {unknown}; have {sorted(physics.STAGE_BY_ID)}")
         return 2
     seeds = list(range(args.first_seed, args.first_seed + args.seeds))
-    if args.cast:
+    level = _level_params(args)
+    if level.get("teams") and not args.cast:
+        print("--teams needs --cast")
+        return 2
+    if args.cast and not level:
         return _stage_qa_cast(args.cast, wanted, seeds, args.entrants)
+    elimination = level.get("format") in ("elimination", "last_standing")
+    if elimination:
+        print("| stage | finished | finishers/race | eliminations/race | eliminating | last two (median s) | verdict |")
+        print("|---|---|---|---|---|---|---|")
     reports = []
     for stage in wanted:
         g = None
         if args.calibrate:
             g = stage_qa.calibrate(stage, list(range(args.first_seed + 5000, args.first_seed + 5000 + 10)))
             print(f"{stage}: calibrated gravity {g:.0f} (registry has {physics.STAGE_GRAVITY[stage]:.0f})")
-        rep = stage_qa.run(stage, seeds, gravity_value=g)
+        rep = stage_qa.run(stage, seeds, gravity_value=g, params=level or None,
+                           cast=cast_entrants(args.cast, args.entrants) if args.cast else None)
         reports.append(rep)
-        print(rep.row(), flush=True)
+        print(stage_qa.elimination_row(rep) if elimination else rep.row(), flush=True)
+    if elimination:
+        return 0 if all(not r.elimination_problems() for r in reports) else 1
     if args.report:
         path = settings.ROOT / args.report
         path.write_text(stage_qa.report_markdown(reports, args.seeds), encoding="utf-8")
         print(f"wrote {path.relative_to(settings.ROOT)}")
     return 0 if all(r.passed for r in reports) else 1
+
+
+def _level_params(args) -> dict:
+    """The level-shaped params stage QA was asked to race with (empty: a plain race)."""
+    import json
+
+    out: dict = {}
+    if getattr(args, "section", None):
+        out["section"] = args.section
+    if getattr(args, "format", None) and args.format != "race":
+        out["format"] = args.format
+    if getattr(args, "win", None):
+        out["win"] = args.win
+    if getattr(args, "teams", None):
+        out["teams"] = {k.strip(): int(v) for k, v in (p.split("=") for p in args.teams.split(",") if p.strip())}
+    if getattr(args, "mechanics", None):
+        out["mechanics"] = json.loads(args.mechanics)
+    return out
 
 
 def cast_entrants(channel_id: str, entrants: str | None = None) -> list[dict]:
@@ -221,6 +250,13 @@ def add(sub) -> None:
     p.add_argument("--first-seed", type=int, default=700)
     p.add_argument("--calibrate", action="store_true", help="tune gravity so the median finish lands mid-window, then measure")
     p.add_argument("--report", help="write the markdown table here, e.g. docs/06-stage-qa.md")
+    p.add_argument("--section", help="a level's section mechanic to race the stage with (docs/10-mechanics.md)")
+    p.add_argument("--format", choices=["race", "elimination", "last_standing"], default=None,
+                   help="elimination/last_standing also measure finishers, eliminations and the last-two gap")
+    p.add_argument("--win", choices=["first_across", "last_standing"], default=None,
+                   help="with --format elimination: what decides it (default first_across)")
+    p.add_argument("--teams", help="with --cast: marbles per persona, e.g. blaze=2,tide=2")
+    p.add_argument("--mechanics", help="section knobs as JSON, e.g. '{\"flip_at\": 6.0}'")
     p.set_defaults(func=cmd_stage_qa)
 
     p = sub.add_parser("mcp", help="run the MCP server on stdio so an agent can drive the factory")

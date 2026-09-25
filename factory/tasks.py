@@ -26,6 +26,8 @@ KINDS: dict[str, dict[str, Any]] = {
                    # series layer (docs/08): set by `season plan`, read by the generator
                    "section": None, "rounds": None, "cast": None, "story": None, "max_story_attempts": None,
                    "prefer_pool": None, "level_id": None, "season_id": None, "format": None,
+                   # WP7 mechanics (docs/10-mechanics.md): read by the generator
+                   "teams": None, "win": None, "mechanics": None, "round_params": None,
                    # what the operator asked for, in words: read by whoever makes the clip
                    "brief": None, "hints": None},
         "builtin": True,

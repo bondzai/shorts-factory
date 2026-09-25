@@ -10,6 +10,8 @@ import math
 import random
 
 from .. import fx
+from ..mechanics import clock_at, hidden
+from . import render_mech
 from .model import ROCK_AMPLITUDE, Style, trap_angle
 from .registry import STAGES
 from .render_pil import belt_marks, magnet_marks
@@ -33,7 +35,10 @@ def frames_pygame(states, balls, segments, sim_w, sim_h, overlay=None, style=Non
 
     fx.init()
     style = style or Style()
-    finish_line = style.stage in STAGES
+    mech = getattr(style, "mech", None) or {}  # empty: no mechanics, nothing below reads it
+    colours = {b.name: b.color for b in balls}
+    gone_at = {i: mech["gone"][b.name] for i, b in enumerate(balls) if b.name in (mech.get("gone") or {})}
+    finish_line = style.stage in STAGES and not mech.get("no_finish")
     winner_index = next((i for i, b in enumerate(balls) if b.name == winner), None)
     rng = random.Random(style.seed * 17 + 3)
     by_frame: dict[int, list] = {}
@@ -69,6 +74,11 @@ def frames_pygame(states, balls, segments, sim_w, sim_h, overlay=None, style=Non
             if im.strength > 0.45:
                 sparks.burst(x, Y(y), fx.lighten(balls[i].color, 40), int(2 + im.strength * 6),
                              speed=(60, 200 * im.strength + 60), size=(1.2, 2.6))
+        for i, gone in gone_at.items():
+            if gone == frame_index:
+                # Out of the race: a burst in its colour where it went.
+                x, y = positions[i]
+                sparks.burst(x, Y(y), fx.lighten(balls[i].color, 30), 16, speed=(60, 220), size=(1.4, 3.0))
         for i, (x, y) in enumerate(positions):
             anim[i].step(x, Y(y), balls[i].radius)
             if style.gates:
@@ -98,7 +108,11 @@ def frames_pygame(states, balls, segments, sim_w, sim_h, overlay=None, style=Non
                 surface.blit(band, (0, fy - 12))
         if style.decoration != "none":
             decorate_pygame(surface, style, frame_index, sim_w, sim_h)
+        if mech:
+            render_mech.pg_under(surface, style, mech, frame_index, t, sim_h)
         for i, ball in enumerate(balls):
+            if mech and hidden(mech, ball.name, frame_index):
+                continue
             anim[i].draw_trail(surface, ball.radius, ball.color, alpha=48)
         # moving structure, each with a glow that says how fast it turns
         for sx, sy, half, omega, phase, *bias in style.rockers:
@@ -147,6 +161,7 @@ def frames_pygame(states, balls, segments, sim_w, sim_h, overlay=None, style=Non
                 back_a = (mx - ux * 3 + nx * 4, Y(my - uy * 3 + ny * 4))
                 back_b = (mx - ux * 3 - nx * 4, Y(my - uy * 3 - ny * 4))
                 pygame.draw.polygon(surface, fx.lighten(style.structure, 110), [tip, back_a, back_b])
+        polarity = (clock_at(mech, mech.get("magnet_clock"), frame_index, 1) or 0) if mech else 1
         for mx, my, core, _soft, reach, _pull in style.magnets:
             # Same magnet as the PIL renderer, with the kit's usual moving-part
             # treatment: the field breathes so a viewer reads it as live before
@@ -155,7 +170,7 @@ def frames_pygame(states, balls, segments, sim_w, sim_h, overlay=None, style=Non
             iy = Y(my)
             breath = 0.5 + 0.5 * math.sin(t * 2.2)
             fx.soft(surface, mx, iy, reach, (*structure_hi, int(24 + 20 * breath)), width=1)
-            for px, py, ux, uy in magnet_marks(mx, my, reach, t):
+            for px, py, ux, uy in magnet_marks(mx, my, reach, t, polarity=polarity):
                 nx, ny = -uy, ux
                 pygame.draw.polygon(surface, fx.lighten(style.structure, 78 + int(40 * breath)),
                                     [(px + ux * 17, Y(py + uy * 17)),
@@ -175,11 +190,17 @@ def frames_pygame(states, balls, segments, sim_w, sim_h, overlay=None, style=Non
         for cx, cy, r in style.circles:
             fx.disc(surface, cx, Y(cy), r, style.structure)
             fx.disc(surface, cx - r * 0.25, Y(cy) - r * 0.35, r * 0.22, fx.lighten(style.structure, 40))
+        if mech:
+            render_mech.pg_over(surface, style, mech, frame_index, sim_h, colours)
         for i, (ball, (x, y)) in enumerate(zip(balls, positions)):
+            if mech and hidden(mech, ball.name, frame_index):
+                continue
             anim[i].draw(surface, x, Y(y), ball.radius, ball.color)
             if winner_index == i and winner_frame is not None and frame_index >= winner_frame:
                 fx.winner_rings(surface, x, Y(y), ball.radius, (frame_index - winner_frame) / fps)
         sparks.draw(surface); confetti.draw(surface)
+        if mech:
+            render_mech.pg_top(surface, style, mech, frame_index, sim_w, sim_h)
         if cap_surface is not None:
             fx.caption_in(surface, cap_surface, sim_w / 2, overlay[3] + cap_surface.get_height() / 2, frame_index, overlay[4], fps, rise=sim_h * 0.04)
         if ask_surface is not None and winner_frame is not None:

@@ -171,3 +171,33 @@ WHEEL_STAGES = {st.id: st.wheel for st in STAGE_SPECS if st.wheel}
 GATE_STAGES = tuple(st.id for st in STAGE_SPECS if st.gate)
 TWIN_STAGES = tuple(st.id for st in STAGE_SPECS if st.twin)
 BUILDERS = {st.id: st.build for st in STAGE_SPECS}
+
+
+@dataclass(frozen=True)
+class Mechanic:
+    """A level's `section`: something done to a built stage once its marbles
+    are placed, through the round's rig (generators/mechanics.py).
+
+    apply   apply(rig, space, style, balls, w, h): registers clocks, zones,
+            doors, forces, effects on `rig`; `rig.rng` for any random choice.
+    stage   the stage a level gets when it names this section and no stage.
+    blurb   one line for people; the render's words come from the stage.
+
+    A mechanic that needs geometry of its own belongs in a stagekit section
+    and a composed stage (weight 0 until `factory stage-qa` passes it); this
+    is for what changes an existing stage. See docs/10-mechanics.md.
+    """
+
+    id: str
+    apply: Any
+    stage: str | None = None
+    blurb: str = ""
+
+
+# One line per mechanic, as STAGE_SPECS has one per stage. Empty until a
+# world's WP7 lands one.
+MECHANIC_SPECS: list[Mechanic] = [
+    # MECHANICS-BEGIN
+    # MECHANICS-END
+]
+MECHANICS: dict[str, Mechanic] = {m.id: m for m in MECHANIC_SPECS}

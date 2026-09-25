@@ -34,8 +34,11 @@ class Marble:
 
 
 def style_dict(style: Style) -> dict[str, Any]:
-    """The style minus `kinematics`, which holds pymunk bodies no renderer reads."""
-    return {f.name: getattr(style, f.name) for f in dataclasses.fields(style) if f.name != "kinematics"}
+    """The style minus `kinematics` and `rig`, which hold pymunk bodies no
+    renderer reads, and minus `mech` when there is none (a race with no
+    mechanics writes the trace it always wrote)."""
+    return {f.name: getattr(style, f.name) for f in dataclasses.fields(style)
+            if f.name not in ("kinematics", "rig") and not (f.name == "mech" and not style.mech)}
 
 
 def _tuples(value: Any) -> Any:

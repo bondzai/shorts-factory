@@ -10,8 +10,11 @@ Scoring (docs/08 §4 Standings), overridable in `channels/<id>/scoring.toml`:
 
     race, score         points by rank: 3 / 2 / 1, then 0; a non-finisher scores 0
     elimination,
-    last_standing       one point per entrant outlasted (ranked below)
+    last_standing       one point per entrant outlasted (ranked below; a
+                        teammate is not outlasted)
     final: true         points times final_multiplier (2)
+    teams               a team race scores the persona: the sum of its
+                        marbles' points, or the best (`[teams] mode`)
 
 Ranks are the generator's: a guest (`scores = false`) keeps its place in the
 race but earns nothing and is not in the table.
@@ -42,12 +45,17 @@ class Scoring:
         default_factory=lambda: {"elimination": 1, "last_standing": 1})
     final_multiplier: float = 2
     finishers_only: bool = True  # race/score: a non-finisher scores nothing
+    # A team race (`teams:` in the level; outcome.facts["teams"] maps marble ->
+    # persona) scores the persona: the sum of its marbles' points, or its best.
+    team_mode: str = "sum"
 
     def points(self, outcome: Outcome, *, final: bool, guests: set[str]) -> dict[str, float]:
         mult = self.final_multiplier if final else 1
+        teams = team_of(outcome)
         out: dict[str, float] = {}
         for p in outcome.placements:
-            if p.entrant_id in guests:
+            who = teams.get(p.entrant_id, p.entrant_id)
+            if who in guests:
                 continue
             if outcome.format in self.rank_points:
                 table = self.rank_points[outcome.format]
@@ -55,10 +63,23 @@ class Scoring:
                 if self.finishers_only and p.status != "finished":
                     earned = 0
             else:
+                # Entrants outlasted; a teammate behind you is not one.
                 per = self.per_outlasted.get(outcome.format, 1)
-                earned = per * sum(1 for q in outcome.placements if q.rank > p.rank)
-            out[p.entrant_id] = _num(earned * mult)
+                earned = per * sum(1 for q in outcome.placements if q.rank > p.rank
+                                   and teams.get(q.entrant_id, q.entrant_id) != who)
+            if not teams:
+                out[p.entrant_id] = _num(earned * mult)
+            elif self.team_mode == "best":
+                out[who] = _num(max(out.get(who, 0), earned * mult))
+            else:
+                out[who] = _num(out.get(who, 0) + earned * mult)
         return out
+
+
+def team_of(outcome: Outcome) -> dict[str, str]:
+    """marble id -> persona for a team race (`blaze.2` -> `blaze`); empty otherwise."""
+    teams = outcome.facts.get("teams") if outcome.facts else None
+    return dict(teams) if isinstance(teams, dict) else {}
 
 
 def _num(x: float) -> float | int:
@@ -90,6 +111,11 @@ def scoring(channel_id: str, name: str = "default") -> Scoring:
             s.final_multiplier = float(layer["final_multiplier"])
         if "finishers_only" in layer:
             s.finishers_only = bool(layer["finishers_only"])
+        if isinstance(layer.get("teams"), dict) and "mode" in layer["teams"]:
+            mode = str(layer["teams"]["mode"])
+            if mode not in ("sum", "best"):
+                raise ValueError(f"{path}: [teams] mode is sum or best, not {mode!r}")
+            s.team_mode = mode
     return s
 
 
@@ -259,13 +285,22 @@ def table(conn: sqlite3.Connection, channel_id: str, season_id: str, *,
 
     got = results(conn, channel_id, season_id, before_level=before_level)
     for r in got:
+        # A team race counts once per persona: its points are already the
+        # team's (Scoring.points), and a win is any of its marbles winning.
+        teams = team_of(r["outcome"])
+        seen: set[str] = set()
+        won: set[str] = set()
         for p in r["outcome"].placements:
-            if p.entrant_id in guests:
+            who = teams.get(p.entrant_id, p.entrant_id)
+            if who in guests:
                 continue
-            e = entry(p.entrant_id)
-            e["races"] += 1
-            e["points"] = _num(e["points"] + r["points"].get(p.entrant_id, 0))
-            if p.rank == 1:
+            e = entry(who)
+            if who not in seen:
+                seen.add(who)
+                e["races"] += 1
+                e["points"] = _num(e["points"] + r["points"].get(who, 0))
+            if p.rank == 1 and who not in won:
+                won.add(who)
                 e["wins"] += 1
     if c is not None:
         if before_level:
@@ -283,10 +318,11 @@ def table(conn: sqlite3.Connection, channel_id: str, season_id: str, *,
 
 def h2h(conn: sqlite3.Connection, channel_id: str, season_id: str, a: str, b: str, *,
         before_level: str | None = None) -> tuple[int, int]:
-    """Of the counted races both ran: times a ranked ahead of b, and b of a."""
+    """Of the counted races both ran: times a ranked ahead of b, and b of a.
+    In a team race a persona's rank is its best marble's."""
     a_ahead = b_ahead = 0
     for r in results(conn, channel_id, season_id, before_level=before_level):
-        ra, rb = r["outcome"].rank_of(a), r["outcome"].rank_of(b)
+        ra, rb = _rank(r["outcome"], a), _rank(r["outcome"], b)
         if ra is None or rb is None:
             continue
         if ra < rb:
@@ -294,6 +330,14 @@ def h2h(conn: sqlite3.Connection, channel_id: str, season_id: str, a: str, b: st
         elif rb < ra:
             b_ahead += 1
     return a_ahead, b_ahead
+
+
+def _rank(outcome: Outcome, who: str) -> int | None:
+    teams = team_of(outcome)
+    if not teams:
+        return outcome.rank_of(who)
+    ranks = [p.rank for p in outcome.placements if teams.get(p.entrant_id, p.entrant_id) == who]
+    return min(ranks) if ranks else None
 
 
 def summary_line(conn: sqlite3.Connection, channel_id: str, season_id: str, *,

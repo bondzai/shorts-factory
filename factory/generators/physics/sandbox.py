@@ -27,6 +27,7 @@ from .simulate import run_round
 from .text import closing_ask, default_hook, overlay, stage_text
 
 VARIANTS = ["marble_race", "funnel_drop"]
+MAX_ROUNDS = 3
 
 # A clip cuts about a second after the runner-up crosses, so marbles still on
 # their way down when it ends are the normal case, not a fault. Ten of the
@@ -50,8 +51,9 @@ def unfinished(round_: dict, fps: int) -> tuple[list[str], list[str]]:
     window = min(len(states) - 1, int(fps * STOPPED_WINDOW_S))
     running: list[str] = []
     stopped: list[str] = []
+    gone = round_.get("gone") or {}
     for i, ball in enumerate(balls):
-        if ball.name in round_["finish_s"]:
+        if ball.name in round_["finish_s"] or ball.name in gone:
             continue
         (x0, y0), (x1, y1) = states[-1 - window][i], states[-1][i]
         moved = math.hypot(x1 - x0, y1 - y0)
@@ -71,9 +73,33 @@ def screen_order(round_: dict) -> list[str]:
 
 def race_rounds(seed: int, variant: str, params: dict[str, Any], cfg: dict,
                 sim_w: int, sim_h: int, fps: int) -> list[dict]:
-    """Every round of one clip, simulated and not drawn."""
+    """Every round of one clip, simulated and not drawn.
+
+    Up to MAX_ROUNDS. `round_params` (a list, one dict per round) is laid
+    over `params` for that round: `stage` ("same" for the heat's), `mirror`,
+    `friction` (x every static surface), `layout: k` (build round k's layout
+    again, fresh marbles), or any section knob. Without it, round two is the
+    final it always was."""
     rounds_wanted = int(params.get("rounds", cfg.get("rounds", 1))) if variant == "marble_race" else 1
-    rounds = [run_round(seed, variant, params, cfg, sim_w, sim_h, fps)]
+    if rounds_wanted > MAX_ROUNDS:
+        raise ValueError(f"rounds: {rounds_wanted}; a clip runs at most {MAX_ROUNDS}")
+    per_round = list(params.get("round_params") or []) if variant == "marble_race" else []
+
+    def over(n: int, base: dict, done: list[dict]) -> dict:
+        extra = dict(per_round[n]) if n < len(per_round) and per_round[n] else {}
+        if not extra:
+            return base
+        if extra.get("stage") == "same":
+            extra["stage"] = done[0]["style"].stage
+        if extra.get("layout") is not None:
+            # Another round's layout: its stage, built from its seed's stream.
+            src = done[int(extra.pop("layout"))]
+            extra.setdefault("stage", src["style"].stage)
+            extra["layout_seed"] = src["style"].seed
+            extra["layout_picked"] = src.get("stage_picked", False)
+        return {**base, **extra}
+
+    rounds = [run_round(seed, variant, over(0, params, []), cfg, sim_w, sim_h, fps)]
     if rounds_wanted >= 2:
         # The final: same marbles, a different stage, a seed derived from
         # this one so the whole clip is still one number.
@@ -81,8 +107,16 @@ def race_rounds(seed: int, variant: str, params: dict[str, Any], cfg: dict,
         lineup = [(b.name, b.color) for b in heat["balls"]]
         other = [c for c in LIVE_STAGES if c != heat["style"].stage] or list(LIVE_STAGES)
         final_stage = params.get("final_stage") or random.Random(seed ^ 0x5F3759DF).choice(other)
-        rounds.append(run_round(seed + 104729, variant, {**params, "stage": final_stage},
-                                  cfg, sim_w, sim_h, fps, lineup=lineup))
+        rounds.append(run_round(seed + 104729, variant, over(1, {**params, "stage": final_stage}, rounds),
+                                  cfg, sim_w, sim_h, fps, lineup=lineup, round_index=1))
+    if rounds_wanted >= 3:
+        # A third round, the same way: a stage neither earlier round ran.
+        lineup = [(b.name, b.color) for b in rounds[0]["balls"]]
+        ran = {r["style"].stage for r in rounds}
+        other = [c for c in LIVE_STAGES if c not in ran] or list(LIVE_STAGES)
+        third = random.Random(seed ^ 0x2545F491).choice(other)
+        rounds.append(run_round(seed + 2 * 104729, variant, over(2, {**params, "stage": third}, rounds),
+                                cfg, sim_w, sim_h, fps, lineup=lineup, round_index=2))
     return rounds
 
 
@@ -93,8 +127,9 @@ def race_outcome(rounds: list[dict], fps: int, sim_w: int) -> Outcome:
 # The story check's seeds: attempt k simulates seed + k * STORY_STRIDE, so
 # attempt 0 is the task's own seed. Each attempt's clip also uses
 # s + a * 7919 (stall retries, a < MAX_ATTEMPTS) and s + 104729 + a * 7919
-# (the final's). Those offsets are all under 140,000 in size and the stride is
-# over a million, so no attempt can re-run another attempt's simulation.
+# (the final's), s + 2 * 104729 + a * 7919 (a third round's). Those offsets
+# are all under 250,000 in size and the stride is over a million, so no
+# attempt can re-run another attempt's simulation.
 STORY_STRIDE = 1_000_003
 
 
@@ -172,8 +207,9 @@ def generate(*, seed: int, variant: str, params: dict[str, Any], work_dir: Path)
     # its winner again is one more word that is not a stake.
     hook_text = (params.get("hook_text") or "").strip() or default_hook(variant, rounds[0])
     overlays = [overlay(variant, sim_w, sim_h, fps, text=hook_text)]
-    if len(rounds) > 1:
-        overlays.append(overlay(variant, sim_w, sim_h, fps, text=FINAL_CAPTION))
+    for n in range(1, len(rounds)):
+        caption = FINAL_CAPTION if n == len(rounds) - 1 else f"ROUND {n + 1}"
+        overlays.append(overlay(variant, sim_w, sim_h, fps, text=caption))
     trace_path = replay.write(
         clip_dir, variant=variant, seed=rendered_seed, fps=fps, sim_w=sim_w, sim_h=sim_h, rounds=rounds,
         captions=[o[0] if o else None for o in overlays], ask=closing_ask(sim_w, sim_h, fps) is not None,
@@ -208,11 +244,28 @@ def generate(*, seed: int, variant: str, params: dict[str, Any], work_dir: Path)
         themed = "" if style.theme == "default" else f" Styled for {style.theme}."
         parts = []
         for i, r in enumerate(rounds):
-            label = ("The heat" if i == 0 else "The final") if len(rounds) > 1 else f"{len(r['balls'])} marbles ({names}) race"
+            label = (("The heat" if i == 0 else "The final" if i == len(rounds) - 1 else f"Round {i + 1}")
+                     if len(rounds) > 1 else f"{len(r['balls'])} marbles ({names}) race")
             if len(rounds) > 1:
                 label += f" runs down {stage_text(r)}"
             else:
                 label += f" down {stage_text(r)}"
+            out = r.get("gone") or {}
+            if out:
+                # Elimination: say who was taken out, in the order it happened,
+                # and whether the result came from the line or from survival.
+                order = ", ".join(sorted(out, key=lambda n: (out[n], n)))
+                parts.append(f"{label}; {len(out)} "
+                             f"{'marble is' if len(out) == 1 else 'marbles are'} eliminated ({order}).")
+                if r["winner"] and r.get("win_by") == "survival":
+                    parts.append(f"The {r['winner']} marble is the last one left, at "
+                                 f"{r['winner_frame'] / fps:.1f} seconds.")
+                elif r["winner"]:
+                    parts.append(f"The {r['winner']} marble reaches the bottom first, at "
+                                 f"{r['winner_frame'] / fps:.1f} seconds.")
+                else:
+                    parts.append("No marble is left.")
+                continue
             if r["winner"]:
                 # When nobody else comes home, say how long was actually
                 # watched, not POST_WIN_MAX_S. The two differ: a field that
@@ -227,7 +280,9 @@ def generate(*, seed: int, variant: str, params: dict[str, Any], work_dir: Path)
                              f"{r['winner_frame'] / fps:.1f} seconds{gap}.")
             else:
                 parts.append(f"{label}; none reaches the bottom within {r['duration_s']:.1f} seconds.")
-        head = f"Two rounds, same {len(rounds[0]['balls'])} marbles ({names}). " if len(rounds) > 1 else ""
+        count_words = {2: "Two", 3: "Three"}
+        head = (f"{count_words[len(rounds)]} rounds, same {len(rounds[0]['balls'])} marbles ({names}). "
+                if len(rounds) > 1 else "")
         description = head + " ".join(parts) + themed
     else:
         description = (
@@ -248,7 +303,9 @@ def generate(*, seed: int, variant: str, params: dict[str, Any], work_dir: Path)
                  "obstacles": len(r["style"].circles) or len(r["segments"]), "spinners": len(r["style"].spinners),
                  "gate": bool(r["style"].gates),
                  "still_running_at_the_cut": unfinished(r, fps)[0],
-                 "stopped_before_the_end": unfinished(r, fps)[1]}
+                 "stopped_before_the_end": unfinished(r, fps)[1],
+                 # Only a round with eliminations says so: a plain race's facts are unchanged.
+                 **({"eliminated": sorted(r["gone"], key=lambda n: (r["gone"][n], n))} if r.get("gone") else {})}
                 for r in rounds
             ],
             "winner": last["winner"],
