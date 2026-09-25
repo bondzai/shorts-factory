@@ -3014,11 +3014,15 @@ levels:
 - id: L94
   date: 2026-12-27
   world: grand-final
-  generator: battle
-  variant: ball_battle
+  generator: physics
+  variant: marble_race
   params:
-    section: arena-quarterfinal
-  entrants: []
+    stage: arenatrap
+    rounds: 1
+    section: sudden-death-duel
+  entrants:
+  - tide
+  - volt
   format: last_standing
   story: {}
   copy:
@@ -3029,11 +3033,11 @@ levels:
     pin: Arena sudden death. Who's standing when the walls stop?
     pin_type: predict_outcome
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 arena: shrinking arena'
+  status: ready
+  blocked_on: null
   operator_input:
     seeds: null
-  note: Seed 3 vs seed 6. World 7's shrinking arena is built in parallel (WP7 arena) and is not on this branch; the level stays blocked until it lands and names its stage and mechanic here. Seeds come from standings at plan time; do not hard-code names. A six-marble cast cannot fill the plan's eight seeds, so the operator decides byes or guests.
+  note: 'STAND-IN VALUES set 2026-09-25, replace when the real results exist: entrants are seed 3 and seed 6 from the standings; tide (the stand-in L96 already assumes won here) and volt stand in. Built on World 7 (docs/06 "World 7"): stage arenatrap, sudden-death-duel as L68, the closing arena with a trapdoor each side of the middle; the first one out loses.'
 - id: L95
   date: 2026-12-28
   world: grand-final

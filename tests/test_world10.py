@@ -199,9 +199,8 @@ def test_world_ten_levels_are_ready_or_honestly_blocked():
         lid = f"L{n}"
         lv = season.level(lid)
         assert captions.problem(lv.copy_.hook, names=tuple(lv.entrants)) is None, lid
-        if lid == "L94":
-            assert lv.status == "blocked" and "arena" in lv.blocked_on
-            continue
+        if lid == "L94":  # World 7's arena duel, as L68
+            assert raw[lid]["params"]["section"] == "sudden-death-duel"
         assert lv.status == "ready" and lv.blocked_on is None and lv.note, lid
         assert set(raw[lid]["params"]) <= planning.PARAM_KEYS, lid
         params = planning.task_params(lv, season, cast)
