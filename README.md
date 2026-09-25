@@ -7,8 +7,8 @@ in code, so the only human time is deciding and approving. Built around one idea
 ```
 Generator slot            Shared pipe
   physics      ──┐        render → metadata (EN) → QC → [your approval] → publish → metrics
-  market_replay ─┼──────▶                                                            │
-  sysviz       ──┘        rules.md ◀────────────── Analyst ◀───────────────────────────┘
+  battle       ──┘──────▶                                                            │
+                          rules.md ◀────────────── Analyst ◀───────────────────────────┘
 ```
 
 ## Letting an agent drive it
@@ -160,56 +160,10 @@ rejections clustering towards the end: the first five all passed, the last few
 mostly did not. A variant has a capacity, and that is arithmetic rather than
 taste.
 
-The same test on `market_replay` accepted 21 of 25, and market clips score
-0.52-0.60 against marble clips — far below the line, so the two never crowd each
-other. Adding a variant adds capacity; tuning one variant's looks moves its
-ceiling but does not remove it.
-
-`sysviz` is the awkward one, and the measurement is worth keeping. Laid out
-identically every clip it accepted **1 of 25**: the guard hashes an 8x8 grey
-grid, which cannot see which hex characters changed, only where the light and
-dark areas sit. Varying wrap width, alignment, scale and spacing took it to 5.
-What actually moved it to 12-13 per variant was changing the *structure* —
-filled panels behind each block, a light palette alongside the dark ones, a
-wider range of margins. Cross-variant it still scores 0.957 between
-`hash_avalanche` and `merkle_root`, which is honest: both are columns of hex
-digests, and no amount of parameter tuning makes them different pictures.
-
-So the three ready modules hold roughly 17, 21 and 12 clips per variant. This is
-the reason a 100-clip target needs more than one variant, and the reason a
-text-based module needs more variants than a physical one.
-
-### market_replay and where its data comes from
-
-Put real bars at `data/market/<name>.csv` with the columns
-`time,open,high,low,close,volume`, using data you have the right to redistribute
-as a rendered chart. With no CSV present the series is generated from the seed,
-the clip is marked `synthetic` in its facts, and its description opens with "A
-simulated price series, not real market data" — because the description is what
-the title gets written from, and a chart of invented data captioned as a real
-crash is a lie told to a viewer who cannot check it.
-
-### sysviz and why its concepts are hand-written
-
-Every `sysviz` clip is an explanation, and a viewer cannot check one. So the
-module splits the two ways it could be wrong and closes each separately:
-
-* **The prose is hand-written** and versioned in `data/concepts/*.json` —
-  headlines, row labels, claim lines. No model writes them.
-* **The numbers are computed** from `hashlib` and `pow()` at render time, from
-  the clip's seed. Nothing on screen is typed in by hand.
-
-`tests/test_sysviz.py` re-derives the arithmetic independently: that the digests
-really are SHA-256 of the strings shown, that exactly one character differs when
-the row says "one letter changed", that both sides of the key exchange reach the
-same number, and that every published prime is a safe prime whose `g` generates
-the whole group. That last test caught a pair typed in by hand — `g = 7` mod
-4079 has order 2039, half the group — before it ever rendered.
-
-`consensus_round` was in the original plan and is not here. "Consensus" is a
-family of protocols with different assumptions, and fifteen seconds of animated
-nodes voting teaches whichever one the viewer already half-remembers. It was
-replaced by `merkle_root`: the same idea, arithmetic rather than interpretation.
+Adding a variant adds capacity; tuning one variant's looks moves its ceiling
+but does not remove it. This is the reason a 100-clip target needs more than
+one variant — and the reason stages and the season's cast now vary what a
+viewer sees, not only who wins.
 
 ## Playbooks: the prompts, in git
 
@@ -419,8 +373,8 @@ would actively mislead both.
 
 ```bash
 factory channels list
-factory channels add "HODL Tales" --handle @HODLTales --variant sysviz/hash_avalanche
-factory channels edit hodl --pause
+factory channels add "Second Channel" --handle @second --variant physics/marble_race
+factory channels edit second-channel --pause
 ```
 
 Every command works on one channel. With a single active channel it is chosen for
@@ -468,8 +422,8 @@ Five screens, split by how often you touch them:
 | Runs | job history with cost, so a failure at 08:40 is still visible at noon |
 
 The Library's filter chips are built from what the server reports, not from a
-list in the page. Finish `market_replay`, set `ready = True`, and it appears as a
-filter, a planning option and an Analytics row without the UI knowing its name.
+list in the page. Register a new generator, set `ready = True`, and it appears as
+a filter, a planning option and an Analytics row without the UI knowing its name.
 
 Two places where the UI states its own limits rather than looking clever:
 Analytics prints n on every group, and the hook-score panel says outright that
@@ -522,8 +476,7 @@ factory render-check --variant marble_race --seed 42
 | Piece | State |
 |---|---|
 | `factory/generators/physics.py` | Real. Two variants, pymunk simulation, PIL frames, synthesised impact audio, deterministic from the seed. |
-| `factory/generators/market_replay.py` | Real. Candles forming one bar at a time with a volume panel, from a CSV you provide or a simulated series the clip labels as simulated. |
-| `factory/generators/sysviz.py` | Stub, same. |
+| `factory/generators/battle.py` | Real. A ball arena: last one standing, deterministic from the seed. |
 | `factory/agents/` | Real. Four agents: Idea, Metadata, QC, Analyst. |
 | `factory/publish/manual.py` | Real, and the default. Writes `data/out/publish-queue/` for you to upload by hand. |
 | `factory/publish/youtube.py` | Real API calls, untested against a live account. Uploads land **private**. |
@@ -638,7 +591,7 @@ this is cents, and the number is there so you can see it rather than guess.
 
 ## Adding a generator
 
-1. Copy `market_replay.py`, implement `generate()` returning a `GeneratedClip`.
+1. Copy `battle.py`, implement `generate()` returning a `GeneratedClip`.
 2. `register(YourGenerator())` at the bottom, import it in `generators/__init__.py`.
 3. Set `ready = True` when it produces a clip you would publish.
 

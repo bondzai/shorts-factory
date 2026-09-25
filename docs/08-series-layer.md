@@ -50,7 +50,7 @@ rendering, approval or publishing.
 | Surfaces | CLI, console, MCP, Telegram | `factory season …`, `factory copy`, `factory longform`; MCP season tools |
 | Series | — | `factory/series/`: outcome, trace, cast, season, story, standings, copy check, long-form |
 | Pipeline | plan → render → QC → review → publish → metrics | season plan (skips Idea), story check in the seed loop, standings on approve |
-| Generators | physics, battle, market_replay, … | `GeneratedClip.outcome`, `GeneratedClip.trace_path` |
+| Generators | physics, battle | `GeneratedClip.outcome`, `GeneratedClip.trace_path` |
 | Storage | SQLite, `channels/<id>/`, `data/` | `seasons`, `levels`, `results` tables; `clips.trace_path`, `clips.level_id` |
 
 The series package never imports a generator. It reads `Outcome` and traces.

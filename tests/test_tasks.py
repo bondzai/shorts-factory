@@ -273,7 +273,7 @@ def test_a_task_tells_the_agent_which_channel_it_is_on(sandbox):
         db.migrate(conn)
         channels.create(conn, name="Main", channel_id="main")
         channels.create(conn, name="HODL Tales", channel_id="hodl")
-        tasks.enqueue(conn, "hodl", "make-clip", {"variant": "coin_pour", "generator": "asmr"})
+        tasks.enqueue(conn, "hodl", "make-clip", {"variant": "ball_battle", "generator": "battle"})
         row = db.claim_task(conn, "worker", channel_id="hodl")
         text = tasks.instructions(conn, row)
         assert 'channel="hodl"' in text

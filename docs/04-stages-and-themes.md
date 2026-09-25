@@ -300,38 +300,6 @@ the weakest stage by a distance — one lead change, the half-way leader wins
 almost every time — because marbles pick a side at the first peak and keep
 it. It ships at a low weight and wants redesigning rather than reweighting.
 
-## ASMR: coins, not a race
-
-`asmr/coin_pour` and `asmr/coin_stack` are the HODL Tales format, and they
-invert the priorities: the sound is the product and the picture serves it.
-
-- **Timbre.** A coin is a thin metal disc, so it rings on the inharmonic modes
-  of a free circular plate (1, 1.59, 2.14, 2.30, 2.65, 3.16) and rings 0.80 s
-  against a marble's 0.26 s. That lives in `audio.TIMBRES`; the marble voice
-  is untouched, because the loudness constants were swept against it.
-- **Pacing.** A coin already ringing does not answer the next nudge with a
-  fresh strike, so each one has a 0.14 s refractory period and a settled pile
-  is put to sleep. Without it the pour ran at 74 hits a second, which measures
-  louder and is gravel. It now runs at 6–9, and the stack at under 2, with
-  1–2 s of silence between coins.
-- **No caption, and nothing about price.** The clip shows discs stamped with
-  the Bitcoin symbol falling into a vessel. It says nothing about what one is
-  worth, and the result-language gate does not apply to it, because a clip
-  with no race has no result to give away.
-- **The mark is drawn, not typed.** Every font on this machine answers U+20BF
-  with the .notdef box — measured, byte-identical to what it gives a Thai
-  character — so the ₿ is strokes.
-
-**What the seed must vary, and why it is not coin count.** The sameness gate
-is an 8×8 average hash per frame: it sees which of 64 cells are brighter than
-that frame's mean. Coin count and tint move no cell at all. The first version
-varied only those and scored 0.92 and 0.98 against a 0.88 ceiling over eight
-seeds — every clip after the first would have been rejected. What moves cells
-is the room's brightness (light backdrops as well as dark, which inverts every
-cell at once), where the vessel sits, how much of the frame it covers, its
-shape (bowl, flat, vee) and, for the stack, whether there are one, two or
-three towers. With those, 10 of 12 seeds clear the ceiling within a variant.
-
 ## Themes
 
 A theme is colours, marble names, a caption colour and a decoration, with an
