@@ -1,14 +1,16 @@
 # Gravity Lab's recurring entrants (docs/08-series-layer.md, "Cast").
 # Traits are nudges, not a script: over 48 seeds of a live stage every
 # regular entrant must win 10-45% of races (`factory stage-qa --cast main`).
-# The values below are the starting point; the balance gate decides them.
+# Tuned 2026-09-25 over 48 seeds (700-747) on the World 1 stages: every
+# regular wins 12-38%. At 48 races chance moves a share by about 6 points,
+# more than any trait does.
 # `bio` is prose for the copy brain and is never parsed.
 
 [[entrant]]
 id = "blaze"
 name = "Blaze"
 color = "#E84C4A"
-traits = { friction = 0.12, mass_mult = 0.9 }
+traits = { friction = 0.10, mass_mult = 0.88 }
 bio = "Fastest off the line, crashes under pressure. The overconfident favourite."
 debut = "L01"
 
@@ -16,7 +18,7 @@ debut = "L01"
 id = "tide"
 name = "Tide"
 color = "#378ADD"
-traits = { friction = 0.30, mass_mult = 1.15 }
+traits = { friction = 0.28, mass_mult = 1.2 }
 bio = "Slowest start, never leaves the racing line. The grinder."
 debut = "L01"
 
@@ -24,7 +26,7 @@ debut = "L01"
 id = "volt"
 name = "Volt"
 color = "#F2C230"
-traits = { jitter = 1.0, radius_mult = 0.95 }
+traits = { jitter = 3.0, radius_mult = 0.95 }
 bio = "Erratic: wins or wipes out spectacularly. The wildcard."
 debut = "L01"
 
