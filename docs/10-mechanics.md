@@ -108,7 +108,8 @@ drawn with a texture: an ice sheen, a sand grain, cobweb threads.
 |---|---|
 | `rig.door(space, a, b, closed=clock, passes=[ids] \| clock, color=rgb)` | solid while `closed` is truthy (always, if None) for everyone except `passes` — a list of entrant ids or a clock whose value is one. Drawn in `color` with a light per passing entrant's colour; faint while open |
 | `rig.pair_force(strength, reach=4.0, soft=1.0, trait="charge", when=clock)` | every pair pushes apart (> 0) or pulls together (< 0), `strength` x gravity at contact, zero at `reach` x the pair's radii (the magnet's softened law), per substep. Each marble's share is its cast trait (`charge`, default 1); `when` scales it; `force_immune` marbles skip it |
-| `rig.magnet_polarity(clock)` | every magnet's pull times the clock's value: 1 pulls, -1 pushes (chevrons drawn outward), 0 off. `force_immune` still skips |
+| `rig.magnet_polarity(clock)` | every magnet's pull times the clock's value: 1 pulls, -1 pushes (chevrons drawn outward), 0 off. `force_immune` still skips. The value may be a list, one number per magnet in `style.magnets` order (World 3: the band flips while the arm pulls and the finish pushes) |
+| `rig.magnet_track(clock)` | magnets that move: the clock's value is a list, one `[x, y]` (or null: where it was built) per magnet. The field, both renderers and `launched` use it; carrying the core is the section's (a kinematic body). World 3's `arm` section |
 | `rig.moving_wall(space, a, b, offset=clock)` | a kinematic wall offset by the clock's `[dx, dy]`: closing walls, a pusher |
 
 A door gives each marble a collision bit, so a race holds at most 12

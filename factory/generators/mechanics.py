@@ -165,6 +165,7 @@ class Rig:
         self.effects: list[dict] = []
         self.hooks: list[Callable[[Frame], None]] = []
         self.magnet_clock: str | None = None
+        self.magnet_tracker: str | None = None
         self.finish_y: float | None = FINISH_Y
         fmt = self.params.get("format")
         self.elimination = fmt in ("elimination", "last_standing")
@@ -206,6 +207,7 @@ class Rig:
         """Anything registered. A rig that is not live changes nothing."""
         return bool(self.clocks or self.zones or self.surfaces or self.breakables or self.doors
                     or self.walls or self.forces or self.effects or self.hooks or self.magnet_clock
+                    or self.magnet_tracker
                     or self.finish_y != FINISH_Y or self.elimination)
 
     def _pt(self, p) -> tuple[float, float]:
@@ -347,8 +349,17 @@ class Rig:
         self.forces.append(_PairForce(float(strength), float(reach), float(soft), trait, when))
 
     def magnet_polarity(self, clock: str) -> None:
-        """Every magnet's pull times this clock's value: 1 pulls, -1 pushes."""
+        """Every magnet's pull times this clock's value: 1 pulls, -1 pushes.
+        The value may also be a list, one number per magnet in
+        `style.magnets` order, so one magnet can push while the rest pull."""
         self.magnet_clock = clock
+
+    def magnet_track(self, clock: str) -> None:
+        """Magnets that move: the clock's value is a list, one [x, y] per
+        magnet in `style.magnets` order (None: where it was built). The field
+        is where the clock says, and so is the drawing and the `launched`
+        test. Carrying the core is the section's job (a kinematic body)."""
+        self.magnet_tracker = clock
 
     def moving_wall(self, space, a, b, offset: str, *, thickness: float = 6.0) -> Any:
         """A wall that moves by clock `offset`'s value [dx, dy] (px): walls
@@ -502,7 +513,8 @@ class Rig:
     @property
     def pushes(self) -> bool:
         """Whether the substep force path is needed."""
-        return bool(self.forces or self.magnet_clock or any(z.damping for z in self.zones if not z.out))
+        return bool(self.forces or self.magnet_clock or self.magnet_tracker
+                    or any(z.damping for z in self.zones if not z.out))
 
     def substep(self, style, immune: list[bool], gravity_mag: float, pull_cap: float, dt: float) -> None:
         """Forces for one substep: magnets (with polarity), pair forces, drag.
@@ -510,7 +522,35 @@ class Rig:
         n = len(self.balls)
         ax, ay = [0.0] * n, [0.0] * n
         pos = [b.body.position for b in self.balls]
-        if style.magnets:
+        polarity = self.values.get(self.magnet_clock, 1) if self.magnet_clock else 1
+        if style.magnets and (isinstance(polarity, list) or self.magnet_tracker):
+            # Per-magnet polarity or moving magnets: each field times its own
+            # sign, at its own place; the sum capped at the strongest |sign|.
+            track = self.values.get(self.magnet_tracker) if self.magnet_tracker else None
+            from .stagekit import magnet_accel
+            fields = []
+            for k, (mx, my, _core, soft, reach, pull) in enumerate(style.magnets):
+                raw = (polarity[k] if k < len(polarity) else 1) if isinstance(polarity, list) else polarity
+                sign = _sign(raw)
+                if track and k < len(track) and track[k] is not None:
+                    mx, my = track[k]
+                if sign:
+                    fields.append((mx, my, soft, reach, pull * gravity_mag * sign, abs(sign)))
+            cap = pull_cap * max((f[5] for f in fields), default=0.0)
+            for i in range(n):
+                if immune[i] or not self.alive[i]:
+                    continue
+                px, py = pos[i]
+                sx = sy = 0.0
+                for mx, my, soft, reach, peak, _ in fields:
+                    dax, day = magnet_accel(mx - px, my - py, soft, reach, peak)
+                    sx += dax
+                    sy += day
+                total = math.hypot(sx, sy)
+                if total > cap:
+                    sx, sy = sx * cap / total, sy * cap / total
+                ax[i], ay[i] = sx, sy
+        elif style.magnets:
             sign = 1.0
             if self.magnet_clock:
                 value = self.values.get(self.magnet_clock, 1)
@@ -638,6 +678,8 @@ class Rig:
             mech["effects"] = self.effects
         if self.magnet_clock:
             mech["magnet_clock"] = self.magnet_clock
+        if self.magnet_tracker:
+            mech["magnet_track"] = self.magnet_tracker
         if self.finish_y is None:
             mech["no_finish"] = True
         return json.loads(json.dumps(mech, sort_keys=True))
@@ -691,6 +733,28 @@ def door_state(mech: dict, door: dict, frame: int) -> tuple[bool, list[str]]:
     if isinstance(passes, str):
         passes = clock_at(mech, passes, frame) or []
     return closed, list(passes or [])
+
+
+def _sign(value: Any) -> float:
+    """A polarity clock's value as a number: True 1, False/None 0."""
+    if isinstance(value, bool) or value is None:
+        return 1.0 if value else 0.0
+    return float(value)
+
+
+def magnets_at(style, mech: dict | None, frame: int) -> list[tuple]:
+    """Every magnet at a frame of the clip, as the renderers draw it and
+    `launched` measures it: (x, y, core, soft, reach, pull, polarity), with a
+    moving magnet where its track says and each magnet's own polarity."""
+    polarity = (clock_at(mech, mech.get("magnet_clock"), frame, 1) or 0) if mech else 1
+    track = clock_at(mech, mech.get("magnet_track"), frame) if mech else None
+    out = []
+    for k, (mx, my, core, soft, reach, pull) in enumerate(style.magnets):
+        p = (polarity[k] if k < len(polarity) else 1) if isinstance(polarity, list) else polarity
+        if track and k < len(track) and track[k] is not None:
+            mx, my = track[k]
+        out.append((mx, my, core, soft, reach, pull, p or 0))
+    return out
 
 
 def wall_offset(mech: dict, wall: dict, frame: int) -> tuple[float, float]:

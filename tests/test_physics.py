@@ -174,7 +174,7 @@ def test_spinners_live_only_in_the_bumper_field():
         *_, style, _ = simulate(4242, frames=3, stage=stage)
         spec = physics.STAGE_BY_ID[stage]
         wanted = (stage in physics.SPINNER_STAGES or stage in physics.WHEEL_STAGES
-                  or any(name in ("spinners", "wheel") for name, _ in spec.parts))
+                  or any(name in ("spinners", "wheel", "arm") for name, _ in spec.parts))  # arm: World 3
         assert bool(style.spinners) == wanted, stage
 
 

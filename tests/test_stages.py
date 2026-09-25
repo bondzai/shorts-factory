@@ -53,7 +53,7 @@ def test_spinning_bars_only_where_they_belong():
         spec = physics.STAGE_BY_ID[stage]
         if spec.composed:
             # A composed stage's bars come from its sections, never the add-on.
-            has_bars = any(name in ("spinners", "wheel") for name, _ in spec.parts)
+            has_bars = any(name in ("spinners", "wheel", "arm") for name, _ in spec.parts)  # arm: World 3
             assert bool(style.spinners) == has_bars, (stage, len(style.spinners))
             continue
         wheel = physics.WHEEL_STAGES.get(stage, 0)

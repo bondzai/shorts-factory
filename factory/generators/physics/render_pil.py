@@ -11,7 +11,7 @@ import random
 
 from PIL import Image, ImageDraw
 
-from ..mechanics import clock_at, hidden
+from ..mechanics import hidden, magnets_at
 from . import render_mech
 from .model import ROCK_AMPLITUDE, Style, trap_angle
 from .registry import STAGES
@@ -95,8 +95,7 @@ def frames_pil(states, balls, segments, sim_w, sim_h, overlay=None, style=None,
                               (mx - ux * 3 + nx * 4, sim_h - (my - uy * 3 + ny * 4)),
                               (mx - ux * 3 - nx * 4, sim_h - (my - uy * 3 - ny * 4))],
                              fill=tuple(min(255, c + 110) for c in style.structure))
-        polarity = (clock_at(mech, mech.get("magnet_clock"), frame_index, 1) or 0) if mech else 1
-        for mx, my, core, _soft, reach, _pull in style.magnets:
+        for mx, my, core, _soft, reach, _pull, polarity in magnets_at(style, mech, frame_index):
             # A magnet is drawn as what it is: a solid core, and the field it
             # pulls with. The rings are where the force actually reaches, so
             # the picture and the physics agree — an obstacle a viewer cannot

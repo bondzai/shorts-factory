@@ -37,3 +37,31 @@ A stage built from sections is given a weight — picked at random — only afte
 | `delta` | chutes → bumpers → pegs | trial | -30 | 48/48 | 48/48 | 85% | 2/112 (5 short) | 0 | 15.5 | 2.1 | 4% | pass |
 | `lodestone` | pegs → magnets → pegs | trial | -30 | 48/48 | 40/48 | 98% | 1/92 (11 short) | 0 | 12.4 | 1.5 | 15% | pass |
 | `trapdoor` | pegs → trap → pegs | trial | -30 | 48/48 | 42/48 | 77% | 6/108 (9 short) | 0 | 14.7 | 1.4 | 27% | FAIL: lead changes 1.4 |
+
+## World 3 (polarity swap)
+
+Each World 3 level measured over 48 seeds (700-747) with its own params (`section`, `mechanics`), through the retry loop a render uses, measured 2026-09-25. **plain** is the table above's run: the gates on the theme's marbles. **cast** is the same run with the four regulars (Blaze, Tide, Volt, Moss). Balance is each regular's share of the cast run's wins (gate: 10-45%). **Mechanism** is the share of races where the mechanism did what the copy says. L27 is measured twice, round one's layout and the mirrored one round two runs. Every stage is trial (weight 0). The mechanics are in `factory/generators/physics/worlds/polarity.py`; the sections are in `stagekit` (`tug`, `side-magnets`, `detour`, `arm`, `clump`).
+
+| level | stage + section | plain: finished · first try · runner-up · parked · out · median s · leads | verdict | cast leads | balance B/T/V/M | mechanism |
+|---|---|---|---|---|---|---|
+| L22 | lodestone + magnet-flip (flip_at 0.45) | 48/48 · 38/48 · 96% · 4/96 · 0 · 13.2 · 1.5 | pass | 1.3 | 27/27/25/21% | flipped 48/48; launched 33/48 |
+| L23 | crossfire | 48/48 · 43/48 · 96% · 6/87 · 0 · 13.3 · 1.6 | pass | 1.4 | 23/31/19/27% | both wall fields in every race (geometry) |
+| L24 | lodestone + reverse-finish-magnet | 48/48 · 42/48 · 94% · 7/108 · 0 · 14.5 · 1.8 | pass | 1.3 | 35/29/17/19% | repelled (turned back over the line) 22/48 |
+| L25 | carousel + rotating-magnet-arm | 48/48 · 39/48 · 100% · 8/92 · 0 · 12.6 · 1.6 | pass | 1.2 | 15/33/25/27% | launched 19/48 |
+| L26 | detour + shielded-lane | 48/48 · 46/48 · 94% · 1/90 · 0 · 14.6 · 2.1 | pass | 1.8 | 29/27/29/15% | 92 of 192 marbles took the shielded lane; it won 17/48 |
+| L27 r1 | sidewinder | 48/48 · 35/48 · 96% · 1/94 · 0 · 12.1 · 1.9 | pass | 1.5 | 23/23/38/17% | every magnet left of centre |
+| L27 r2 | sidewinder, mirror | 48/48 · 34/48 · 94% · 2/93 · 0 · 12.7 · 2.1 | pass | 1.4 | 25/31/17/27% | every magnet right of centre |
+| L28 | honeypot + magnet-clump (g -36) | 48/48 · 48/48 · 98% · 2/89 · 0 · 15.4 · 2.0 | pass | 1.8 | 27/21/27/25% | clumped (whole field held) 44/48; released 48/48 |
+| L30 | maelstrom + all-magnets (kick 25) | 48/48 · 40/48 · 96% · 7/103 · 0 · 14.1 · 1.6 | pass | 1.4 | 35/31/17/17% | flipped 48/48; launched 31/48; repelled 33/48 |
+
+What the numbers say, and what they changed:
+
+- **Every level passes the plain gates and the balance gate.** Nobody wins under 15% or over 38% of 48.
+- **The cast's lead changes sit under 1.5 on most of them, and that is not World 3's.** The same run on stages already live gives lodestone 1.3 and plinko 1.4 (rapids 1.8). Four fixed marbles swap the lead less often than the theme's three to five. That gate was set on theme marbles, so the verdict column uses theme marbles. Whether the gate should be judged on the cast is a question for the whole kit.
+- **The flip is a jolt, then a gentle push.** A steady push strong enough to launch (15-60x the pull) parks marbles hovering over the cores: 8-11 of 50 parked. Launching also needs the flip while the leader is still at the magnets: flip_at 0.5 launched in 15/48, 0.45 in 33/48. From 2.5x a pushing field beats gravity above its core. So the flip pushes 45x (25x in the final) for 0.4 s, then 2x, which holds nothing up.
+- **The reverse finish needs 50x.** At 7x nobody was ever turned back; at 35x, 12/48.
+- **The clump grips with a brake.** A field alone cannot catch a marble, because it climbs back out with the speed it fell in with. The grip adds drag inside the inner field while it holds. Behind pegs the whole field was in the clump on 2 of 24 seeds, and the funnel in front of it makes that 44/48.
+- **The shielded lane had to be steep.** At slope 0.40 with two ledges it never won (0/48); at 0.70 with the magnet lane pulling 4x it wins 17/48.
+- **`launched` no longer fires at frame 8** on a marble that starts the clip inside a field (`outcome.launches`). On stages already live no field reaches the start row, so their outcomes do not move (the pinned traces pass).
+
+Reproduce a row: `factory stage-qa --stage lodestone --section magnet-flip --mechanics '{"flip_at": 0.45}' --seeds 48` for plain. Add `--cast main` for the cast row; with a section, the CLI prints the gates, not the balance cells.
