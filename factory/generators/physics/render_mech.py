@@ -185,14 +185,21 @@ def countdowns(mech: dict, frame: int):
     return out
 
 
-def props(mech: dict, frame: int):
+def props(mech: dict, frame: int, look: str | None = None):
     """(x, y, radius, colour) for each prop showing now (physics coords): a
-    marble drawn where no entrant is, with no body behind it."""
+    marble drawn where no entrant is, with no body behind it. A prop with
+    `track: true` is drawn where its clock says ([x, y]; None hides it): an
+    obstacle that moves (World 4's pumpkins). `look` picks the props drawn
+    one way ("pumpkin") from the plain ones (None)."""
     out = []
     for e in mech.get("effects") or ():
-        if e["kind"] == "prop" and clock_at(mech, e.get("clock"), frame, e.get("clock") is None):
-            x, y = e["at"]
-            out.append((x, y, float(e.get("radius", 20.0)), tuple(e.get("color") or (200, 200, 200))))
+        if e["kind"] != "prop" or e.get("look") != look:
+            continue
+        value = clock_at(mech, e.get("clock"), frame, e.get("clock") is None)
+        if not value:
+            continue
+        x, y = value if e.get("track") else e["at"]
+        out.append((float(x), float(y), float(e.get("radius", 20.0)), tuple(e.get("color") or (200, 200, 200))))
     return out
 
 
@@ -244,6 +251,16 @@ def _gate_screen(style, mech, d, frame, colours, sim_h):
     pieces = [((p0[0], sim_h - p0[1]), (p1[0], sim_h - p1[1]), c, wd) for p0, p1, c, wd in pieces]
     lamps = [(x, sim_h - y, r, c, crossed) for x, y, r, c, crossed in lamps]
     return pieces, lamps
+
+def pumpkin_marks(x: float, sy: float, r: float):
+    """A pumpkin in screen space: its ribs (arcs as short lines) and a stem."""
+    ribs = [((x + k * r * 0.38, sy - r * 0.85), (x + k * r * 0.5, sy), (x + k * r * 0.38, sy + r * 0.85))
+            for k in (-1, 1)]
+    stem = [(x - r * 0.12, sy - r * 1.25), (x + r * 0.12, sy - r * 0.8)]
+    return ribs, stem
+
+
+PUMPKIN_STEM = (86, 130, 52)
 
 
 # --- PIL -----------------------------------------------------------------------------
@@ -326,6 +343,13 @@ def pil_over(draw, style, mech: dict, frame: int, sim_h: float, colours: dict) -
         draw.ellipse([x - r, iy - r, x + r, iy + r], fill=c)
         draw.ellipse([x - r * 0.42, iy - r * 0.55, x - r * 0.06, iy - r * 0.19],
                      fill=tuple(min(255, v + 60) for v in c))
+    for x, y, r, c in props(mech, frame, "pumpkin"):
+        iy = sim_h - y
+        ribs, stem = pumpkin_marks(x, iy, r)
+        draw.rectangle([stem[0], stem[1]], fill=PUMPKIN_STEM)
+        draw.ellipse([x - r, iy - r, x + r, iy + r], fill=c)
+        for rib in ribs:
+            draw.line(rib, fill=mix(c, (0, 0, 0), 0.35), width=2)
 
 
 def pil_top(image, style, mech: dict, frame: int, sim_w: int, sim_h: int):
@@ -436,6 +460,14 @@ def pg_over(surface, style, mech: dict, frame: int, sim_h: float, colours: dict)
     for x, y, r, c in props(mech, frame):
         fx.disc(surface, x, sim_h - y, r, c)
         fx.disc(surface, x - r * 0.25, sim_h - y - r * 0.37, r * 0.2, tuple(min(255, v + 60) for v in c))
+    for x, y, r, c in props(mech, frame, "pumpkin"):
+        iy = sim_h - y
+        ribs, stem = pumpkin_marks(x, iy, r)
+        pygame.draw.rect(surface, PUMPKIN_STEM, (int(stem[0][0]), int(stem[0][1]),
+                                                max(2, int(stem[1][0] - stem[0][0])), max(2, int(stem[1][1] - stem[0][1]))))
+        fx.disc(surface, x, iy, r, c)
+        for rib in ribs:
+            pygame.draw.lines(surface, mix(c, (0, 0, 0), 0.35), False, rib, 2)
 
 
 _TEXT_CACHE: dict = {}

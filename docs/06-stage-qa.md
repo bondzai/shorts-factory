@@ -305,3 +305,83 @@ What the numbers changed on the way:
 
 Reproduce a row: `stage_qa.run("colourgate", range(700, 748), params={"section":
 "random-colour-gate"}, cast=<the six from cast.toml>)`.
+## World 4: Halloween Cup, Haunted Maze (L31–L38)
+
+Written by hand, not by `--report`. Each row is a *level*, raced with its own
+params (`stage`, `section`, `format`, `mechanics`), 48 seeds from 700 through
+the render's retry loop (`stage_qa.run(stage, seeds, params=..., cast=...)`),
+measured 2026-09-25. L31–L34 race the four regulars. L36, L37 and L38 race
+whoever the operator names at plan time (the top three, the two finalists,
+the last on points), so they are measured on a field that rotates through
+the regulars by seed: three for L36, two for L37, one for L38. The four new
+stages are trial (weight 0); L32 races on `tumble`, which is live. Everything
+is in `factory/generators/physics/worlds/haunted.py`.
+
+| level | stage · section | finished | first try | runner-up | parked | median s | lead changes | out a race | races with someone out | last two s | wins b/t/v/m | mechanism | verdict |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| L31 | `haunted` · `haunted-maze` (elimination) | 48/48 | 48/48 | 77% | 0/30 | 15.6 | 1.8 | 1.6 | 85% | 1.6 | 29/33/15/23% | `dead_end` in 41/48 | pass |
+| L32 | `tumble` · `fog-blackout` | 48/48 | 43/48 | 96% | 2/92 (12 short) | 12.1 | 1.7 | — | — | — | 23/27/23/27% | dark in 48/48, 1.6–2.4 s (median 2.4), from 3.4 s into the clip | pass |
+| L33 | `pumpkinpatch` · `rolling-pumpkins` | 48/48 | 41/48 | 94% | 5/91 (9 short) | 13.6 | 2.0 | — | — | — | 25/25/27/23% | a pumpkin rolled in 48/48, 2.4 a race | pass |
+| L34 | `haunted` · `cobweb-strip` (elimination) | 48/48 | 48/48 | 96% | 1/35 | 16.1 | 1.8 | 1.1 | 88% | 1.25 | 17/40/19/25% | `webbed` 48/48; the first in won 29 | pass |
+| L36 | `coffin` · `coffin-trapdoor` (elimination, 3) | 48/48 | 42/48 | 92% | 0/5 (10 short) | 12.9 | 2.0 | 0.96 | 90% | 1.8 | 38/15/21/27% | a catch in 43/48 | pass, see below |
+| L37 | `hauntedfinal` · `haunted-maze-final` (race, 2) | 48/48 | 47/48 | 50% | 0/0 | 16.5 | 2.0 | 0.54 | 50% | — | 33/23/17/23% | pumpkins, fog, web, coffin opening: 48/48; coffin caught 19, dead ends 5 | pass |
+| L38 | `haunted` · `maze-time-trial` (1) | 47/48 | 32/48 | n/a | 0/0 | 13.7 | n/a | 0.38 | 38% | — | n/a | through the maze alone in 29/48; home in 13.3 s at the median | pass (solo) |
+
+How to read the exceptions:
+
+- **L36's eliminations a race (0.96 against the 1.0 gate).** The coffin shuts
+  for good once it holds one, so one a race is the most it can take (three
+  doubles in 48, two marbles falling through at once). It takes someone in
+  90% of races; the level's story (`any_event: trap_catch`,
+  `eliminations: ==1`) keeps a seed where it takes exactly one, which a
+  search finds in one or two tries. The gate is for a stage that takes
+  marbles out as it goes, and it was not loosened: this level is under it
+  by design.
+- **L37 is a race, not an elimination.** With two finalists an elimination
+  format is decided by the first fall, and an elimination and a runner-up
+  exclude each other: measured as elimination, runner-up was 12–33% while
+  someone was out in 62–79% of races. As a race, whoever is taken out is
+  out, the first across wins, and both finalists come home in half the
+  races. The coffin opens 12% of the time on its cycle and the forks are
+  wider than L31's (1.30–1.45 rooms), because each thing that takes a
+  marble out in a two-marble final ends it.
+- **L38 has one marble**: no runner-up, no lead to change, no balance. A run
+  that ends in a dead end before the QC floor is retried like any short
+  race; seed 727's five attempts all did, which is the one unfinished seed.
+
+What the numbers changed, in the order they were found:
+
+- **Corridors first, then forks.** The first maze was three corridors wall
+  to wall, each ending in a fork with a dead end past it. It read like a
+  maze, and it failed on lead changes with the regulars (0.9–1.2) however
+  the fork, the slope, the headroom or the band under it was tuned: a
+  corridor is single file, and three of them fill the frame. Rows of forks
+  (a roof that splits the field left and right, a V that joins it again,
+  a dead end at the end of each side) are the chutes section's lesson and
+  gave 1.8.
+- **The fork is a speed test, so its width is the knob.** Gaps of 1.0–1.1
+  rooms took 2.6 marbles of four (first version, 24 seeds); 1.3–1.4 took 1.0
+  in 58% of races with the lead changing 1.2 times (fewer leaders carried
+  into dead ends); 1.4–1.55 took 0.9 in 54%; 1.10–1.25 takes 1.6 in 85%.
+- **An entry corridor's open end is a wedge.** Two marbles arched between its
+  tip, the wall and the floor below (corridor maze, 1 seed in 24), which is
+  why no row of the maze now ends short of a wall with a floor under it.
+- **Pumpkins do not go on pinball.** Pinball is already at its parked limit
+  with the regulars (9/99); loose pumpkins resting on its rocking planks
+  held marbles against them (12–14 of 98, with slick pumpkins too). On
+  bumpers, chutes and a funnel they roll clear: 5/91.
+- **The coffin's funnel must be steep all the way.** Its arms first started
+  past the wall and were clipped to the band's top; in the final that made
+  them near flat, and a marble and both pumpkins sat on one for the rest of
+  the race. The arms now rise from the walls at 0.46 (0.40 at the least,
+  where a band is a few pixels short), and the final gives the coffin 41%
+  of its height.
+- **The lights go out mid-race, not at the start.** Darkening from a third
+  of the way down put the blackout 1.2 s into a tumble clip, straight after
+  the funnel; from halfway to 80% it starts 3.4 s in, a third of the way to
+  the winner.
+
+Reproduce a row with `stage_qa.run("haunted", range(700, 748),
+params={"section": "haunted-maze", "format": "elimination"},
+cast=cast_entrants("main"))` (L31); the rotating fields are one
+`stage_qa.run` per seed with that seed's field.

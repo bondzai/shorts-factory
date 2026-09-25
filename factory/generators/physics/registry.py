@@ -18,6 +18,8 @@ from .worlds import ice_sand  # World 5: registers its sections before they are 
 from .worlds import trapdoor as w2  # World 2's sections register with the kit on import
 from .worlds import colour_gates as w9  # World 9: its gate sections register on import
 
+from .worlds import haunted as w4  # World 4's maze sections, likewise
+
 @dataclass(frozen=True)
 class Stage:
     """Everything the factory knows about one stage, in one place.
@@ -286,6 +288,20 @@ STAGE_SPECS: list[Stage] = [
     composed("snowfinal", [("icegate", 1.4), ("pegs", 0.5), ("icegate", 1.4), ("trap1", 1.0),
                            ("icegate", 1.4)], gravity=-90.0, noun="every gate",
              blurb="colour gates on ice, pegs and a trapdoor gate between them"),
+
+    # World 4, Halloween Cup: Haunted Maze (L31-L38; worlds/haunted.py). Trial
+    # stages, raced only by the levels that name them; docs/06 "World 4".
+    Stage("haunted", stagekit.compose(list(w4.HAUNTED), top_frac=0.93, bottom_frac=0.12), -90.0, "the maze",
+          "a maze of corridors, each ending in a fork: a turn down, or a dead end; then pegs",
+          lambda s, g: stagekit.describe_parts(w4.HAUNTED) + ", then a straight drop to the line",
+          parts=w4.HAUNTED),
+    composed("pumpkinpatch", [("bumpers", 1.2), ("chutes", 1.4), ("funnel", 0.8)], gravity=-30.0, noun="the pumpkins",
+             blurb="a field of bumpers, some of them pumpkins, then split-and-rejoin chutes, then a funnel"),
+    composed("coffin", list(w4.COFFIN), gravity=-60.0, noun="the coffin",
+             blurb="pegs, a funnel onto a coffin trapdoor, then pegs"),
+    Stage("hauntedfinal", stagekit.compose(list(w4.FINAL), top_frac=0.95, bottom_frac=0.08), -90.0, "the maze",
+          "the maze of forks, then a funnel onto a coffin trapdoor",
+          lambda s, g: stagekit.describe_parts(w4.FINAL), parts=w4.FINAL),
     # COMPOSED-STAGES-END
 ]
 
@@ -392,6 +408,19 @@ MECHANIC_SPECS: list[Mechanic] = [
              blurb="one cycling colour gate on the seeding track"),
     Mechanic("all-gates-snow", w9.all_gates_snow, stage="snowfinal",
              blurb="random, reverse, cycling and trapdoor gates on ice"),
+
+    # World 4, Halloween Cup: Haunted Maze (worlds/haunted.py; docs/06 "World 4").
+    Mechanic("haunted-maze", w4.haunted_maze, stage="haunted", blurb="a maze whose forks end in dead ends"),
+    Mechanic("fog-blackout", w4.fog_blackout, stage="tumble",
+             blurb="the frame goes dark mid-course for about two seconds; the sound carries on"),
+    Mechanic("rolling-pumpkins", w4.rolling_pumpkins, stage="pumpkinpatch",
+             blurb="some bumpers are pumpkins that roll away when a marble hits them"),
+    Mechanic("cobweb-strip", w4.cobweb_strip, stage="haunted", blurb="a web in the maze holds the first marble in"),
+    Mechanic("coffin-trapdoor", w4.coffin_trapdoor, stage="coffin",
+             blurb="a coffin trapdoor opens under the field and shuts once it holds one"),
+    Mechanic("haunted-maze-final", w4.haunted_final, stage="hauntedfinal",
+             blurb="maze, fog, pumpkins, a web and a coffin trapdoor"),
+    Mechanic("maze-time-trial", w4.maze_time_trial, stage="haunted", blurb="one marble in the maze against a par clock"),
     # MECHANICS-END
 ]
 MECHANICS: dict[str, Mechanic] = {m.id: m for m in MECHANIC_SPECS}
