@@ -262,6 +262,42 @@ def test_with_a_password_everything_waits_at_the_door(sandbox, monkeypatch):
 
 
 
+def test_a_pin_opens_the_door_and_guessing_is_rationed(sandbox, monkeypatch):
+    from factory.api import server
+
+    monkeypatch.delenv("FACTORY_PASSWORD", raising=False)
+    monkeypatch.setenv("FACTORY_PIN", "1234")
+    server._FAILS.clear()
+    with db.connect() as conn:
+        channels.create(conn, name="Gravity Lab", channel_id=CH)
+    with TestClient(web.app) as c:
+        page = c.get("/login").text
+        assert "const n=4" in page and "Use the password instead" in page
+        assert c.get("/api/channels").status_code == 401
+        for _ in range(server.MAX_FAILS - 1):
+            assert c.post("/login", data={"password": "0000"}).status_code == 401
+        assert c.post("/login", data={"password": "0000"}).status_code == 429
+        assert c.post("/login", data={"password": "1234"}).status_code == 429  # locked, even with the right PIN
+        server._FAILS.clear()
+        r = c.post("/login", data={"password": "1234"}, follow_redirects=False)
+        assert r.status_code == 303 and c.get("/api/channels").status_code == 200
+
+
+def test_the_password_still_works_beside_a_pin(sandbox, monkeypatch):
+    from factory.api import server
+
+    monkeypatch.setenv("FACTORY_PASSWORD", "sesame")
+    monkeypatch.setenv("FACTORY_PIN", "1234")
+    server._FAILS.clear()
+    with db.connect() as conn:
+        channels.create(conn, name="Gravity Lab", channel_id=CH)
+    with TestClient(web.app) as c:
+        assert "<input type=password" in c.get("/login?password=1").text
+        assert c.post("/login", data={"password": "sesame"}, follow_redirects=False).status_code == 303
+    with TestClient(web.app) as c:
+        assert c.post("/login", data={"password": "1234"}, follow_redirects=False).status_code == 303
+
+
 def test_a_download_is_named_after_the_title():
     from factory.web import download_name
 
