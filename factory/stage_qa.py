@@ -118,6 +118,33 @@ class Report:
     # Races won, by marble — the balance gate when a cast runs (`--cast`).
     wins: dict[str, int] = field(default_factory=dict)
     failures: list[str] = field(default_factory=list)
+    # Elimination races (`run(params={"format": "elimination", ...})`): per
+    # race, how many crossed, how many were taken out, and the gap between
+    # the last two; and how many races had a result at all.
+    elimination: bool = False
+    finisher_counts: list[int] = field(default_factory=list)
+    elim_counts: list[int] = field(default_factory=list)
+    last_two: list[float | None] = field(default_factory=list)
+    decided: int = 0
+
+    def elimination_problems(self) -> list[str]:
+        g = ELIMINATION_GATES
+        n = len(self.elim_counts)
+        if not n:
+            return [f"no race finished ({self.seeds} seeds)"]
+        out = []
+        eliminating = sum(1 for c in self.elim_counts if c) / n
+        if eliminating < g["eliminating"]:
+            out.append(f"eliminating {eliminating:.0%}")
+        per = statistics.mean(self.elim_counts)
+        if per < g["per_race"][0]:
+            out.append(f"{per:.1f} eliminations a race")
+        if self.decided / n < g["decided"]:
+            out.append(f"decided {self.decided}/{n}")
+        gaps = [x for x in self.last_two if x is not None]
+        if gaps and statistics.median(gaps) > g["last_two_s"]:
+            out.append(f"last two {statistics.median(gaps):.1f}s apart")
+        return out
 
     @property
     def median_s(self) -> float | None:
@@ -185,7 +212,7 @@ def gravity(stage: str, value: float | None) -> Iterator[None]:
         physics.STAGE_GRAVITY[stage] = before
 
 
-def _leads(states) -> tuple[int, int | None]:
+def _leads(states, gone: dict[int, int] | None = None) -> tuple[int, int | None]:
     """Lead changes, sampled twice a second; and which marbles were ever last.
 
     `states` is the race — up to and including the winner's crossing, not the
@@ -196,16 +223,22 @@ def _leads(states) -> tuple[int, int | None]:
     — zigzag 6.2 -> 5.9, switchback 1.8 -> 1.5 over 48 seeds. It makes this
     gate bite harder, not less, which is the right direction for a true
     number: five stages now sit under 1.5 (cascade 0.8, arcade 1.1, carnival
-    1.3, labyrinth 1.4, trapdoor 1.4)."""
+    1.3, labyrinth 1.4, trapdoor 1.4).
+
+    `gone` (index -> frame) leaves out eliminated marbles from the frame they
+    went, exactly as the outcome's `lead_changes` does."""
     leader, changes, last_seen = None, 0, set()
     for frame in range(0, len(states), 15):
         ys = [y for _, y in states[frame]]
-        now = min(range(len(ys)), key=lambda i: ys[i])
+        racing = [i for i in range(len(ys)) if not gone or gone.get(i, frame + 1) > frame]
+        if not racing:
+            break
+        now = min(racing, key=lambda i: ys[i])
         if leader is not None and now != leader:
             changes += 1
         leader = now
         if frame >= 2 * FPS:
-            last_seen.add(max(range(len(ys)), key=lambda i: ys[i]))
+            last_seen.add(max(racing, key=lambda i: ys[i]))
     return changes, last_seen
 
 
@@ -309,7 +342,8 @@ def held(states, i: int, style=None) -> bool:
 
 def run(stage: str, seeds: range | list[int], *, gravity_value: float | None = None,
         tail_s: float | None = None, max_seconds: float | None = None,
-        cut_on_runner_up: bool = True, cast: list[dict] | None = None) -> Report:
+        cut_on_runner_up: bool = True, cast: list[dict] | None = None,
+        params: dict | None = None) -> Report:
     """Measure one stage over seeds.
 
     `tail_s` stands in for POST_WIN_MAX_S for this run only, which is how a
@@ -325,14 +359,21 @@ def run(stage: str, seeds: range | list[int], *, gravity_value: float | None = N
 
     `cast` races those entrants (dicts as a task passes them) instead of the
     theme's marbles, and `Report.wins` says who won; see `balance`.
+
+    `params` are a level's own (`section`, `format`, `win`, `teams`,
+    `mechanics`): an elimination race is measured as one — see
+    `Report.elimination_problems` — and eliminated marbles are neither
+    parked nor out.
     """
     cfg = settings.load().render
-    params: dict = {"stage": stage}
+    extra = dict(params or {})
+    params = {**extra, "stage": stage}
     if cast:
         params["cast"] = cast
     if max_seconds is not None:
         params["max_seconds"] = max_seconds
     report = Report(stage=stage, gravity=gravity_value if gravity_value is not None else physics.STAGE_GRAVITY[stage])
+    report.elimination = extra.get("format") in ("elimination", "last_standing")
     with gravity(stage, gravity_value):
         for seed in seeds:
             report.seeds += 1
@@ -359,8 +400,14 @@ def run(stage: str, seeds: range | list[int], *, gravity_value: float | None = N
                              else len(states) - 1) + 1]
             if len(race) < 2 * int(PARKED_S * FPS):
                 report.unjudged += 1
+            names = [b.name for b in r["balls"]]
+            gone = {names.index(n): f for n, f in (r.get("gone") or {}).items()}
+            if report.elimination or gone:
+                _measure_elimination(report, r, gone)
             last = states[-1]
             for i, (x, y) in enumerate(last):
+                if i in gone:
+                    continue  # out of the race by design: neither parked nor out of frame
                 if not (-5 <= x <= W + 5 and -5 <= y <= H + 5):
                     report.out += 1
                     continue
@@ -368,12 +415,64 @@ def run(stage: str, seeds: range | list[int], *, gravity_value: float | None = N
                     report.others += 1
                     if stuck(race, i, style):
                         report.parked += 1
-            changes, ever_last = _leads(race)
+            changes, ever_last = _leads(race, gone)
             report.leads.append(changes)
             winner_index = next((i for i, b in enumerate(r["balls"]) if b.name == r["winner"]), None)
             report.comebacks += winner_index in ever_last
-            report.wins[r["winner"]] = report.wins.get(r["winner"], 0) + 1
+            if r["winner"] is not None:  # an elimination race can end with nobody left
+                report.wins[r["winner"]] = report.wins.get(r["winner"], 0) + 1
     return report
+
+
+# --- elimination races ---------------------------------------------------------------------
+#
+# An elimination race is a different show and is judged on different numbers.
+# Whether a marble finishes matters less than whether the mechanism actually
+# takes marbles out, and whether the end is close: the last two standing
+# should not be decided a minute apart. Set when the first elimination section
+# is measured; a world agent that finds them wrong on its section changes them
+# here, with the numbers that say so, as docs/06 records every gate.
+ELIMINATION_GATES = {
+    "eliminating": 0.60,    # share of races where the mechanism takes at least one marble out
+    "per_race": (1.0, None),  # mean eliminations a race, at least
+    "decided": 0.95,        # share of races with a result: someone crossed or someone was left
+    "last_two_s": 4.0,      # median gap between the last two, seconds, at most
+}
+
+
+def _measure_elimination(report: Report, r: dict, gone: dict[int, int]) -> None:
+    """Finishers, eliminations, and the gap between the last two, for one race.
+
+    The last-two gap is what an elimination race's margin is: the runner-up's
+    margin when two cross; otherwise the time from the second-last marble's
+    exit to the decision (the last one out against the one left, or the
+    first across)."""
+    report.elim_counts.append(len(gone))
+    report.finisher_counts.append(len(r["finishes"]))
+    report.decided += r["winner"] is not None or bool(gone and len(gone) == len(r["balls"]))
+    if r["margin_s"] is not None:
+        report.last_two.append(r["margin_s"])
+    elif gone and r["winner_frame"] is not None:
+        report.last_two.append(round(abs(r["winner_frame"] - max(gone.values())) / FPS, 2))
+    elif len(gone) >= 2 and len(gone) == len(r["balls"]):
+        exits = sorted(gone.values())
+        report.last_two.append(round((exits[-1] - exits[-2]) / FPS, 2))
+    else:
+        report.last_two.append(None)
+
+
+def elimination_row(report: Report) -> str:
+    """| stage | finished | finishers/race | eliminations/race | eliminating | last two (median s) | verdict |"""
+    n = max(len(report.elim_counts), 1)
+    gaps = [g for g in report.last_two if g is not None]
+    med = round(statistics.median(gaps), 2) if gaps else None
+    problems = report.elimination_problems()
+    verdict = "pass" if not problems else "FAIL: " + "; ".join(problems)
+    fin = statistics.mean(report.finisher_counts) if report.finisher_counts else 0.0
+    per = statistics.mean(report.elim_counts) if report.elim_counts else 0.0
+    eliminating = sum(1 for c in report.elim_counts if c) / n
+    return (f"| `{report.stage}` | {report.finished}/{report.seeds} | {fin:.1f} | {per:.1f} | "
+            f"{eliminating:.0%} | {med} | {verdict} |")
 
 
 # The cast's balance gate (docs/08, "Cast"): over 48 seeds of a live stage

@@ -81,7 +81,8 @@ data)`, `Outcome(format, placements, margin_s, lead_changes, events, facts)`.
 `format` is `race | elimination | last_standing | score`. Ties share a rank.
 `status` is `finished | running | stopped | eliminated | out`. Event kinds are
 generator-defined; physics emits `lead_change`, `finish`, `trap_catch`,
-`launched`, `round_start`.
+`launched`, `round_start`, and — from WP7 mechanics (docs/10) — `eliminated`,
+`broke` and whatever kinds a world's section names.
 
 ### Trace (factory/series/trace.py)
 
@@ -117,7 +118,8 @@ scores = true
 
 Traits physics understands: `mass_mult`, `friction`, `radius_mult`, `jitter`
 (small seeded nudge each frame), `force_immune` (magnets and future fields
-skip it). Unknown traits are logged and ignored. With a cast, entrant colours
+skip it), `charge` (a marble's share of a pair force, default 1; docs/10).
+Unknown traits are logged and ignored. With a cast, entrant colours
 override the theme's marble colours; the theme keeps palettes and decoration.
 `bio` is for the model and never parsed. `scores = false` marks a guest.
 
@@ -156,7 +158,8 @@ levels:
 ```
 
 Predicates (closed list, no eval): `margin_s`, `lead_changes`, `any_event`,
-`no_event`, `finishers`, `rounds` — and the identity ones `winner_in`,
+`no_event`, `finishers`, `rounds`, `eliminations` (how many were taken out,
+never which) — and the identity ones `winner_in`,
 `winner_not_in`, `rank_of`, `eliminated_includes`, which rule 2.4 keeps out
 of a season unless switched on. Comparators are strings: `">=1"`, `"<=0.8"`.
 
@@ -204,9 +207,11 @@ points = [3, 2, 1]          # by rank; ranks past the list score 0
 [score]
 points = [3, 2, 1]
 [elimination]
-per_outlasted = 1           # per entrant ranked below
+per_outlasted = 1           # per entrant ranked below (a teammate is not outlasted)
 [last_standing]
 per_outlasted = 1
+[teams]
+mode = "sum"                # a team race (`teams:`) scores the persona: "sum" of its marbles, or "best"
 
 # A season with `scoring: cup` uses [scheme.cup] on top of the above.
 [scheme.cup]
@@ -281,6 +286,7 @@ Telegram approval messages carry the level id and a standings line.
 | WP6 | Copy brain + validator + fallback | done |
 | WP9 | CLI + MCP surfaces, Telegram line | done |
 | WP8 | Long-form tournament + recap from traces | done |
+| WP7 core | The hooks every world uses: elimination, clocks, surfaces, filters and pair forces, 12 entrants and teams, three rounds, render effects, team and elimination standings (docs/10-mechanics.md) | done |
 | WP7 | New mechanics per world (trap modes, magnet flips, maze, ice/sand, dice, arena, repulsion, colour gates) | one PR per world, each through stage QA before its levels leave `blocked` |
 
 Season 0's 100 levels are in `channels/main/season/s0.yaml`. World 1 uses only

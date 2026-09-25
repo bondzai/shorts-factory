@@ -1,0 +1,269 @@
+"""Drawing what the mechanics recorded (`style.mech`), for both renderers.
+
+Everything here reads the recording only — clocks by frame, zones, doors,
+who is gone — so a live render and a redraw from a trace draw the same
+thing. A style with no `mech` never reaches this module, which is what keeps
+every race without mechanics byte-identical.
+
+The look follows the kit's: structure colours lightened for what moves,
+the finish chequer's vocabulary for what matters, nothing that competes with
+the marbles. Surfaces get a texture a viewer can read at a glance — ice a
+cold sheen, sand a grain, a cobweb its threads — because a friction change
+nobody can see reads as a glitch, the lesson the magnets' rings taught.
+"""
+
+from __future__ import annotations
+
+import math
+import random
+
+from ..mechanics import blackout, clock_at, door_state, wall_offset
+
+SURFACE_COLOURS = {
+    "ice": (178, 220, 244),
+    "thin_ice": (206, 234, 250),
+    "sand": (214, 184, 120),
+    "mud": (122, 88, 56),
+    "cobweb": (214, 214, 224),
+}
+OUT_RIM = (214, 70, 70)
+
+
+def mix(a, b, share: float) -> tuple[int, int, int]:
+    return tuple(int(round(x + (y - x) * share)) for x, y in zip(a, b))  # type: ignore[return-value]
+
+
+def zone_points(z, sim_h: float) -> list[tuple[float, float]]:
+    """A zone's outline in screen coordinates (y down)."""
+    if z.get("rect"):
+        x0, y0, x1, y1 = z["rect"]
+        return [(x0, sim_h - y0), (x1, sim_h - y0), (x1, sim_h - y1), (x0, sim_h - y1)]
+    return [(x, sim_h - y) for x, y in z.get("poly") or []]
+
+
+def texture(z, t: float, sim_h: float):
+    """Marks inside a zone: (kind, list of screen-space items). Deterministic
+    from the zone's position, moving with t where the surface is alive."""
+    pts = zone_points(z, sim_h)
+    if not pts:
+        return []
+    xs, ys = [p[0] for p in pts], [p[1] for p in pts]
+    x0, x1, y0, y1 = min(xs), max(xs), min(ys), max(ys)
+    rng = random.Random(int(x0 * 31 + y0 * 17 + x1 * 7 + y1))
+    kind = z["kind"]
+    out = []
+    if kind in ("ice", "thin_ice"):
+        # A sheen: short diagonal glints sliding slowly along the surface.
+        for _ in range(max(2, int((x1 - x0) * (y1 - y0) / 5000))):
+            gx, gy = rng.uniform(x0, x1), rng.uniform(y0, y1)
+            gx = x0 + ((gx - x0 + t * 18.0) % max(x1 - x0, 1.0))
+            length = rng.uniform(8, 18)
+            out.append(("line", (gx, gy), (min(x1, gx + length), max(y0, gy - length * 0.6))))
+    elif kind in ("sand", "mud"):
+        for _ in range(max(6, int((x1 - x0) * (y1 - y0) / 260))):
+            out.append(("dot", (rng.uniform(x0, x1), rng.uniform(y0, y1)), rng.choice((-1, 1))))
+    elif kind == "cobweb":
+        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+        for k in range(8):
+            a = k * math.pi / 4 + rng.uniform(-0.2, 0.2)
+            r = max(x1 - x0, y1 - y0) / 2
+            out.append(("line", (cx, cy), (cx + math.cos(a) * r, cy + math.sin(a) * r)))
+        for ring in (0.3, 0.6, 0.9):
+            r = min(x1 - x0, y1 - y0) / 2 * ring
+            out.append(("ring", (cx, cy), r))
+    return out
+
+
+def surface_colour(kind: str, structure) -> tuple[int, int, int]:
+    return mix(structure, SURFACE_COLOURS.get(kind, structure), 0.7)
+
+
+def countdowns(mech: dict, frame: int):
+    """(text, x, y) for each countdown effect showing a value now (physics coords)."""
+    out = []
+    for e in mech.get("effects") or ():
+        if e["kind"] != "countdown":
+            continue
+        value = clock_at(mech, e.get("clock"), frame)
+        if value is None or value is False:
+            continue
+        x, y = e.get("at") or (270.0, 800.0)
+        out.append((str(value), x, y))
+    return out
+
+
+# --- PIL -----------------------------------------------------------------------------
+
+def pil_under(draw, style, mech: dict, frame: int, t: float, sim_h: float) -> None:
+    """Zones and surfaces: behind the structure and the marbles."""
+    bg, st = style.background, style.structure
+    for z in mech.get("zones") or ():
+        pts = zone_points(z, sim_h)
+        if len(pts) < 3:
+            continue
+        if z.get("out"):
+            active = z.get("when") is None or bool(clock_at(mech, z["when"], frame))
+            draw.polygon(pts, fill=mix(bg, (0, 0, 0), 0.45),
+                         outline=mix(bg, OUT_RIM, 0.8 if active else 0.3))
+            continue
+        base = SURFACE_COLOURS.get(z["kind"], st)
+        draw.polygon(pts, fill=mix(bg, base, 0.22))
+        for item in texture(z, t, sim_h):
+            if item[0] == "line":
+                draw.line([item[1], item[2]], fill=mix(bg, base, 0.75), width=2)
+            elif item[0] == "dot":
+                (x, y), tone = item[1], item[2]
+                draw.rectangle([x, y, x + 1, y + 1], fill=mix(bg, base, 0.55 if tone > 0 else 0.35))
+            elif item[0] == "ring":
+                (cx, cy), r = item[1], item[2]
+                draw.ellipse([cx - r, cy - r, cx + r, cy + r], outline=mix(bg, base, 0.5), width=1)
+    for s in mech.get("surfaces") or ():
+        a, b = s["a"], s["b"]
+        draw.line([(a[0], sim_h - a[1]), (b[0], sim_h - b[1])],
+                  fill=surface_colour(s["kind"], st), width=style.thickness)
+
+
+def pil_over(draw, style, mech: dict, frame: int, sim_h: float, colours: dict) -> None:
+    """Breakables, doors and moving walls: drawn with the structure."""
+    st = style.structure
+    for br in mech.get("breakables") or ():
+        if br.get("broke") is not None and frame >= br["broke"]:
+            continue
+        a, b = br["a"], br["b"]
+        draw.line([(a[0], sim_h - a[1]), (b[0], sim_h - b[1])],
+                  fill=surface_colour(br["kind"], st), width=max(3, int(br["thickness"] * 1.4)))
+        if br.get("cracked") is not None and frame >= br["cracked"]:
+            for k in (0.3, 0.55, 0.8):
+                x, y = a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k
+                draw.line([(x - 4, sim_h - y - 5), (x + 2, sim_h - y), (x - 2, sim_h - y + 5)],
+                          fill=style.background, width=2)
+    for d in mech.get("doors") or ():
+        closed, passes = door_state(mech, d, frame)
+        a, b = d["a"], d["b"]
+        colour = tuple(d["color"]) if d.get("color") else mix(st, (255, 255, 255), 0.15)
+        if closed:
+            draw.line([(a[0], sim_h - a[1]), (b[0], sim_h - b[1])], fill=colour, width=style.thickness)
+        else:
+            draw.line([(a[0], sim_h - a[1]), (b[0], sim_h - b[1])], fill=mix(style.background, colour, 0.35), width=2)
+        lights = [colours[n] for n in passes if n in colours]
+        mx, my = (a[0] + b[0]) / 2, sim_h - (a[1] + b[1]) / 2 - style.thickness - 8
+        for k, c in enumerate(lights):
+            x = mx + (k - (len(lights) - 1) / 2) * 13
+            draw.ellipse([x - 5, my - 5, x + 5, my + 5], fill=c)
+    for wl in mech.get("walls") or ():
+        dx, dy = wall_offset(mech, wl, frame)
+        a, b = wl["a"], wl["b"]
+        draw.line([(a[0] + dx, sim_h - a[1] - dy), (b[0] + dx, sim_h - b[1] - dy)],
+                  fill=mix(st, (255, 255, 255), 0.2), width=style.thickness)
+
+
+def pil_top(image, style, mech: dict, frame: int, sim_w: int, sim_h: int):
+    """Blackout veil and countdowns, over the race and under the captions.
+    Returns the image (a veil replaces it)."""
+    from PIL import Image, ImageDraw
+
+    if blackout(mech, frame):
+        veil = Image.new("RGB", image.size, mix(style.background, (0, 0, 0), 0.6))
+        image = Image.blend(image, veil, 0.82)
+    shown = countdowns(mech, frame)
+    if shown:
+        from ...brand import _font  # lazily, as text.py does
+
+        draw = ImageDraw.Draw(image)
+        font = _font(int(sim_w * 0.09))
+        for text, x, y in shown:
+            width = draw.textlength(text, font=font)
+            draw.text((x - width / 2, sim_h - y - sim_w * 0.05), text, font=font, fill=style.caption)
+    return image
+
+
+# --- pygame ---------------------------------------------------------------------------
+
+def pg_under(surface, style, mech: dict, frame: int, t: float, sim_h: float) -> None:
+    import pygame
+
+    from .. import fx
+
+    bg, st = style.background, style.structure
+    for z in mech.get("zones") or ():
+        pts = zone_points(z, sim_h)
+        if len(pts) < 3:
+            continue
+        if z.get("out"):
+            active = z.get("when") is None or bool(clock_at(mech, z["when"], frame))
+            pygame.draw.polygon(surface, mix(bg, (0, 0, 0), 0.45), pts)
+            pygame.draw.polygon(surface, mix(bg, OUT_RIM, 0.8 if active else 0.3), pts, 2)
+            continue
+        base = SURFACE_COLOURS.get(z["kind"], st)
+        pygame.draw.polygon(surface, mix(bg, base, 0.22), pts)
+        for item in texture(z, t, sim_h):
+            if item[0] == "line":
+                fx.capped_line(surface, item[1], item[2], 2, mix(bg, base, 0.75))
+            elif item[0] == "dot":
+                (x, y), tone = item[1], item[2]
+                pygame.draw.rect(surface, mix(bg, base, 0.55 if tone > 0 else 0.35), (int(x), int(y), 2, 2))
+            elif item[0] == "ring":
+                (cx, cy), r = item[1], item[2]
+                pygame.draw.circle(surface, mix(bg, base, 0.5), (int(cx), int(cy)), max(1, int(r)), 1)
+    for s in mech.get("surfaces") or ():
+        a, b = s["a"], s["b"]
+        fx.capped_line(surface, (a[0], sim_h - a[1]), (b[0], sim_h - b[1]), style.thickness,
+                       surface_colour(s["kind"], st))
+
+
+def pg_over(surface, style, mech: dict, frame: int, sim_h: float, colours: dict) -> None:
+    import pygame
+
+    from .. import fx
+
+    st = style.structure
+    for br in mech.get("breakables") or ():
+        if br.get("broke") is not None and frame >= br["broke"]:
+            continue
+        a, b = br["a"], br["b"]
+        fx.capped_line(surface, (a[0], sim_h - a[1]), (b[0], sim_h - b[1]), max(3, int(br["thickness"] * 1.4)),
+                       surface_colour(br["kind"], st))
+        if br.get("cracked") is not None and frame >= br["cracked"]:
+            for k in (0.3, 0.55, 0.8):
+                x, y = a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k
+                pygame.draw.lines(surface, style.background, False,
+                                  [(x - 4, sim_h - y - 5), (x + 2, sim_h - y), (x - 2, sim_h - y + 5)], 2)
+    for d in mech.get("doors") or ():
+        closed, passes = door_state(mech, d, frame)
+        a, b = d["a"], d["b"]
+        colour = tuple(d["color"]) if d.get("color") else mix(st, (255, 255, 255), 0.15)
+        if closed:
+            fx.capped_line(surface, (a[0], sim_h - a[1]), (b[0], sim_h - b[1]), style.thickness, colour)
+        else:
+            fx.capped_line(surface, (a[0], sim_h - a[1]), (b[0], sim_h - b[1]), 2, mix(style.background, colour, 0.35))
+        lights = [colours[n] for n in passes if n in colours]
+        mx, my = (a[0] + b[0]) / 2, sim_h - (a[1] + b[1]) / 2 - style.thickness - 8
+        for k, c in enumerate(lights):
+            x = mx + (k - (len(lights) - 1) / 2) * 13
+            fx.soft(surface, x, my, 8, (*c, 70))
+            fx.disc(surface, x, my, 5, c)
+    for wl in mech.get("walls") or ():
+        dx, dy = wall_offset(mech, wl, frame)
+        a, b = wl["a"], wl["b"]
+        fx.capped_line(surface, (a[0] + dx, sim_h - a[1] - dy), (b[0] + dx, sim_h - b[1] - dy),
+                       style.thickness, mix(st, (255, 255, 255), 0.2))
+
+
+_TEXT_CACHE: dict = {}
+
+
+def pg_top(surface, style, mech: dict, frame: int, sim_w: int, sim_h: int) -> None:
+    import pygame
+
+    from .. import fx
+
+    if blackout(mech, frame):
+        veil = pygame.Surface((sim_w, sim_h), pygame.SRCALPHA)
+        veil.fill((*mix(style.background, (0, 0, 0), 0.6), int(255 * 0.82)))
+        surface.blit(veil, (0, 0))
+    for text, x, y in countdowns(mech, frame):
+        key = (text, int(sim_w * 0.09), tuple(style.caption))
+        if key not in _TEXT_CACHE:
+            _TEXT_CACHE[key] = fx.text_surface(text, int(sim_w * 0.09), sim_w * 0.5, colour=style.caption)
+        img = _TEXT_CACHE[key]
+        surface.blit(img, (x - img.get_width() / 2, sim_h - y - img.get_height() / 2))

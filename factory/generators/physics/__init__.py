@@ -10,12 +10,16 @@ They are now one module each, and each may only import the ones below it:
     model       constants, the style bag, a marble        (imports nothing here)
     stages      the eleven hand-built stage builders      → model
     registry    one Stage entry each, and the lookups     → stages
+                (and one Mechanic entry per level `section`)
     addons      spinning bars, the finish throat          → registry
-    build       walls, stage, add-ons, marbles            → addons
+    transform   a round's mirror image                    → model
+    build       walls, stage, add-ons, marbles            → addons, transform
+                (the round's rig: ../mechanics.py, docs/10)
     simulate    the physics, and the retry loop           → build
     text        captions, the closing ask, the account    → registry
     render_pil  the original drawing
     render_pgm  the same race with motion on every object
+    render_mech what the mechanics recorded, for both
     render      which of the two, by `render.engine`
     outcome     placements, lead changes, events          → registry
     replay      the trace, and a redraw from it           → render, text

@@ -10,6 +10,7 @@ from __future__ import annotations
 import math
 import random
 from dataclasses import dataclass, field
+from typing import Any
 
 import pymunk
 
@@ -149,6 +150,12 @@ class Style:
     belts: list[tuple[tuple[float, float], tuple[float, float], float]] = field(default_factory=list)  # a, b, px/s along a→b
     magnets: list[tuple[float, float, float, float, float, float]] = field(default_factory=list)  # x, y, core, soft, reach, pull (x gravity)
     traps: list[tuple[float, float, float, float, float, float]] = field(default_factory=list)  # hinge x, hinge y, bore, depth, period s, phase
+    # What the mechanics recorded for the renderers (mechanics.Rig.snapshot):
+    # clocks, zones, doors, who was eliminated when. Empty for a race with no
+    # mechanics, and then left out of the trace, so old traces stay as they were.
+    mech: dict = field(default_factory=dict)
+    # The round's live rig while it simulates; never drawn, never stored.
+    rig: Any = field(default=None, repr=False, compare=False)
 
 
 @dataclass
@@ -158,6 +165,7 @@ class Ball:
     color: tuple[int, int, int]
     name: str
     traits: dict = field(default_factory=dict)  # a cast entrant's (see build.TRAITS)
+    team: str | None = None  # the persona a team marble runs for (`blaze` for `blaze.2`)
 
 
 def make_ball(space: pymunk.Space, pos, radius, color, name, friction=0.22, mass_mult=1.0) -> Ball:

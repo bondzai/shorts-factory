@@ -19,7 +19,11 @@ from typing import Any
 from .outcome import Outcome
 
 IDENTITY = frozenset({"winner_in", "winner_not_in", "rank_of", "eliminated_includes"})
-MECHANISM = frozenset({"margin_s", "lead_changes", "any_event", "no_event", "finishers", "rounds"})
+# `eliminations` counts marbles taken out (status "eliminated"), not which:
+# "somebody falls" is a mechanism; "Blaze falls" is `eliminated_includes`.
+MECHANISM = frozenset({"margin_s", "lead_changes", "any_event", "no_event", "finishers", "rounds",
+                       "eliminations"})
+COUNTED = ("margin_s", "lead_changes", "finishers", "rounds", "eliminations")  # take a comparison
 PREDICATES = IDENTITY | MECHANISM
 
 _OPS = {">=": operator.ge, "<=": operator.le, "==": operator.eq, "!=": operator.ne,
@@ -57,7 +61,7 @@ def validate(spec: dict[str, Any] | None) -> list[str]:
             problems.append(f"unknown predicate {name!r}; have {sorted(PREDICATES)}")
             continue
         try:
-            if name in ("margin_s", "lead_changes", "finishers", "rounds"):
+            if name in COUNTED:
                 comparison(value)
             elif name == "rank_of":
                 if not isinstance(value, dict) or not value:
@@ -84,6 +88,8 @@ def failures(outcome: Outcome, spec: dict[str, Any] | None) -> list[str]:
             ok = _compare(sum(1 for p in outcome.placements if p.status == "finished"), value)
         elif name == "rounds":
             ok = _compare(len(outcome.facts.get("rounds") or [None]), value)
+        elif name == "eliminations":
+            ok = _compare(sum(1 for p in outcome.placements if p.status == "eliminated"), value)
         elif name == "any_event":
             ok = any(k in kinds for k in _names(value))
         elif name == "no_event":

@@ -29,7 +29,7 @@ from .outcome import Outcome
 
 #: Keys of the render's facts that carry the result; the brain never sees them.
 HIDDEN_FACTS = {"winner", "finishes", "runner_up", "outcome", "placements", "copy", "copy_source",
-                "winner_frame", "order", "ranking"}
+                "winner_frame", "order", "ranking", "eliminated"}
 PIN_ENDINGS = ("who's your pick?", "which one are you backing?", "call it before it starts.",
                "pick one before the first bend.")
 OPENER = "Season opener — everyone starts at zero."
@@ -162,6 +162,11 @@ def gather(conn: sqlite3.Connection, clip_id: str, facts: dict[str, Any] | None 
         for p in outcome.placements:
             if p.rank == 1:
                 won |= {p.entrant_id, name_of(p.entrant_id)}
+                # A team race's winner is a persona's marble (`blaze.2`): the
+                # persona is the name a title would give away.
+                team = (outcome.facts.get("teams") or {}).get(p.entrant_id)
+                if team:
+                    won |= {team, name_of(team)}
 
     table, h2h = _standings(conn, channel_id, season_id, level_id)
     recent = [r for r in db.recent(conn, channel_id, limit=RECENT + 1) if r["id"] != clip_id][:RECENT]

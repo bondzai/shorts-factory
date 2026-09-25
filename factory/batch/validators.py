@@ -11,7 +11,8 @@ from .context import BatchContext
 from .spec import JobSpec
 
 # Generator knobs a row may set in `params`; the series keys are the season's.
-PARAM_KEYS = frozenset({"section", "rounds", "max_story_attempts", "prefer_pool"})
+PARAM_KEYS = frozenset({"section", "rounds", "max_story_attempts", "prefer_pool",
+                        "teams", "win", "mechanics", "round_params"})
 
 
 class JobValidator(Protocol):

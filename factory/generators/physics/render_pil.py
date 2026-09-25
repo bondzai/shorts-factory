@@ -11,6 +11,8 @@ import random
 
 from PIL import Image, ImageDraw
 
+from ..mechanics import clock_at, hidden
+from . import render_mech
 from .model import ROCK_AMPLITUDE, Style, trap_angle
 from .registry import STAGES
 
@@ -18,7 +20,11 @@ def frames_pil(states, balls, segments, sim_w, sim_h, overlay=None, style=None,
     winner_frame=None, winner=None, ask=None,
 ) -> Iterator[bytes]:
     style = style or Style()
-    finish_line = style.stage in STAGES  # races have one; the funnel does not
+    # What the mechanics recorded; empty for a race without any, and then
+    # every branch that reads it is skipped.
+    mech = getattr(style, "mech", None) or {}
+    colours = {b.name: b.color for b in balls}
+    finish_line = style.stage in STAGES and not mech.get("no_finish")  # races have one; the funnel does not
     winner_index = next((i for i, b in enumerate(balls) if b.name == winner), None)
     burst_rng = random.Random(style.seed * 17 + 3)
     burst = [(burst_rng.uniform(-1, 1), burst_rng.uniform(0.2, 1.0), burst_rng.uniform(0, 6.283),
@@ -34,8 +40,12 @@ def frames_pil(states, balls, segments, sim_w, sim_h, overlay=None, style=None,
             for k in range(0, sim_w, cell):
                 shade = style.structure if (k // cell) % 2 == 0 else tuple(min(255, c + 70) for c in style.structure)
                 draw.rectangle([k, fy - 4, k + cell, fy + 4], fill=shade)
+        if mech:
+            render_mech.pil_under(draw, style, mech, frame_index, frame_index / 30.0, sim_h)
         # Trails: where each marble just was, fading into the backdrop.
         for ball, index in zip(balls, range(len(balls))):
+            if mech and hidden(mech, ball.name, frame_index):
+                continue
             for back in range(6, 0, -1):
                 j = frame_index - back * 2
                 if j < 0:
@@ -85,6 +95,7 @@ def frames_pil(states, balls, segments, sim_w, sim_h, overlay=None, style=None,
                               (mx - ux * 3 + nx * 4, sim_h - (my - uy * 3 + ny * 4)),
                               (mx - ux * 3 - nx * 4, sim_h - (my - uy * 3 - ny * 4))],
                              fill=tuple(min(255, c + 110) for c in style.structure))
+        polarity = (clock_at(mech, mech.get("magnet_clock"), frame_index, 1) or 0) if mech else 1
         for mx, my, core, _soft, reach, _pull in style.magnets:
             # A magnet is drawn as what it is: a solid core, and the field it
             # pulls with. The rings are where the force actually reaches, so
@@ -96,7 +107,7 @@ def frames_pil(states, balls, segments, sim_w, sim_h, overlay=None, style=None,
             # Long, narrow arrows converging on the core. Short wide ones were
             # tried and read as markers sitting on the ring — the eye saw an
             # orbit, not a pull. Length is what carries the direction.
-            for px, py, ux, uy in magnet_marks(mx, my, reach, t):
+            for px, py, ux, uy in magnet_marks(mx, my, reach, t, polarity=polarity):
                 nx, ny = -uy, ux
                 draw.polygon([(px + ux * 17, sim_h - (py + uy * 17)),
                               (px - ux * 2 + nx * 4, sim_h - (py - uy * 2 + ny * 4)),
@@ -122,9 +133,13 @@ def frames_pil(states, balls, segments, sim_w, sim_h, overlay=None, style=None,
             draw.ellipse([cx - r, iy - r, cx + r, iy + r], fill=style.structure)
             draw.ellipse([cx - r * 0.45, iy - r * 0.55, cx - r * 0.05, iy - r * 0.15],
                          fill=tuple(min(255, c + 40) for c in style.structure))
+        if mech:
+            render_mech.pil_over(draw, style, mech, frame_index, sim_h, colours)
         if style.decoration != "none":
             decorate(draw, style, frame_index, sim_w, sim_h)
         for ball, (x, y) in zip(balls, positions):
+            if mech and hidden(mech, ball.name, frame_index):
+                continue
             iy = sim_h - y
             r = ball.radius
             draw.ellipse([x - r, iy - r, x + r, iy + r], fill=ball.color)
@@ -142,6 +157,9 @@ def frames_pil(states, balls, segments, sim_w, sim_h, overlay=None, style=None,
                 y = sim_h - (wy + uy * dist * (1 - age * 0.6) + 30 * age)
                 r = 2.6 * (1 - age) + 0.6
                 draw.ellipse([x - r, y - r, x + r, y + r], fill=colour)
+        if mech:
+            image = render_mech.pil_top(image, style, mech, frame_index, sim_w, sim_h)
+            draw = ImageDraw.Draw(image)
         if overlay is not None:
             text, font, tx, ty, last = overlay
             if frame_index < last:
@@ -178,7 +196,7 @@ def belt_marks(a, b, speed: float, t: float, spacing: float = 26.0):
     return marks
 
 
-def magnet_marks(mx: float, my: float, reach: float, t: float, count: int = 12):
+def magnet_marks(mx: float, my: float, reach: float, t: float, count: int = 12, polarity: float = 1):
     """Where a magnet's chevrons are at time t: evenly spaced around the edge
     of the field and pointing inward, at the centre.
 
@@ -187,8 +205,20 @@ def magnet_marks(mx: float, my: float, reach: float, t: float, count: int = 12):
     they were in orbit rather than being pulled. Inward chevrons say which way
     the force goes, and they say it in the vocabulary the kit already uses:
     a belt draws the same chevron pointing the way it runs. Returns
-    (x, y, ux, uy) in physics coordinates, ux/uy being the inward direction."""
+    (x, y, ux, uy) in physics coordinates, ux/uy being the inward direction.
+
+    A magnet whose polarity clock says it pushes (`polarity` < 0) draws the
+    same chevrons turned outward, starting a chevron's length inside the
+    ring so they end on it; at 0 (switched off) there are none."""
     marks = []
+    if polarity < 0:
+        for k in range(count):
+            angle = t * 0.6 + k * 2 * math.pi / count
+            px, py = mx + math.cos(angle) * (reach - 17), my + math.sin(angle) * (reach - 17)
+            marks.append((px, py, math.cos(angle), math.sin(angle)))
+        return marks
+    if polarity == 0:
+        return marks
     for k in range(count):
         angle = t * 0.6 + k * 2 * math.pi / count   # a slow turn, so it reads as live
         px, py = mx + math.cos(angle) * reach, my + math.sin(angle) * reach

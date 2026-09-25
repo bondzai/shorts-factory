@@ -22,7 +22,9 @@ from .season import Level, Season, directory
 PLANNED, RENDERED, FAILED = "planned", "rendered", "failed"
 #: Keys a level's params may carry into a make-clip task. Mirrors the task
 #: kind's parameters (tasks.KINDS) without importing the task layer.
-PARAM_KEYS = frozenset({"stage", "section", "rounds", "background", "max_story_attempts", "prefer_pool"})
+PARAM_KEYS = frozenset({"stage", "section", "rounds", "background", "max_story_attempts", "prefer_pool",
+                        # WP7 mechanics (docs/10-mechanics.md)
+                        "teams", "win", "mechanics", "round_params"})
 
 
 def parse_levels(text: str) -> list[str]:
