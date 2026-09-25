@@ -100,6 +100,9 @@ def race_rounds(seed: int, variant: str, params: dict[str, Any], cfg: dict,
         return {**base, **extra}
 
     rounds = [run_round(seed, variant, over(0, params, []), cfg, sim_w, sim_h, fps)]
+    if rounds[0].get("clip_rounds"):
+        # A mechanic set the round count in the heat (a die, docs/10); never more than asked.
+        rounds_wanted = min(rounds_wanted, int(rounds[0]["clip_rounds"]))
     if rounds_wanted >= 2:
         # The final: same marbles, a different stage, a seed derived from
         # this one so the whole clip is still one number.

@@ -38,6 +38,7 @@ A stage built from sections is given a weight — picked at random — only afte
 | `lodestone` | pegs → magnets → pegs | trial | -30 | 48/48 | 40/48 | 98% | 1/92 (11 short) | 0 | 12.4 | 1.5 | 15% | pass |
 | `trapdoor` | pegs → trap → pegs | trial | -30 | 48/48 | 42/48 | 77% | 6/108 (9 short) | 0 | 14.7 | 1.4 | 27% | FAIL: lead changes 1.4 |
 
+<<<<<<< HEAD
 ## World 3 (polarity swap)
 
 Each World 3 level measured over 48 seeds (700-747) with its own params (`section`, `mechanics`), through the retry loop a render uses, measured 2026-09-25. **plain** is the table above's run: the gates on the theme's marbles. **cast** is the same run with the four regulars (Blaze, Tide, Volt, Moss). Balance is each regular's share of the cast run's wins (gate: 10-45%). **Mechanism** is the share of races where the mechanism did what the copy says. L27 is measured twice, round one's layout and the mirrored one round two runs. Every stage is trial (weight 0). The mechanics are in `factory/generators/physics/worlds/polarity.py`; the sections are in `stagekit` (`tug`, `side-magnets`, `detour`, `arm`, `clump`).
@@ -65,3 +66,33 @@ What the numbers say, and what they changed:
 - **`launched` no longer fires at frame 8** on a marble that starts the clip inside a field (`outcome.launches`). On stages already live no field reaches the start row, so their outcomes do not move (the pinned traces pass).
 
 Reproduce a row: `factory stage-qa --stage lodestone --section magnet-flip --mechanics '{"flip_at": 0.45}' --seeds 48` for plain. Add `--cast main` for the cast row; with a section, the CLI prints the gates, not the balance cells.
+=======
+## World 6: the dice track (L51–L60)
+
+Measured with each level's own params and cast (`section`, and for L59 a back marker), seeds 700–747, through the same retry loop a render uses (`stage_qa.run(stage, seeds, params=…, cast=…)`). A multi-round level (L55, L60) is measured on its heat, where its dice roll. Every dice stage is trial (weight 0): it races when a level names it and is never picked at random.
+
+The ordinary gates are the table above's. Two more are World 6's own. **Followed**: every marble that went below a dice gate's lanes went down the lane its die showed (0 off-lane of every race, all levels); the blocker, grid, surface and head-start dice are pinned per seed in `tests/test_dice.py`. **Balance**: each regular wins 10–45% of the races that finished (docs/08, "Cast"); the duel (L54) has two marbles, so it shows its split and is not judged.
+
+| level | stage | built from | gravity | finished | first try | runner-up | parked | out | median s | lead changes | blaze | tide | volt | moss | nova | followed | verdict |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| L51 `dice-gate-paths` | `dicetrack` | dicegate → pegs | -34 | 48/48 | 48/48 | 100% | 6/133 | 0 | 13.1 | 3.1 | 19% | 27% | 25% | 17% | 12% | 48/48 | pass |
+| L52 `dice-start-grid` | `dicegrid` | runway → pegs → sieve → funnel | -40 | 48/48 | 48/48 | 100% | 2/140 (1 short) | 0 | 13.9 | 1.7 | 31% | 12% | 27% | 17% | 12% | 48/48 | pass |
+| L53 `dice-remove-obstacle` | `diceblock` | diceblock → funnel | -40 | 48/48 | 48/48 | 92% | 7/143 (23 short) | 0 | 14.4 | 2.0 | 21% | 25% | 15% | 21% | 19% | 48/48 | pass |
+| L54 `dice-gates-duel` | `dicetriple` | dicetriple | -150 | 48/48 | 47/48 | 96% | 0/2 | 0 | 16.4 | 3.3 | 52% | — | — | — | 48% | 48/48 | pass (duel: split shown) |
+| L55 `dice-round-count` | `dicegrid` | runway → pegs → sieve → funnel | -40 | 48/48 | 48/48 | 100% | 6/136 | 0 | 13.7 | 2.5 | 23% | 25% | 21% | 19% | 12% | 48/48 | pass |
+| L56 `loaded-dice` | `dicetrack` | dicegate → pegs | -34 | 48/48 | 47/48 | 92% | 10/138 | 0 | 15.7 | 3.3 | 19% | 23% | 27% | 19% | 12% | 48/48 | pass |
+| L57 `dice-surface` | `dicesurface` | surfaceramps ×3 | -60 | 48/48 | 48/48 | 81% | 9/146 (26 short) | 0 | 13.7 | 2.4 | 25% | 21% | 15% | 17% | 23% | 48/48 | pass |
+| L58 `handicap-start` | `plinko` | pegs → wheel → pegs | -31 | 48/48 | 48/48 | 100% | 12/132 | 0 | 15.8 | 2.2 | 21% | 15% | 27% | 15% | 23% | 48/48 | pass |
+| L59 `handicap-back-start` | `dicegrid` | runway → pegs → sieve → funnel | -40 | 48/48 | 48/48 | 100% | 2/140 | 0 | 13.7 | 1.7 | 27% | 19% | 25% | 17% | 12% | 48/48 | pass |
+| L60 `dice-final` | `dicefinal` | runway → dicegate → pegs | -60 | 48/48 | 48/48 | 100% | 5/122 | 0 | 13.4 | 3.6 | 17% | 25% | 12% | 15% | 31% | 48/48 | pass |
+
+L59's back marker rotates through the field by seed (the level names the standings leader at plan time; QA cannot know who that will be). Starting last with no die, the back marker won 3 of 48: a handicap, not a scripted loss. With one fixed back marker (tide on every seed) it won 8%; it is the handicap under test and is not held to the balance gate.
+
+What the numbers changed, in the order they were found:
+
+- **The flap sat 18 px under the throat** and made a second throat 65 px across: the field queued there for seconds. It now sits a marble's room down, and a fence from the far lip closes the gap that opened (without it 6–86 marbles a set went down the wrong lane).
+- **A grid by a wall is a free fall.** The first grid stood against the left wall, where the pegs keep a marble's room clear, and the front marble fell the height of the frame untouched (every first attempt under the 10.6 s floor). The grid is now a ramp across the middle with a lip, dropped whole, on a side the seed picks.
+- **How much the grid decides is the stage under it.** Front-slot wins over 48 seeds: pegs → bumpers → spinners 44 of 48; sieve → funnel → pegs 5 (the back did better); pegs → sieve → funnel 25, back 6 — the grid matters and does not decide, which is the stage L52/L55/L59 use.
+- **Three holds make a long clip.** The duel ran 21 s at the median; a later gate's die now rolls as the leader clears the gate above, so it lands while the field falls to it.
+- **A dice stage raced with no mechanic** (the stage tests do) still holds at every gate for as long as a die takes and then opens the middle lane; the blockers stay up. Without that, the triple stage fell straight through in two seconds.
+>>>>>>> wp7-w6

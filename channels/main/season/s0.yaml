@@ -1520,6 +1520,7 @@ levels:
   variant: marble_race
   params:
     section: dice-gate-paths
+    rounds: 1
   entrants:
   - blaze
   - tide
@@ -1530,18 +1531,19 @@ levels:
   story:
     must:
       lead_changes: '>=1'
+      any_event: gate_opened
   copy:
     angle: a new purple marble enters, and a dice gate picks one of three paths each run
     title: New marble debuts on the dice track
-    hook: A purple marble arrives
+    hook: Who clears the dice gate?
     desc: A new purple marble enters. A dice gate picks one of three paths at random each run. Nobody, us included, knows how it races.
     pin: First look at the purple newcomer. Fast, steady, or chaos? Guess the trait.
     pin_type: name_racer
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 dice: dice gate (seeded choice of one of three paths)'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: Nova debuts. Public copy does not name Nova alone (name all or none).
+  note: 'Nova debuts. Public copy does not name Nova alone (name all or none). Built: stage dicetrack (a dice gate, then pegs). The field waits at the gate''s throat while a die with faces one to three rolls on screen; the lane with that many pips lights and its doors close, then the throat opens. The three lanes (clear drop, pegs, shelves) are shuffled by the seed.'
 - id: L52
   date: 2026-11-15
   world: dice
@@ -1549,6 +1551,7 @@ levels:
   variant: marble_race
   params:
     section: dice-start-grid
+    rounds: 1
   entrants:
   - blaze
   - tide
@@ -1559,18 +1562,19 @@ levels:
   story:
     must:
       lead_changes: '>=2'
+      any_event: rolled
   copy:
-    angle: a dice roll sets the starting grid; the back of the grid has the longest way through
+    angle: every marble rolls a die for its place on the grid; the back of the grid has the longest way through
     title: 'Dice start marble race: random grid'
-    hook: The die sets the grid
-    desc: A dice roll sets the starting grid. Whoever draws the back has the longest way through.
+    hook: Who climbs from the back?
+    desc: Every marble rolls a die. The highest roll starts at the front of the grid; whoever rolls lowest starts at the back, with the longest way through.
     pin: Can the marble on the back row win from there? Yes or no.
     pin_type: either_or
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 dice: dice-set random start grid'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: null
+  note: 'Built: stage dicegrid. The field sits on a sloped start grid, a die over each marble; the highest roll is placed lowest (the front), ties in a seeded order, and the whole grid drops at once when the dice land. Over 48 seeds the front wins about half the races and the back about one in eight.'
 - id: L53
   date: 2026-11-16
   world: dice
@@ -1578,6 +1582,7 @@ levels:
   variant: marble_race
   params:
     section: dice-remove-obstacle
+    rounds: 1
   entrants:
   - blaze
   - tide
@@ -1588,20 +1593,21 @@ levels:
   story:
     must:
       lead_changes: '>=1'
+      any_event: blocker_removed
     prefer:
       margin_s: <=0.8
   copy:
-    angle: six traps on the track and the die removes one; which one changes the race
-    title: 'Marble race dice roll: one trap vanishes'
-    hook: The die deletes a trap
-    desc: Six traps on the track; the die removes one. Which one disappears changes the whole race.
-    pin: Which trap should the die remove? Name it before the roll.
+    angle: six blockers on the track, each with a die face, and the die removes one; which one changes the race
+    title: 'Marble race dice roll: one blocker vanishes'
+    hook: Which blocker vanishes?
+    desc: Six blockers on the track, each marked with a die face; the die removes one before the drop. Which one disappears changes the whole race.
+    pin: Which blocker should the die remove? Name it before the roll.
     pin_type: vote_track
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 dice: dice removes one obstacle per run'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: null
+  note: 'traps -> blockers: six tilted bars (stage diceblock), each labelled with a die face; the field waits in start cups while the die rolls, the bar with that face fades out, then the cups open. A bar is a blocker, not a trap that holds or eliminates.'
 - id: L54
   date: 2026-11-17
   world: dice
@@ -1609,6 +1615,7 @@ levels:
   variant: marble_race
   params:
     section: dice-gates-duel
+    rounds: 1
   entrants:
   - nova
   - blaze
@@ -1616,18 +1623,19 @@ levels:
   story:
     must:
       lead_changes: '>=1'
+      any_event: gate_opened
   copy:
     angle: the newcomer against the original speedster, three dice gates, two marbles
     title: 'Nova vs Blaze marble race: speed duel'
-    hook: New speed, old speed
+    hook: 'Your pick: new or old?'
     desc: 'Three dice gates, two marbles, one answer. Head-to-head so far: {h2h:nova:blaze}.'
     pin: Nova or Blaze? The comments name the rivalry.
     pin_type: either_or
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 dice: three dice gates on one track'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: null
+  note: 'Built: stage dicetriple, three dice gates stacked, each with its own die; the first rolls at the start, each later one as the leader enters its funnel, and its throat holds until it lands. The lanes under each gate are short drops, not paths of different lengths: three full gates do not fit one frame.'
 - id: L55
   date: 2026-11-18
   world: dice
@@ -1635,6 +1643,11 @@ levels:
   variant: marble_race
   params:
     section: dice-round-count
+    rounds: 3
+    round_params:
+    - {}
+    - stage: same
+    - stage: same
   entrants:
   - blaze
   - tide
@@ -1645,18 +1658,19 @@ levels:
   story:
     must:
       lead_changes: '>=2'
+      any_event: rolled
   copy:
     angle: the die sets how many rounds; sprinters want one, grinders want three
     title: Marble race with a random number of rounds
-    hook: The die sets the length
+    hook: Call the round count
     desc: The die sets the number of rounds at the start. Sprinters want one; grinders want three.
     pin: Predict the number of rounds and the marble that takes it.
     pin_type: predict_outcome
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 dice: dice-set round count, one to three (the sandbox runs at most two)'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: Laps -> rounds, rolled by the die.
+  note: 'Laps -> rounds, rolled by the die. Built: stage dicegrid; in the heat the field waits on the start grid (seeded order, no grid dice) while a die with faces one to three rolls, and the clip runs that many rounds (params.rounds is the most). Later rounds race the same stage from a fresh seed and show no die; the round captions carry the count from there.'
 - id: L56
   date: 2026-11-19
   world: dice
@@ -1664,6 +1678,7 @@ levels:
   variant: marble_race
   params:
     section: loaded-dice
+    rounds: 1
   entrants:
   - blaze
   - tide
@@ -1674,18 +1689,19 @@ levels:
   story:
     must:
       finishers: '>=3'
+      any_event: gate_opened
   copy:
     angle: 'every roll picks the hardest path this time: same gates, no mercy'
     title: 'Loaded dice marble race: always the hard path'
-    hook: 'Every roll: the hard way'
+    hook: Who survives the hard way?
     desc: This time every roll picks the hardest path. Same dice gates, no mercy.
     pin: 'Hardest path every time: who handles it best? Pick a color.'
     pin_type: pick_color
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 dice: dice gates forced to the hardest path'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: null
+  note: 'Built: stage dicetrack with the die loaded: it always lands on the lane with the shelves (the long way down), wherever the seed put that lane. The same for every marble: a lane is chosen, never an entrant (rule 2.4). One gate a run, so "every roll" is every run''s roll.'
 - id: L57
   date: 2026-11-20
   world: dice
@@ -1693,6 +1709,7 @@ levels:
   variant: marble_race
   params:
     section: dice-surface
+    rounds: 1
   entrants:
   - blaze
   - tide
@@ -1703,18 +1720,19 @@ levels:
   story:
     must:
       lead_changes: '>=2'
+      any_event: rolled
   copy:
     angle: 'each section''s surface is rolled live: ice, sand or plain'
     title: 'Random surface marble race: the dice pick'
-    hook: Ice, sand or neither?
+    hook: Ice, sand or neither? Pick
     desc: 'Each section''s surface is rolled live: ice, sand or plain. World Five skills meet World Six luck.'
     pin: How many sections land on ice? Guess before the roll.
     pin_type: predict_outcome
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 dice: dice-rolled surface per section (needs the ice-sand sections)'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: null
+  note: 'Built on the core''s surface zones, not World Five''s sections: stage dicesurface is three bands of zigzag ramps, each with a painted die (ice, sand, plain). The first rolls at the start while the field waits in start cups; each later one as the leader comes within reach of its band. The surface appears when its die lands: ice takes a marble''s own grip away, sand drags (lighter than the stock sand, which holds a marble under the stall speed at this gravity); plain is no zone.'
 - id: L58
   date: 2026-11-21
   world: dice
@@ -1722,6 +1740,7 @@ levels:
   variant: marble_race
   params:
     section: handicap-start
+    rounds: 1
   entrants:
   - blaze
   - tide
@@ -1732,18 +1751,19 @@ levels:
   story:
     must:
       lead_changes: '>=1'
+      any_event: head_start
   copy:
     angle: the die picks one marble to start early and everyone else chases
     title: 'Handicap marble race: a dice head start'
-    hook: One marble goes early
+    hook: Who gets the head start?
     desc: The die picks one marble to start early. Everyone else chases.
     pin: If the head start lands on the slowest marble, does it hold on? Pick who gets it.
     pin_type: predict_outcome
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 dice: dice-picked handicap (one marble starts early)'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: null
+  note: 'Built: stage plinko (passing) with start cups. Each cup carries a small die face, numbered left to right as the marbles stand on screen; the die rolls one of them, that cup lights and lets its marble go, and the others open a beat later (mechanics.head_start_s, default 1.2 s). A seeded draw among places on screen, never a chosen marble.'
 - id: L59
   date: 2026-11-22
   world: dice
@@ -1751,6 +1771,9 @@ levels:
   variant: marble_race
   params:
     section: handicap-back-start
+    rounds: 1
+    mechanics:
+      back_marker: null
   entrants:
   - blaze
   - tide
@@ -1761,19 +1784,20 @@ levels:
   story:
     must:
       lead_changes: '>=2'
+      any_event: rolled
   copy:
     angle: 'the standings leader starts from the back with no dice help: can a lead survive a handicap'
     title: 'Marble race penalty: the leader starts last'
-    hook: The leader starts last
+    hook: Back the one starting last?
     desc: The standings leader starts from the back of the grid with no dice help. Can a lead survive a handicap?
     pin: Fair handicap or too harsh? Comment "fair" or "harsh".
     pin_type: either_or
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 dice: handicap: one named marble starts from the back with no dice help'
+  status: needs_input
+  blocked_on: null
   operator_input:
     back_marker: null
-  note: 'back_marker: the standings leader at plan time (a rule, not a pick).'
+  note: 'back_marker: the standings leader at plan time (a rule, not a pick). Built (stage dicegrid): the others roll for the grid as in L52; the back marker takes the last slot with no die. Operator: at plan time set operator_input.back_marker and params.mechanics.back_marker to the standings leader''s id. Over 48 seeds with the back marker rotating through the field it still won 3 races: a handicap, not a scripted loss.'
 - id: L60
   date: 2026-11-23
   world: dice
@@ -1781,6 +1805,11 @@ levels:
   variant: marble_race
   params:
     section: dice-final
+    rounds: 3
+    round_params:
+    - {}
+    - stage: same
+    - stage: same
   entrants:
   - blaze
   - tide
@@ -1793,18 +1822,19 @@ levels:
     must:
       lead_changes: '>=2'
       finishers: '>=3'
+      any_event: gate_opened
   copy:
     angle: 'world six final: random paths, rounds, surfaces and grid; the first five-marble final'
     title: 'Dice track final: five marbles, nothing fixed'
-    hook: Nothing is fixed tonight
+    hook: 'Nothing fixed: pick one'
     desc: Random paths, random rounds, random surfaces, random grid. The first five-marble final.
     pin: Five racers. Rank your top three; the best prediction gets a shout on Sunday.
     pin_type: rank
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 dice: composite final: dice paths, rounds, surfaces and grid'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: null
+  note: 'Built: stage dicefinal (a start grid, a dice gate, pegs). Every round: each marble rolls for the grid; a path die and a painted surface die (ice, sand, plain for the lanes) roll together when the leader reaches the gate. The heat also rolls a die with faces one to three for how many rounds run. The blocker and head-start dice are not in it: the copy names paths, rounds, surfaces and grid.'
 - id: L61
   date: 2026-11-24
   world: arena

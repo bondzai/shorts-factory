@@ -74,6 +74,8 @@ recording shifts them to the clip's clock.
 | `rig.countdown(name, t)` | whole seconds left, then `None` (what a timer shows) |
 | `rig.on_frame(fn)` | a per-frame hook (move a kinematic body, `rig.emit(...)`) |
 | `rig.emit(kind, index, **data)` | an Event now |
+| `rig.hold(clock)` | the field is held on purpose while the clock is truthy (a start gate, a die still rolling): the stall check does not count those frames |
+| `rig.clip_rounds = n` | set in the heat, the clip runs `n` rounds, never more than `params.rounds` (World 6's round die) |
 
 `progress` is how far the leader has come from the start row to the line,
 0..1, and never goes back: "halfway" is `progress=0.5`.
@@ -95,7 +97,7 @@ sparks in its colour where it went.
 | | |
 |---|---|
 | `rig.surface(space, a, b, kind="ice", thickness=6, friction=None)` | a static segment with the surface's friction and bounce, drawn with its colour |
-| `rig.zone(rect \| poly, kind="sand", damping=None, friction=None, first_only=False, when=None, event=None)` | a region that drags: `damping` 1/s on velocity every substep (default the kind's), a marble's own friction set to `friction` while inside; `first_only` (a cobweb) affects only the first marble in, with `event` when it is caught |
+| `rig.zone(rect \| poly, kind="sand", damping=None, friction=None, first_only=False, when=None, event=None, appear=False)` | a region that drags: `damping` 1/s on velocity every substep (default the kind's), a marble's own friction set to `friction` while inside; `first_only` (a cobweb) affects only the first marble in, with `event` when it is caught; `appear`: drawn only while `when` is truthy (a surface rolled mid-race is not on screen before the roll) |
 | `rig.breakable(space, a, b, kind="thin_ice", hold=(0.8, 2.0), thickness=5)` | breaks after a **seeded** amount of load (contact-seconds x mass, from `hold`); cracks drawn at half; `broke` Event |
 
 Kinds (`mechanics.SURFACES`): `ice` (friction 0.02), `sand` (0.95, damping
@@ -121,6 +123,7 @@ A door gives each marble a collision bit, so a race holds at most 12
 |---|---|
 | `rig.effect("blackout", clock=…)` | marbles and trails hidden and a dark veil while the clock is truthy; sound carries on |
 | `rig.effect("countdown", clock=…, at=(x, y))` | the clock's value drawn as a number |
+| `rig.effect("die", clock=… \| value=k, at=(x, y), size=px, layer="top" \| "under", tints={"1": rgb})` | a die face with pips; the clock's value is None (not drawn), a face, or `{"f": face, "s": "roll" \| "set" \| "lit" \| "dim"}` — tumbling while it rolls, ringed when lit, faded when dim. `worlds/dice.roll` registers one with its clocks |
 
 Gate lights, surface textures and outward magnet chevrons need no effect
 call: they come with the door, the zone, the polarity clock.
