@@ -32,7 +32,7 @@ import numpy as np
 from PIL import Image
 
 from ... import settings
-from ..mechanics import FINISH_Y, hidden
+from ..mechanics import FINISH_Y, clock_at, hidden
 from . import outcome as physics_outcome
 
 DEFAULTS: dict[str, Any] = {
@@ -70,6 +70,7 @@ TOWER_FROM_S = 1.0
 SLAM_S = 0.25
 SLAM_FROM = 1.4
 CENTROID_SMOOTH = 6        # frames either side
+VIEW_SMOOTH = 12           # frames either side: a stage's `view` box, eased
 MAX_PARTICLES = 900
 
 
@@ -304,11 +305,42 @@ def plan_round(v: View, n_round: int, n_rounds: int, fps: int, w: int, h: int, c
     open_end = (hit_out + PULL_OUT_S * fps) if hit else (fps * 1.0)
     fin_in = marks.get("finish_in")
 
+    # A stage that frames itself: a `view` clock ([x0, y0, x1, y1], physics
+    # px) is the box worth showing. After the opening the camera holds that
+    # box (as tight as the opening's zoom, at most) instead of the whole
+    # frame, eased like the centroid: World 7's arena is a strip across the
+    # lower third, and it closes in.
+    framed = bool((v.mech.get("clocks") or {}).get("view"))
+    base = np.tile([1.0, w / 2, h / 2], (n, 1))
+    if framed:
+        for f in range(n):
+            box = clock_at(v.mech, "view", f)
+            if box:
+                x0, y0, x1, y1 = (float(q) for q in box)
+                zb = max(1.0, min(cfg["zoom"], w / max(1.0, x1 - x0), h / max(1.0, y1 - y0)))
+                base[f] = (zb, (x0 + x1) / 2, h - (y0 + y1) / 2)
+        kb = VIEW_SMOOTH
+        padded_b = np.pad(base, ((kb, kb), (0, 0)), mode="edge")
+        kernel_b = np.ones(2 * kb + 1) / (2 * kb + 1)
+        base = np.stack([np.convolve(padded_b[:, d], kernel_b, mode="valid") for d in range(3)], axis=1)
+
+    def held(s: float) -> tuple[float, float, float]:
+        i0 = int(s)
+        i1 = min(n - 1, i0 + 1)
+        f = s - i0
+        zb, bx, by = base[i0] * (1 - f) + base[i1] * f
+        return float(zb), float(bx), float(by)
+
     # Punch-ins: at lead changes after the opening, never crowding the finish.
+    # With no line, at each marble going out instead: nobody leads an arena.
     punches: list[tuple[float, int]] = []
     if cfg["punch"] > 1.0:
         end = v.winner_frame if v.winner_frame is not None else n - 1
-        for f, i in physics_outcome.lead_changes(v.states[: end + 1], gone or None):
+        moments_of = physics_outcome.lead_changes(v.states[: end + 1], gone or None)
+        if framed:
+            lead_in = int(PUNCH_IN_S * fps)
+            moments_of = sorted((max(0, f - lead_in), i) for i, f in gone.items() if f <= end)
+        for f, i in moments_of:
             o = _to_out(float(f), S)
             if o < open_end or (fin_in is not None and o + (PUNCH_IN_S + PUNCH_OUT_S + 0.3) * fps > fin_in):
                 continue
@@ -325,6 +357,10 @@ def plan_round(v: View, n_round: int, n_rounds: int, fps: int, w: int, h: int, c
     tm = np.zeros((m, 4))
     for k_out in range(m):
         s = S[k_out]
+        if framed:
+            tm[k_out] = _framed_camera(k_out, s, held(s), hit, hit_out, open_end, hit_point, S, fps, cfg,
+                                       centroid, pos, punches, finish_point, fin_in, last, m, w, h)
+            continue
         z, cx, cy = 1.0, w / 2, h / 2
         if hit and k_out < open_end:
             c = centroid(s)
@@ -377,6 +413,47 @@ def plan_round(v: View, n_round: int, n_rounds: int, fps: int, w: int, h: int, c
                              "speed": cfg["finish_slowmo"],
                              "winner_out_s": sec(_to_out(float(v.winner_frame), S))}
     return tm, moments
+
+
+def _framed_camera(k_out, s, held, hit, hit_out, open_end, hit_point, S, fps, cfg, centroid, pos, punches,
+                   finish_point, fin_in, last, m, w, h) -> tuple[float, float, float, float]:
+    """plan_round's camera for a stage with a `view` box: the same moves
+    (opening, punch-ins, the finish), each from and back to the held box
+    rather than the whole frame."""
+    zb, bx, by = held
+    z_open = max(cfg["zoom"], zb)
+    z, cx, cy = zb, bx, by
+    if hit and k_out < open_end:
+        c = centroid(s)
+        if hit_point is not None:
+            o_hit = _to_out(float(hit["frame"]), S)
+            lean = 0.55 * _ease(1 - abs(k_out - o_hit) / (0.6 * fps))
+            c = (c[0] + (hit_point[0] - c[0]) * lean, c[1] + (hit_point[1] - c[1]) * lean)
+        if k_out < hit_out:
+            z, cx, cy = z_open, c[0], c[1]
+        else:
+            u = _ease((k_out - hit_out) / (PULL_OUT_S * fps))
+            z = z_open + (zb - z_open) * u
+            cx, cy = c[0] + (bx - c[0]) * u, c[1] + (by - c[1]) * u
+    for o, i in punches:
+        d = k_out - o
+        if 0 <= d < (PUNCH_IN_S + PUNCH_OUT_S) * fps:
+            u = _ease(d / (PUNCH_IN_S * fps)) if d < PUNCH_IN_S * fps else \
+                _ease(1 - (d - PUNCH_IN_S * fps) / (PUNCH_OUT_S * fps))
+            z = zb * (1.0 + (cfg["punch"] - 1.0) * u)
+            px, py = pos(i, s)
+            cx, cy = bx + (px - bx) * u, by + (py - by) * u
+    if finish_point is not None and fin_in is not None and k_out >= fin_in:
+        u = _ease((k_out - fin_in) / (FINISH_ZOOM_S * fps))
+        z = zb + (z_open - zb) * u
+        cx, cy = bx + (finish_point[0] - bx) * u, by + (finish_point[1] - by) * u
+    elif last and finish_point is None and k_out >= m - fps:
+        u = _ease((k_out - (m - fps)) / (FINISH_ZOOM_S * fps))
+        z = zb + (z_open - zb) * u
+        c = centroid(s)
+        cx, cy = bx + (c[0] - bx) * u, by + (c[1] - by) * u
+    cx, cy = _clamp_centre(cx, cy, z, w, h)
+    return (s, z, cx, cy)
 
 
 def direct(views: list[View], fps: int, w: int, h: int, cfg: dict, max_s: float,
@@ -762,7 +839,7 @@ def compose(raw: Iterator[bytes], v: View, tm: np.ndarray, hud: Hud, w: int, h: 
                 order_y = {i: float(r) for r, i in enumerate(order)}
             for r, i in enumerate(order):
                 order_y[i] += (r - order_y[i]) * 0.28
-            _tower(pygame, surface, lay, v, order, order_y, labels, ranks, fade)
+            _tower(pygame, surface, lay, v, order, order_y, labels, ranks, fade, frame_no)
             _bar(pygame, fx, surface, lay, v, order, s, y0s, fade)
         if chips and CHIPS_S[0] - 0.15 <= o <= CHIPS_S[1] + CHIP_FADE_S:
             alpha = min(_ease((o - (CHIPS_S[0] - 0.15)) / 0.15), 1 - _ease((o - CHIPS_S[1]) / CHIP_FADE_S))
@@ -786,6 +863,10 @@ def standings(v: View, s: float, frame: int) -> list[int]:
             keyed.append(((0, f, 0.0), i))
         elif name in gone and gone[name] <= frame:
             keyed.append(((2, -gone[name], 0.0), i))
+        elif v.finish_y is None:
+            # No line (an arena): nobody still in leads anybody. The ones
+            # left keep their places, and the tower only moves when one goes.
+            keyed.append(((1, 0, float(i)), i))
         else:
             keyed.append(((1, 0, float(v.states[i0][i][1])), i))
     keyed.sort(key=lambda t: (t[0], t[1]))
@@ -893,7 +974,8 @@ def _chips(pygame, surface, v: View, chips, points, cam, w, h, alpha: float, fra
         surface.blit(layer, (x - tip, y - tip))
 
 
-def _tower(pygame, surface, lay, v: View, order, order_y, labels, ranks, fade: float) -> None:
+def _tower(pygame, surface, lay, v: View, order, order_y, labels, ranks, fade: float,
+           frame: int | None = None) -> None:
     if fade <= 0.01:
         return
     tx, ty, tw, th = lay["tower"]
@@ -906,7 +988,10 @@ def _tower(pygame, surface, lay, v: View, order, order_y, labels, ranks, fade: f
         x, y0, _, _ = lay["rows"][0]
         y = y0 + order_y[i] * row_h
         dot = row_h * 0.30
-        dim = 0.4 if v.names[i] in gone else 1.0
+        # Dimmed once it is out, not before: a row dim from the first frame
+        # told the viewer who would go.
+        out = v.names[i] in gone and (frame is None or gone[v.names[i]] <= frame)
+        dim = 0.4 if out else 1.0
         col = tuple(int(c * dim) for c in v.colours[i])
         rank = ranks[r].copy()
         rank.set_alpha(int(255 * fade * dim))

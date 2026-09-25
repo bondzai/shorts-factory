@@ -93,7 +93,10 @@ def test_the_world4_levels_name_those_stages_with_hooks_that_pass():
         assert registry.MECHANICS[lv["params"]["section"]].stage == stage, lid
         assert captions.problem(lv["copy"]["hook"], names=("blaze", "tide", "volt", "moss", "ghost")) is None, lid
     # Who races the semifinal, the final and the solo run is a result: operator input.
-    assert [levels[lid]["status"] for lid in ("L36", "L37", "L38")] == ["needs_input"] * 3
+    # Until the standings exist it is operator input, or stand-in values the note says are.
+    for lid in ("L36", "L37", "L38"):
+        lv = levels[lid]
+        assert lv["status"] == "needs_input" or str(lv["note"]).startswith("STAND-IN VALUES"), lid
 
 
 def test_every_world4_level_races_its_rounds_with_its_own_params(sandbox):

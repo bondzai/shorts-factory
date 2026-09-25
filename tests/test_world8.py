@@ -183,17 +183,16 @@ def _levels():
     return {lv["id"]: lv for lv in yaml.safe_load(path.read_text())["levels"]}
 
 
-def test_world_eight_levels_are_ready_on_registered_mechanics_and_the_arena_one_waits():
+def test_world_eight_levels_are_ready_on_registered_mechanics():
     levels = _levels()
-    for lid in WORLD8:
+    # L77 (the push in World 7's arena) is tested with the arena, tests/test_world7.py.
+    for lid in WORLD8 + ("L77",):
         lv = levels[lid]
         assert lv["status"] == "ready" and lv["blocked_on"] is None
         section = lv["params"]["section"]
         assert section in registry.MECHANICS
         stage = lv["params"].get("stage") or registry.MECHANICS[section].stage
         assert stage in registry.STAGE_BY_ID
-    assert levels["L77"]["status"] == "blocked"
-    assert levels["L77"]["blocked_on"] == "WP7 arena: shrinking arena (then repulsion)"
 
 
 def test_world_eight_stages_are_trial():

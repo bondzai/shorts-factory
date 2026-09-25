@@ -156,7 +156,9 @@ def build(rounds: list[dict], fps: int, sim_w: float, running: list[str]) -> Out
         gone = {names.index(name): f for name, f in (r.get("gone") or {}).items()}
         at = lambda frame: round(offset + frame / fps, 3)  # noqa: E731
         events.append(Event(t_s=round(offset, 3), kind="round_start", data={"round": n}))
-        changes = lead_changes(race_of(r), gone)
+        # No line (an arena): the lowest marble leads nothing, so no lead changes.
+        no_line = bool((getattr(r["style"], "mech", None) or {}).get("no_finish"))
+        changes = [] if no_line else lead_changes(race_of(r), gone)
         total_leads += len(changes)
         events += [Event(t_s=at(f), kind="lead_change", entrant_id=names[i], data={"round": n}) for f, i in changes]
         events += [Event(t_s=at(f), kind="finish", entrant_id=name, data={"round": n})

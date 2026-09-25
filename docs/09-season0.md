@@ -30,8 +30,8 @@ disagree, and two of its rules decided most of the conversion:
 | halloween-maze | L31–L40 | 2 | 7 | 1 | Oct 22 |
 | ice-sand | L41–L50 | 0 | 9 | 1 | Nov 1 |
 | dice | L51–L60 | 9 | 0 | 1 | Nov 11 (built; docs/06 "World 6") |
-| arena | L61–L70 | 0 | 10 | 0 | Nov 21 |
-| repel | L71–L80 | 9 | 1 | 0 | Dec 1 (built; docs/06 "World 8"; L77 waits on the arena) |
+| arena | L61–L70 | 10 | 0 | 0 | Nov 21 (built; docs/06 "World 7"; L65 and L69 carry stand-ins) |
+| repel | L71–L80 | 10 | 0 | 0 | Dec 1 (built; docs/06 "World 8"; L77 in World 7's arena) |
 | colour-gates | L81–L90 | 9 | 0 | 1 | done: World 9 stages pass docs/06 (L90 waits on the seed list) |
 | grand-final | L91–L100 | 0 | 8 | 2 | Dec 22 (L92 needs the World 4 maze) |
 | **total** | | **24** | **72** | **4** | |
@@ -155,9 +155,12 @@ until checked against YouTube's own page (docs/08 §7).
 - **Brackets** (L89–L98) never name marbles: `operator_input: {seeds: null}`
   and empty entrants. The plan's eight-seat bracket cannot be filled from a
   six-marble cast; the operator decides byes or guests before L91.
-- **Arena** levels (L61–L70, L77, L94) use `generator: battle`,
-  `variant: ball_battle`, format `last_standing` (L62 king of the hill:
-  `score`), because WP7 extends the battle generator.
+- **Arena** levels (L61–L70, L77) are physics races with no line
+  (`generator: physics`, format `last_standing`, L62 included: the hill's
+  holder is the one left), built in `worlds/arena.py` rather than by
+  extending the battle generator, so they have the cast, trace, presentation
+  and standings of every other world. L94 still names `battle` and is World
+  10's to move onto the arena.
 - **Rematches:** L07 → L02 and L92 → L37, both declared; no other level repeats
   a stage with the same field within ten levels. Consecutive levels differ in
   at least two of stage/section, field, format and `must`; in World 1, where
@@ -173,7 +176,8 @@ until checked against YouTube's own page (docs/08 §7).
 one; trapdoor exists but fails QA today (lead changes 1.4). World 2 (L11–L20)
 is no longer here: it is built on stages of its own (trapdoor panels,
 `factory/generators/physics/worlds/trapdoor.py`), each level's `note` says
-what was approximated, and docs/06 "World 2" has the numbers.
+what was approximated, and docs/06 "World 2" has the numbers. Nor are World
+7 (L61–L70) and L77: the arena (`worlds/arena.py`), docs/06 "World 7".
 
 | level | date | world | needs | base |
 |---|---|---|---|---|
@@ -201,23 +205,12 @@ what was approximated, and docs/06 "World 2" has the numbers.
 | L47 | Nov 10 | ice-sand | sand dunes (hidden hills in the floor) | — |
 | L48 | Nov 11 | ice-sand | ice bowl with a sand exit chute | — |
 | L50 | Nov 13 | ice-sand | terrain gauntlet composite, plus a non-racing purple marble on the sidelines | — |
-| L61 | Nov 24 | arena | shrinking walls, last one standing | — |
-| L62 | Nov 25 | arena | centre hill, king-of-the-hill scoring | — |
-| L63 | Nov 26 | arena | shrinking arena with trapdoors, seven entrants | — |
-| L64 | Nov 27 | arena | pusher walls that shove marbles into a pit | — |
-| L65 | Nov 28 | arena | team arena (a team survives while either marble is alive), teams | — |
-| L66 | Nov 29 | arena | ice floor in the arena (needs the ice-sand friction) | — |
-| L67 | Nov 30 | arena | centre magnet in a shrinking arena | — |
-| L68 | Dec 01 | arena | one-on-one sudden-death arena | — |
-| L69 | Dec 02 | arena | arena built to a fan-voted shape | — |
-| L70 | Dec 03 | arena | mega arena: walls, pushers and trapdoors, ten bodies | — |
 | L71 | Dec 04 | repel | pairwise marble repulsion | — |
 | L72 | Dec 05 | repel | one-marble-wide corridor with repulsion | — |
 | L73 | Dec 06 | repel | repulsion switched on at halfway | — |
 | L74 | Dec 07 | repel | repulsion with one heavy blocker in a lane | — |
 | L75 | Dec 08 | repel | pairwise repulsion on the pinball stage | pinball |
 | L76 | Dec 09 | repel | pairwise attraction (slipstream) | — |
-| L77 | Dec 10 | repel | repulsion inside the shrinking arena (needs WP7 arena) | — |
 | L78 | Dec 11 | repel | two lanes merging into one with repulsion | — |
 | L79 | Dec 12 | repel | repulsion gauntlet, elimination format | — |
 | L80 | Dec 13 | repel | full repulsion track with three ramps | — |

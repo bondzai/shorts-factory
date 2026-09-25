@@ -1976,9 +1976,11 @@ levels:
 - id: L61
   date: 2026-11-24
   world: arena
-  generator: battle
-  variant: ball_battle
+  generator: physics
+  variant: marble_race
   params:
+    stage: arena
+    rounds: 1
     section: shrinking-walls
   entrants:
   - blaze
@@ -1991,21 +1993,23 @@ levels:
   copy:
     angle: 'no finish line: the walls close in until one marble is left; Harvest Cup week opens'
     title: 'Shrinking arena marble race: last one left'
-    hook: The walls are closing
+    hook: Who outlasts the walls?
     desc: No finish line. The walls close in until one marble is left. Harvest Cup week opens; the final is on Thanksgiving.
     pin: Battle royale marbles. Who survives the last wall?
     pin_type: pick_color
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 arena: shrinking walls, last one standing'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: Arena mode extends the battle generator (ball_battle).
+  note: 'Built in the physics generator, not battle (docs/06 "World 7"): the cast, trace, presentation and standings are the other worlds''. Stage arena: a low-domed floor between two low walls, a pit beyond each. The walls step in every three seconds from 3 s, six steps, each a slam in and back that grows step by step, and the floor behind them falls away. A marble over a wall is out (pitted); the last one on the floor wins, judged once it has landed, and the walls stop then. Hook rewritten to ask for the pick (captions rule).'
 - id: L62
   date: 2026-11-25
   world: arena
-  generator: battle
-  variant: ball_battle
+  generator: physics
+  variant: marble_race
   params:
+    stage: arenahill
+    rounds: 1
     section: king-of-the-hill
   entrants:
   - blaze
@@ -2013,26 +2017,30 @@ levels:
   - volt
   - moss
   - nova
-  format: score
-  story: {}
+  format: last_standing
+  story:
+    must:
+      any_event: walls_stopped
   copy:
     angle: 'a hill in the arena centre: whoever holds it when the walls stop takes it'
     title: 'King of the hill marble race: hold the middle'
-    hook: Hold the hill
+    hook: Who holds the hill?
     desc: A hill in the middle of the arena. Whoever holds it when the walls stop takes the round.
     pin: Hold the hill or wait at the edge? Comment "hill" or "edge".
     pin_type: either_or
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 arena: centre hill, king-of-the-hill scoring'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: Arena mode extends the battle generator (ball_battle). Scored as format score.
+  note: 'Built: stage arenahill, the arena on a flat floor with a hill in the middle, its top lit gold (a shallow cup). The walls step in three times, every three seconds, then stop on the beat of a fourth (a countdown shows it). Holds, measured at that moment: of the marbles whose centre is over the lit top and resting on it, the one nearest its middle; if nobody is up there (5 of 48 races), the marble nearest the top. Everyone else goes out at the stop (by hill), so the level is last_standing, not score: the holder is the one left. Hook rewritten to ask for the pick.'
 - id: L63
   date: 2026-11-26
   world: arena
-  generator: battle
-  variant: ball_battle
+  generator: physics
+  variant: marble_race
   params:
+    stage: arenatrap
+    rounds: 1
     section: arena-trapdoors
   entrants:
   - blaze
@@ -2050,21 +2058,23 @@ levels:
   copy:
     angle: 'Harvest Cup final on Thanksgiving: the regulars plus two harvest guests, walls close and floors open'
     title: 'Harvest Cup final: the arena with trapdoors'
-    hook: Walls close, floors open
+    hook: Pick your Harvest champion
     desc: '{entrant_count} marbles, two of them harvest guests. Walls close, trapdoors open, one survives. The winner takes a Grand Final seat.'
     pin: Thanksgiving final. Pick one marble, no changing your mind.
     pin_type: pick_color
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 arena: shrinking arena with trapdoors, seven entrants'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: 'Anchored to Nov 26. Plan says all six personas plus two guests (eight), but Ember debuts at L71: the field is five personas plus the two harvest guests (acorn, juniper; scores = false). Arena mode extends the battle generator (ball_battle).'
+  note: 'Anchored to Nov 26. Plan says all six personas plus two guests (eight), but Ember debuts at L71: the field is five personas plus the two harvest guests (acorn, juniper; scores = false), seven marbles. Built: stage arenatrap, the arena with a World 2 trapdoor panel in the floor each side of the middle, cycling on seeded clocks from 7 s (open a quarter of each cycle) and open for good once a wall has gone past it. Seven marbles crowd the floor, so the slams are gentler than L61''s and the first step comes at 4 s. A catch (trap_catch) in 48 of 48 races. Hook rewritten to ask for the pick.'
 - id: L64
   date: 2026-11-27
   world: arena
-  generator: battle
-  variant: ball_battle
+  generator: physics
+  variant: marble_race
   params:
+    stage: arena
+    rounds: 1
     section: arena-pushers
   entrants:
   - blaze
@@ -2084,44 +2094,50 @@ levels:
     pin: Who gets pinned by the first wall? Pick a color.
     pin_type: predict_trap
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 arena: pusher walls that shove marbles into a pit'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: Arena mode extends the battle generator (ball_battle).
+  note: 'Built: stage arena; the walls close as on L61 and from 6 s each wall also jabs, a third of a marble in and back in under a quarter of a second, on its own seeded cycle (2.2-2.9 s). The jabs are the hits, so the steps themselves do not slam. launched: a moving wall shoving a marble 260 px/s faster while touching it (46 of 48 races).'
 - id: L65
   date: 2026-11-28
   world: arena
-  generator: battle
-  variant: ball_battle
+  generator: physics
+  variant: marble_race
   params:
+    stage: arena
+    rounds: 1
     section: team-arena
+    teams:
+      blaze: 2
+      tide: 2
+      volt: 2
   entrants:
   - blaze
   - tide
   - volt
-  - moss
-  - nova
   format: last_standing
   story: {}
   copy:
     angle: 'teams of two: a team survives while either of its marbles is alive'
     title: 'Team arena marble race: pairs survive'
-    hook: Survive as a pair
+    hook: Which pair survives?
     desc: Teams of two. A team survives while either marble is alive.
-    pin: Which pair survives longest? Name both colors.
+    pin: Which pair survives longest? Pick a color.
     pin_type: predict_outcome
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 arena: team arena (a team survives while either marble is alive), teams'
+  status: ready
+  blocked_on: null
   operator_input:
-    teams: null
-  note: Plan's two vs two vs two needs six bodies; five personas raced by now. Operator sets the pairs. Arena mode extends the battle generator (ball_battle).
+    teams: stand-in blaze, tide, volt (two marbles each)
+  note: 'STAND-IN VALUES set 2026-09-25, replace when the operator picks the teams. The plan''s two vs two vs two needs six bodies: three personas race two marbles each (params.teams; blaze.1 and blaze.2, shaded), so a pair is one colour. Built: stage arena; a team survives while either of its marbles is on the floor, and the round is decided when every marble left is one team''s (Rig.team_survival). Operator: set params.teams, entrants and operator_input.teams to the three personas. Pin asks for one colour, not two: a pair is one persona.'
 - id: L66
   date: 2026-11-29
   world: arena
-  generator: battle
-  variant: ball_battle
+  generator: physics
+  variant: marble_race
   params:
+    stage: arena
+    rounds: 1
     section: ice-arena
   entrants:
   - blaze
@@ -2136,21 +2152,23 @@ levels:
   copy:
     angle: 'the arena floor is ice: walls push, marbles slide, nobody stops where they want'
     title: 'Ice arena marble race: a frozen floor'
-    hook: Nobody stops on ice
+    hook: Who stays on the ice?
     desc: The arena floor is ice. Walls push, marbles slide, and nobody stops where they want.
     pin: 'Ice plus walls: rate the chaos after watching.'
     pin_type: rate_chaos
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 arena: ice floor in the arena (needs the ice-sand friction)'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: Arena mode extends the battle generator (ball_battle).
+  note: 'Built: stage arena with an ice floor (World 5''s ice: friction 0.02, bouncier), drawn with its sheen. On ice a shove carries, so the slams are half L61''s. launched (a wall shoving a marble hard) in 48 of 48 races. Hook rewritten to ask for the pick.'
 - id: L67
   date: 2026-11-30
   world: arena
-  generator: battle
-  variant: ball_battle
+  generator: physics
+  variant: marble_race
   params:
+    stage: arena
+    rounds: 1
     section: centre-magnet
   entrants:
   - blaze
@@ -2163,21 +2181,23 @@ levels:
   copy:
     angle: a centre magnet drags every marble inward while the walls close
     title: 'Magnet arena marble race: pulled inward'
-    hook: The middle pulls
+    hook: Who does the magnet save?
     desc: A centre magnet drags every marble inward while the walls close. Being pulled in might save you.
     pin: Is the magnet a trap or a lifeline? Comment "trap" or "lifeline".
     pin_type: either_or
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 arena: centre magnet in a shrinking arena'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: Arena mode extends the battle generator (ball_battle).
+  note: 'Built: stage arena with a World 3 magnet under the middle of the floor (pull 1 x gravity at its peak, reaching 0.42 of the frame, drawn with its field): every marble is dragged toward the middle while the walls close. Hook rewritten to ask for the pick.'
 - id: L68
   date: 2026-12-01
   world: arena
-  generator: battle
-  variant: ball_battle
+  generator: physics
+  variant: marble_race
   params:
+    stage: arenatrap
+    rounds: 1
     section: sudden-death-duel
   entrants:
   - nova
@@ -2187,21 +2207,23 @@ levels:
   copy:
     angle: two marbles, one arena, no teammates
     title: 'Nova vs Tide marble race: sudden death'
-    hook: One arena. No teammates.
+    hook: Pick one. No teammates.
     desc: 'Two marbles, one arena, no teammates. Head-to-head so far: {h2h:nova:tide}.'
     pin: Nova or Tide? Comment your pick before the walls move.
     pin_type: either_or
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 arena: one-on-one sudden-death arena'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: Arena mode extends the battle generator (ball_battle).
+  note: 'Built: stage arenatrap, the arena with a trapdoor each side of the middle, cycling from 9 s; the first one out loses. Measured over 48 seeds: the walls alone gave Tide (heavier, grippier) 75-90% of duels, the panels alone gave Nova 69%; together 25 to 23. Hook rewritten to ask for the pick.'
 - id: L69
   date: 2026-12-02
   world: arena
-  generator: battle
-  variant: ball_battle
+  generator: physics
+  variant: marble_race
   params:
+    stage: arenaw
+    rounds: 1
     section: fan-arena-shape
   entrants:
   - blaze
@@ -2214,24 +2236,32 @@ levels:
   copy:
     angle: the arena shape came from the comments, built as described
     title: 'Fan designed marble arena: your shape'
-    hook: You drew this arena
+    hook: 'Your arena: pick one'
     desc: The arena shape came from the comments, built as described.
     pin: 'Built from the winning comment. Next vote: which world returns in December?'
     pin_type: vote_track
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 arena: arena built to a fan-voted shape'
+  status: ready
+  blocked_on: null
   operator_input:
-    shape: null
-    credit: null
-  note: Arena mode extends the battle generator (ball_battle).
+    shape: stand-in - a W floor (two valleys either side of a ridge), no fan vote yet
+    credit: stand-in - no fan vote yet
+  note: 'STAND-IN VALUES set 2026-09-25, replace when the real vote exists. Built: stage arenaw, the arena on a W-shaped floor; the walls ride it down into the valleys and up onto the ridge. Until the vote the copy''s "built as described" is not true of the stand-in. Operator: build the winning shape as an arena floor in worlds/arena.py, stage-QA it over 48 seeds, set params.stage and operator_input.shape and credit; if it cannot be built, set status blocked. Hook rewritten to ask for the pick.'
 - id: L70
   date: 2026-12-03
   world: arena
-  generator: battle
-  variant: ball_battle
+  generator: physics
+  variant: marble_race
   params:
+    stage: arenatrap
+    rounds: 1
     section: mega-arena
+    teams:
+      blaze: 2
+      tide: 2
+      volt: 2
+      moss: 2
+      nova: 2
   entrants:
   - blaze
   - tide
@@ -2244,17 +2274,17 @@ levels:
     must:
       any_event: trap_catch
   copy:
-    angle: 'world seven final: the biggest arena yet, walls plus pushers plus trapdoors'
+    angle: 'world seven final: the biggest field yet, ten marbles, walls plus pushers plus trapdoors'
     title: 'Shrinking arena final: last one standing'
-    hook: Walls, pushers, trapdoors
-    desc: 'The biggest arena yet: walls, pushers and trapdoors. A heavy newcomer debuts tomorrow.'
+    hook: 'Pushers, trapdoors: pick one'
+    desc: 'The biggest field yet: ten marbles, walls, pushers and trapdoors. A heavy newcomer debuts tomorrow.'
     pin: Predict the last two marbles standing.
     pin_type: predict_outcome
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 arena: mega arena: walls, pushers and trapdoors, ten bodies'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: Plan says ten marbles; five personas have debuted, so ten bodies need guests or two per colour. Arena mode extends the battle generator (ball_battle).
+  note: 'Plan says ten marbles; five personas have debuted, so each races two (params.teams: blaze.1 and blaze.2, shaded), ten bodies, scored by persona (the sum). The last marble standing wins, whoever its teammate was. Built: stage arenatrap with the jabs of L64 from 6 s and the panels from 7 s; the steps do not slam. The arena is the same size as L61''s, so the copy says the biggest field, not the biggest arena. A catch (trap_catch) in 48 of 48 races.'
 - id: L71
   date: 2026-12-04
   world: repel
@@ -2446,9 +2476,11 @@ levels:
 - id: L77
   date: 2026-12-10
   world: repel
-  generator: battle
-  variant: ball_battle
+  generator: physics
+  variant: marble_race
   params:
+    stage: arena
+    rounds: 1
     section: repulsion-arena
   entrants:
   - blaze
@@ -2469,10 +2501,10 @@ levels:
     pin: Is this the heaviest marble's race to lose? Yes or no.
     pin_type: either_or
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 arena: shrinking arena (then repulsion)'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: 'The push itself exists (worlds/repel.py, `repel`); this level waits for World 7''s shrinking arena.'
+  note: 'Built (docs/06 "World 7"): World 7''s arena (stage arena, walls closing every three seconds, a pit beyond them) with World 8''s push on every pair (`repel`, drawn as arcs). launched (a wall shoving a marble hard) in 48 of 48 races. Ember won 5 of 48: its mass makes it give way least, which does not make it the favourite; the desc''s "the heaviest marble''s kind of arena" is a question the pin asks, not a claim the numbers make.'
 - id: L78
   date: 2026-12-11
   world: repel

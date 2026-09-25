@@ -285,7 +285,9 @@ def test_world_nine_levels_are_ready_with_params_a_task_carries():
     cast = series_cast.load("main")
     for lid, (stage, section) in LEVELS.items():
         lv = season.level(lid)
-        assert lv.status == ("needs_input" if lid == "L90" else "ready") and lv.blocked_on is None, lid
+        # L90 waits on the seed list, or is ready on stand-in values (s0 note).
+        ok = lv.status == "ready" or (lid == "L90" and lv.status == "needs_input")
+        assert ok and lv.blocked_on is None, lid
         assert lv.note and raw[lid]["params"] == {"stage": stage, "section": section}, lid
         params = planning.task_params(lv, season, cast)
         assert params["section"] in registry.MECHANICS

@@ -503,6 +503,33 @@ def elimination_row(report: Report) -> str:
             f"{eliminating:.0%} | {med} | {verdict} |")
 
 
+# Last-standing races with no line (World 7's arena). The plain gates'
+# finish, runner-up, parked and lead numbers mean nothing without a line: a
+# survivor resting on the floor is not parked. What such a race must do is
+# end with one marble left, every race, inside the render's window
+# (qc.min_seconds to render.max_seconds, clip seconds), right first time in
+# at least half the seeds (a stall or an emptied arena is retried on a
+# derived seed), and pass the elimination gates on the way.
+LAST_STANDING_GATES = {"one_left": 1.0, "first_try": 0.50}
+
+
+def last_standing_problems(report: Report) -> list[str]:
+    """The elimination gates, plus LAST_STANDING_GATES."""
+    out = report.elimination_problems()
+    n = max(report.seeds, 1)
+    left = sum(report.wins.values())
+    if left / n < LAST_STANDING_GATES["one_left"]:
+        out.append(f"one left {left}/{report.seeds}")
+    if report.first_try / n < LAST_STANDING_GATES["first_try"]:
+        out.append(f"first try {report.first_try}/{report.seeds}")
+    lo = float(settings.load().qc["min_seconds"])
+    hi = float(settings.load().render["max_seconds"])
+    outside = [d for d in report.durations if not lo <= d <= hi]
+    if outside:
+        out.append(f"{len(outside)} outside {lo:.0f}-{hi:.0f} s")
+    return out
+
+
 # The cast's balance gate (docs/08, "Cast"): over 48 seeds of a live stage
 # every regular entrant wins between these shares of the races that finished.
 BALANCE = (0.10, 0.45)
