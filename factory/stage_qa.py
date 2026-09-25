@@ -308,6 +308,32 @@ def _in_pit(point, trap, big: float) -> bool:
     return hx - big <= x <= hx + bore + big and hy - big <= y <= hy + depth
 
 
+def _on_shut_floor(states, i: int, style) -> bool:
+    """Resting on a mechanism's floor that is shut when the race is judged:
+    a level door (`rig.door`, recorded in `style.mech`) closed at the last
+    frame, with the marble's centre within a marble above it. World 2's relay
+    holds each team's second marble in a pen like this until its teammate
+    hands over, and a bowl's drain holds whoever is on it between openings;
+    both are the mechanism holding a marble, as a trap's pit is. A sloped
+    door is never a floor, so a marble perched on one still counts. A marble
+    that is stuck while the floor waits for it shows up as parked itself: a
+    relay pen only stays shut while its runner is still on the course."""
+    mech = getattr(style, "mech", None) or {}
+    if not mech.get("doors"):
+        return False
+    from .generators.mechanics import door_state  # lazily: only a race with doors needs it
+
+    x, y = states[-1][i]
+    reach = W * stagekit.MARBLE_R * 1.6
+    for d in mech["doors"]:
+        (ax, ay), (bx, by) = d["a"], d["b"]
+        if abs(ay - by) > 1.0 or not min(ax, bx) <= x <= max(ax, bx) or not 0.0 < y - ay <= reach:
+            continue
+        if door_state(mech, d, len(states) - 1)[0]:
+            return True
+    return False
+
+
 def held(states, i: int, style=None) -> bool:
     """In a trap's pit when the clip cut, and for less than the one cycle it
     takes the door to open underneath it.
@@ -325,6 +351,8 @@ def held(states, i: int, style=None) -> bool:
     and it counts as parked again. Everywhere else on the course nothing
     changes: a stage with no trap takes the same path it always did.
     """
+    if _on_shut_floor(states, i, style):
+        return True
     traps = list(getattr(style, "traps", ()) or ())
     if not traps:
         return False

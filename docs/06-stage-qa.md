@@ -37,3 +37,79 @@ A stage built from sections is given a weight — picked at random — only afte
 | `delta` | chutes → bumpers → pegs | trial | -30 | 48/48 | 48/48 | 85% | 2/112 (5 short) | 0 | 15.5 | 2.1 | 4% | pass |
 | `lodestone` | pegs → magnets → pegs | trial | -30 | 48/48 | 40/48 | 98% | 1/92 (11 short) | 0 | 12.4 | 1.5 | 15% | pass |
 | `trapdoor` | pegs → trap → pegs | trial | -30 | 48/48 | 42/48 | 77% | 6/108 (9 short) | 0 | 14.7 | 1.4 | 27% | FAIL: lead changes 1.4 |
+
+## World 2: Trapdoor Roulette (L11–L20)
+
+Written by hand, not by `--report`: each row is a *level*, raced with its own
+params (`section`, `format`, `teams`, cast `main`), 48 seeds from 700 through
+the render's retry loop (`stage_qa.run(stage, seeds, params=..., cast=...)`).
+All nine stages are trial (weight 0): a level names one, a random seed never
+lands on one. The stages and mechanics are in
+`factory/generators/physics/worlds/trapdoor.py`.
+
+What the columns add to the table above: **out a race** is the mean number of
+marbles taken out, with trapdoor catches in brackets (the relay's handovers
+also leave the race); **races with a catch** is how often the mechanism took
+anyone; **last two** is the elimination gate's gap (docs/10). The verdict is
+the ordinary gates, plus `stage_qa.ELIMINATION_GATES` for an elimination or
+last-standing level; a race-format level (L13, L17, L19) must catch someone in
+a quarter of races, because its story asks for a `trap_catch` and a seed
+search should find one in a few tries. L16 has no line, so it has no
+runner-up.
+
+| level | stage · section | finished | first try | runner-up | parked | median s | lead changes | out a race (trap) | races with a catch | last two s | verdict |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| L11 | `trapfall` · `timer-trap` | 48/48 | 43/48 | 94% | 7/200 (5 short) | 14.7 | 2.5 | 1.7 (1.7) | 41/48 | 2.9 | pass |
+| L12 | `trapstairs` · `trap-sequence` | 48/48 | 48/48 | 100% | 6/203 (1 short) | 13.6 | 3.6 | 1.5 (1.5) | 43/48 | 1.4 | pass |
+| L13 | `trapline` · `finish-trapdoor` | 48/48 | 47/48 | 90% | 0/40 (3 short) | 15.7 | 3.5 | 1.2 (1.2) | 41/48 | 2.2 | pass |
+| L14 | `decoys` · `fake-panels` | 48/48 | 47/48 | 88% | 3/45 (4 short) | 15.1 | 2.7 | 1.2 (1.2) | 36/48 | 2.1 | pass |
+| L15 | `tripwire` · `leader-sensor-trap` | 48/48 | 48/48 | 92% | 4/41 (1 short) | 14.8 | 2.6 | 1.1 (1.1) | 47/48 | 2.3 | pass |
+| L16 | `sinkhole` · `spiral-bowl-reverse` | 48/48 | 47/48 | n/a (no line) | 1/47 | 12.6 | 3.4 | 3.0 (3.0) | 48/48 | 0.0 | pass |
+| L17 | `relay` · `relay-legs` | 48/48 | 39/48 | 90% | 2/57 (15 short) | 12.4 | 1.8 | 4.8 (0.8) | 30/48 | 2.2 | pass |
+| L18 | `trapfall` · `trap-timer-overlay` | 48/48 | 48/48 | 81% | 3/51 (2 short) | 16.6 | 2.0 | 1.1 (1.1) | 33/48 | 1.8 | pass |
+| L19 | `trapwalk` · `five-trapdoors` | 48/48 | 42/48 | 58% | 0/0 (1 short) | 13.9 | 1.7 | 0.4 (0.4) | 20/48 | 4.5 | pass |
+| L20 | `pitfall` · `trap-gauntlet` | 48/48 | 34/48 | 100% | 2/153 (3 short) | 11.7 | 1.7 | 6.7 (6.7) | 48/48 | 1.5 | pass |
+
+What the numbers changed on the way (each is in the code where it applies):
+
+- **A lid must not shut on a marble falling through it.** At -30 a marble
+  resting on a lid needs 1.1–1.4 s to drop below the lid line, and a lid that
+  shut first closed through it; the solver pushed it back on top, every cycle.
+  One crept along a lid for eight seconds. A lid due to shut now waits for the
+  marbles that are on it at that moment to go through
+  (`worlds/trapdoor._is_open`) — only those: waiting for anyone over the pit
+  let a stream through the finish throat hold it open until all four were
+  gone.
+- **Nothing beside a pit.** A peg one marble's room out from a pit wall made
+  a cradle: four of eight marbles stacked into it against L11's lid. Pits keep
+  two rooms clear on both sides, all the way down.
+- **Pace.** Eight or twelve marbles bring a runner-up home fast, so a stage
+  that is fine for four finishes under the QC floor: L11 went 9/24 first try
+  on a plain stack until a funnel above the panel slowed and gathered the
+  field. `trapline` (-45), `tripwire` (-40) and `sinkhole` (-45) run at more
+  than the kit's -30 because their geometry is slow — long throat arms, a tall
+  peg band, a bowl; `pitfall` runs at -27 because a leader clear of the doors
+  was home in 6–9 s.
+- **The bowl** (L16) parked every marble on its flat bottom until its lip
+  was held to a 0.55 slope, then let two marbles swing across it for eight
+  seconds (a bowl loses almost nothing) until mud on the lower slopes took the
+  energy out; its drain opens for 1.5 s at a time because that is how long a
+  marble takes to fall clear of the lid at -45, and it widened to 1.6 rooms
+  after two marbles jammed across it.
+- **No door opens in the first 2.5 s** (`GRACE_S`). Panels right under the
+  start grid took five of twelve gauntlet marbles in the first second, before
+  the caption was off; L12's top door, which opens as the leader reaches it,
+  was taking 4.6 marbles a race that way. `trapstairs` also got a wider top
+  panel (`trap1wide`): its first band has no room for pegs, and a start that
+  missed a narrow one fell two silent seconds.
+- **Two marbles** (L19): open more, and the first fall decides the race
+  (0.60 of the time: a runner-up in 44%); open less, and nobody falls (0.25:
+  a catch in 13 of 48). 0.45 is between them.
+
+One change to stage QA itself, to the *parked* measure and not to a gate:
+`stage_qa.held` now also treats a marble resting on a **shut, level door**
+(`rig.door`, from `style.mech`) as held, as it already did a marble in a
+trap's pit. The relay keeps each team's second marble in a pen until its
+teammate reaches the gate; a slow first leg left those waiting marbles in the
+parked count (8 of 43, all in pens). A sloped lid is never a floor, and a
+marble stuck while a pen waits for it is still counted as parked itself.

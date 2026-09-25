@@ -25,7 +25,7 @@ disagree, and two of its rules decided most of the conversion:
 | world | levels | ready | blocked | needs input | WP7 due (3 days before first level) |
 |---|---|---|---|---|---|
 | foundations | L01–L10 | 10 | 0 | 0 | none: existing stages |
-| trapdoor | L11–L20 | 0 | 10 | 0 | Oct 2 |
+| trapdoor | L11–L20 | 10 | 0 | 0 | done: World 2 stages pass docs/06 |
 | polarity-swap | L21–L30 | 2 | 8 | 0 | Oct 13 (L22) |
 | halloween-maze | L31–L40 | 2 | 7 | 1 | Oct 22 |
 | ice-sand | L41–L50 | 0 | 9 | 1 | Nov 1 |
@@ -34,7 +34,7 @@ disagree, and two of its rules decided most of the conversion:
 | repel | L71–L80 | 0 | 10 | 0 | Dec 1 |
 | colour-gates | L81–L90 | 0 | 10 | 0 | Dec 11 |
 | grand-final | L91–L100 | 0 | 8 | 2 | Dec 22 (L92 needs the World 4 maze) |
-| **total** | | **14** | **82** | **4** | |
+| **total** | | **24** | **72** | **4** | |
 
 Blocked wins over needs-input: a blocked level that also waits on the
 operator carries both `blocked_on` and `operator_input`.
@@ -116,8 +116,8 @@ repetitive-content policy is most likely to catch).
 |---|---|---|---|
 | Sep 27 | sleep/study | Marble races to study to: Season 0, week one (one hour) | **flag: not built (§7)** |
 | Oct 4 | tournament | Week One Cup: the full bracket with slow-motion replays | `--kind tournament`, L01–L10 |
-| Oct 11 | sleep/study | Trapdoor marble runs for sleep, no talking | **flag: not built (§7)**; World 2 is blocked anyway |
-| Oct 18 | tournament | Trapdoor gauntlet: the full elimination | needs World 2 (blocked) |
+| Oct 11 | sleep/study | Trapdoor marble runs for sleep, no talking | **flag: not built (§7)** |
+| Oct 18 | tournament | Trapdoor gauntlet: the full elimination | `--kind tournament`, L11–L20 |
 | Oct 25 | recap | Season 0 so far: every rivalry explained | `--kind recap`; rivalries come from results, not from the plan |
 | Nov 1 | tournament | Halloween Cup: complete replay | needs World 4 (mostly blocked) |
 | Nov 8 | sleep/study | Ice and sand marble races for studying | **flag: not built (§7)** |
@@ -170,20 +170,13 @@ until checked against YouTube's own page (docs/08 §7).
 
 `season plan` refuses these until the named WP7 mechanic passes stage QA.
 "Base" is the existing stage the section would be added to, where there is
-one; trapdoor exists but fails QA today (lead changes 1.4).
+one; trapdoor exists but fails QA today (lead changes 1.4). World 2 (L11–L20)
+is no longer here: it is built on stages of its own (trapdoor panels,
+`factory/generators/physics/worlds/trapdoor.py`), each level's `note` says
+what was approximated, and docs/06 "World 2" has the numbers.
 
 | level | date | world | needs | base |
 |---|---|---|---|---|
-| L11 | Oct 05 | trapdoor | hidden-timer trap mode, elimination format, two marbles per colour (teams) | trapdoor |
-| L12 | Oct 06 | trapdoor | three staggered trapdoors in sequence, elimination format, teams | trapdoor |
-| L13 | Oct 07 | trapdoor | finish-line trapdoor mode | trapdoor |
-| L14 | Oct 08 | trapdoor | fake (painted) trap panels, elimination format | trapdoor |
-| L15 | Oct 09 | trapdoor | leader-sensor trap (opens under whoever leads at halfway) | trapdoor |
-| L16 | Oct 10 | trapdoor | spiral bowl draining into a centre trapdoor, reverse scoring (last in wins) | — |
-| L17 | Oct 11 | trapdoor | team relay (tag at a halfway gate, a trapdoor per leg), teams | trapdoor |
-| L18 | Oct 12 | trapdoor | trapdoor countdown drawn on screen | trapdoor |
-| L19 | Oct 13 | trapdoor | five-trapdoor track | trapdoor |
-| L20 | Oct 14 | trapdoor | seven-trapdoor gauntlet, elimination to one, three marbles per colour (teams) | trapdoor |
 | L22 | Oct 16 | polarity-swap | magnet flip_at (attract, then repel) | lodestone |
 | L23 | Oct 17 | polarity-swap | magnets on both walls (tug of war) | lodestone |
 | L24 | Oct 18 | polarity-swap | repelling magnet behind the finish line | lodestone |

@@ -12,6 +12,7 @@ from typing import Any
 
 from .. import stagekit
 from . import stages
+from .worlds import trapdoor as w2  # World 2's sections register with the kit on import
 
 @dataclass(frozen=True)
 class Stage:
@@ -154,6 +155,44 @@ STAGE_SPECS: list[Stage] = [
     composed("trapdoor", [("pegs", 0.8), ("trap", 1.6), ("bumpers", 0.8)], gravity=-30.0, noun="the trapdoor",
               blurb="pegs, a trapdoor pit that holds a marble and lets it go, then bumpers",
               gate=True),
+    # World 2, Trapdoor Roulette (L11-L20): trapdoor panels that take a marble
+    # out of the race (worlds/trapdoor.py). Trial stages, each raced only by
+    # the level that names it; docs/06 "World 2" has their numbers.
+    composed("trapfall", [("pegs", 0.8), ("funnel", 0.8), ("trap1", 1.2), ("pegs", 0.8)], gravity=-30.0,
+              noun="the trapdoor", blurb="pegs, a funnel, one trapdoor panel, then pegs"),
+    composed("trapstairs", [("trap1wide", 1.0), ("trap1", 1.0), ("funnel", 0.7), ("trap1", 1.0)], gravity=-30.0,
+              noun="trapdoors", blurb="three trapdoor panels one above another, a funnel before the last"),
+    # -45, not -30: its throat's arms are long and shallow, and at -30 the
+    # field crawled down them (median 16.6-17.9 s against the 18 s ceiling).
+    Stage("trapline", w2.finish_build([("ramps", 1.0), ("pegs", 1.0)]), -45.0, "the finish trapdoor",
+          "ramps, pegs, then a throat with a trapdoor under it just above the line",
+          lambda s, g: stagekit.describe_parts((("ramps", 1.0), ("pegs", 1.0))) + ", then a trapdoor under the run-in",
+          parts=(("ramps", 1.0), ("pegs", 1.0))),
+    composed("decoys", [("pegs", 0.8), ("trap3", 1.0), ("pegs", 0.8), ("trap3", 1.0)], gravity=-30.0, noun="panels",
+              blurb="two rows of three trapdoor panels, only some of them real", gate=True),
+    # The shares put the sensor line at the middle of the course (y 524 of the
+    # 930 -> 110 run): halfway is what the level says. -40 because the tall
+    # peg band ran the median to 17.6 s at -30.
+    composed("tripwire", [("pegs", 2.0), ("trap3", 1.0), ("pegs", 0.75)], gravity=-40.0, noun="the sensor",
+              blurb="pegs, a sensor line at halfway over a row of trapdoor panels, pegs"),
+    # No finish line: the bowl drains until one is left. -45 so a marble on
+    # the drain's lid falls clear of it inside one opening (see spiral_bowl).
+    Stage("sinkhole", w2.bowl_build([("pegs", 1.0), ("bowl", 1.6)]), -45.0, "the bowl",
+          "pegs into a bowl that drains through a trapdoor",
+          lambda s, g: stagekit.describe_parts((("pegs", 1.0), ("bowl", 1.6))),
+          parts=(("pegs", 1.0), ("bowl", 1.6))),
+    composed("relay", [("trap1", 1.3), ("relaystation", 1.0), ("trap1", 1.3)], gravity=-30.0, noun="the relay",
+              blurb="a trapdoor leg, a halfway gate with a pen per team, a second trapdoor leg"),
+    composed("trapwalk", [("trap2", 1.0), ("trap1", 1.0), ("trap2", 1.0)], gravity=-30.0, noun="trapdoors",
+              blurb="five trapdoor panels in three bands", gate=True),
+    # Starts lower than a composed stage (top 0.84 h): twelve marbles need a
+    # start grid of two rows, and the kit's usual stack reaches the second.
+    # -27, under the kit's -30: at -30 a leader clear of the doors was home
+    # in 6-9 s and 10 of 24 first attempts finished under the QC floor.
+    Stage("pitfall", w2.grid_build([("trap2", 1.0), ("trap1", 1.0), ("trap2", 1.0), ("trap2", 1.0)]), -27.0,
+          "trapdoors", "seven trapdoor panels in four bands",
+          lambda s, g: stagekit.describe_parts((("trap2", 1.0), ("trap1", 1.0), ("trap2", 1.0), ("trap2", 1.0))),
+          gate=True, parts=(("trap2", 1.0), ("trap1", 1.0), ("trap2", 1.0), ("trap2", 1.0))),
     # COMPOSED-STAGES-END
 ]
 
@@ -198,6 +237,23 @@ class Mechanic:
 # world's WP7 lands one.
 MECHANIC_SPECS: list[Mechanic] = [
     # MECHANICS-BEGIN
+    # World 2, Trapdoor Roulette (worlds/trapdoor.py; docs/06 "World 2").
+    Mechanic("timer-trap", w2.timer_trap, stage="trapfall", blurb="the trapdoor opens once, at a hidden time"),
+    Mechanic("trap-sequence", w2.trap_sequence, stage="trapstairs",
+             blurb="three trapdoors, each opening as the leader comes down to it"),
+    Mechanic("finish-trapdoor", w2.finish_trapdoor, stage="trapline",
+             blurb="the trapdoor under the run-in opens as the first marble reaches it"),
+    Mechanic("fake-panels", w2.fake_panels, stage="decoys", blurb="six panels, two of them real"),
+    Mechanic("leader-sensor-trap", w2.leader_sensor, stage="tripwire",
+             blurb="the panel under the leader opens when it crosses the halfway sensor"),
+    Mechanic("spiral-bowl-reverse", w2.spiral_bowl, stage="sinkhole",
+             blurb="a bowl drains through a trapdoor; the last one in wins"),
+    Mechanic("relay-legs", w2.relay_legs, stage="relay",
+             blurb="team relay: the second marble is let out when its teammate reaches the halfway gate"),
+    Mechanic("trap-timer-overlay", w2.timer_overlay, stage="trapfall",
+             blurb="the timer trapdoor, with its countdown on screen"),
+    Mechanic("five-trapdoors", w2.five_trapdoors, stage="trapwalk", blurb="five trapdoors on their own cycles"),
+    Mechanic("trap-gauntlet", w2.trap_gauntlet, stage="pitfall", blurb="seven trapdoors opening in a wave"),
     # MECHANICS-END
 ]
 MECHANICS: dict[str, Mechanic] = {m.id: m for m in MECHANIC_SPECS}
