@@ -25,16 +25,16 @@ disagree, and two of its rules decided most of the conversion:
 | world | levels | ready | blocked | needs input | WP7 due (3 days before first level) |
 |---|---|---|---|---|---|
 | foundations | L01–L10 | 10 | 0 | 0 | none: existing stages |
-| trapdoor | L11–L20 | 0 | 10 | 0 | Oct 2 |
+| trapdoor | L11–L20 | 10 | 0 | 0 | done: World 2 stages pass docs/06 |
 | polarity-swap | L21–L30 | 2 | 8 | 0 | Oct 13 (L22) |
 | halloween-maze | L31–L40 | 2 | 7 | 1 | Oct 22 |
 | ice-sand | L41–L50 | 0 | 9 | 1 | Nov 1 |
-| dice | L51–L60 | 0 | 10 | 0 | Nov 11 |
+| dice | L51–L60 | 9 | 0 | 1 | Nov 11 (built; docs/06 "World 6") |
 | arena | L61–L70 | 0 | 10 | 0 | Nov 21 |
 | repel | L71–L80 | 0 | 10 | 0 | Dec 1 |
 | colour-gates | L81–L90 | 0 | 10 | 0 | Dec 11 |
 | grand-final | L91–L100 | 0 | 8 | 2 | Dec 22 (L92 needs the World 4 maze) |
-| **total** | | **14** | **82** | **4** | |
+| **total** | | **24** | **72** | **4** | |
 
 Blocked wins over needs-input: a blocked level that also waits on the
 operator carries both `blocked_on` and `operator_input`.
@@ -116,8 +116,8 @@ repetitive-content policy is most likely to catch).
 |---|---|---|---|
 | Sep 27 | sleep/study | Marble races to study to: Season 0, week one (one hour) | **flag: not built (§7)** |
 | Oct 4 | tournament | Week One Cup: the full bracket with slow-motion replays | `--kind tournament`, L01–L10 |
-| Oct 11 | sleep/study | Trapdoor marble runs for sleep, no talking | **flag: not built (§7)**; World 2 is blocked anyway |
-| Oct 18 | tournament | Trapdoor gauntlet: the full elimination | needs World 2 (blocked) |
+| Oct 11 | sleep/study | Trapdoor marble runs for sleep, no talking | **flag: not built (§7)** |
+| Oct 18 | tournament | Trapdoor gauntlet: the full elimination | `--kind tournament`, L11–L20 |
 | Oct 25 | recap | Season 0 so far: every rivalry explained | `--kind recap`; rivalries come from results, not from the plan |
 | Nov 1 | tournament | Halloween Cup: complete replay | needs World 4 (mostly blocked) |
 | Nov 8 | sleep/study | Ice and sand marble races for studying | **flag: not built (§7)** |
@@ -170,20 +170,13 @@ until checked against YouTube's own page (docs/08 §7).
 
 `season plan` refuses these until the named WP7 mechanic passes stage QA.
 "Base" is the existing stage the section would be added to, where there is
-one; trapdoor exists but fails QA today (lead changes 1.4).
+one; trapdoor exists but fails QA today (lead changes 1.4). World 2 (L11–L20)
+is no longer here: it is built on stages of its own (trapdoor panels,
+`factory/generators/physics/worlds/trapdoor.py`), each level's `note` says
+what was approximated, and docs/06 "World 2" has the numbers.
 
 | level | date | world | needs | base |
 |---|---|---|---|---|
-| L11 | Oct 05 | trapdoor | hidden-timer trap mode, elimination format, two marbles per colour (teams) | trapdoor |
-| L12 | Oct 06 | trapdoor | three staggered trapdoors in sequence, elimination format, teams | trapdoor |
-| L13 | Oct 07 | trapdoor | finish-line trapdoor mode | trapdoor |
-| L14 | Oct 08 | trapdoor | fake (painted) trap panels, elimination format | trapdoor |
-| L15 | Oct 09 | trapdoor | leader-sensor trap (opens under whoever leads at halfway) | trapdoor |
-| L16 | Oct 10 | trapdoor | spiral bowl draining into a centre trapdoor, reverse scoring (last in wins) | — |
-| L17 | Oct 11 | trapdoor | team relay (tag at a halfway gate, a trapdoor per leg), teams | trapdoor |
-| L18 | Oct 12 | trapdoor | trapdoor countdown drawn on screen | trapdoor |
-| L19 | Oct 13 | trapdoor | five-trapdoor track | trapdoor |
-| L20 | Oct 14 | trapdoor | seven-trapdoor gauntlet, elimination to one, three marbles per colour (teams) | trapdoor |
 | L22 | Oct 16 | polarity-swap | magnet flip_at (attract, then repel) | lodestone |
 | L23 | Oct 17 | polarity-swap | magnets on both walls (tug of war) | lodestone |
 | L24 | Oct 18 | polarity-swap | repelling magnet behind the finish line | lodestone |
@@ -208,16 +201,6 @@ one; trapdoor exists but fails QA today (lead changes 1.4).
 | L47 | Nov 10 | ice-sand | sand dunes (hidden hills in the floor) | — |
 | L48 | Nov 11 | ice-sand | ice bowl with a sand exit chute | — |
 | L50 | Nov 13 | ice-sand | terrain gauntlet composite, plus a non-racing purple marble on the sidelines | — |
-| L51 | Nov 14 | dice | dice gate (seeded choice of one of three paths) | — |
-| L52 | Nov 15 | dice | dice-set random start grid | — |
-| L53 | Nov 16 | dice | dice removes one obstacle per run | — |
-| L54 | Nov 17 | dice | three dice gates on one track | — |
-| L55 | Nov 18 | dice | dice-set round count, one to three (the sandbox runs at most two) | — |
-| L56 | Nov 19 | dice | dice gates forced to the hardest path | — |
-| L57 | Nov 20 | dice | dice-rolled surface per section (needs the ice-sand sections) | — |
-| L58 | Nov 21 | dice | dice-picked handicap (one marble starts early) | — |
-| L59 | Nov 22 | dice | handicap: one named marble starts from the back with no dice help | — |
-| L60 | Nov 23 | dice | composite final: dice paths, rounds, surfaces and grid | — |
 | L61 | Nov 24 | arena | shrinking walls, last one standing | — |
 | L62 | Nov 25 | arena | centre hill, king-of-the-hill scoring | — |
 | L63 | Nov 26 | arena | shrinking arena with trapdoors, seven entrants | — |
@@ -277,6 +260,16 @@ one; trapdoor exists but fails QA today (lead changes 1.4).
 | L39 | needs_input | — | stage, fan_idea | Operator picks the passing stage nearest the winning idea, sets params.stage and drops section; if nothing fits, set status blocked. |
 | L40 | ready | zigzag | — | 4-way sprint -> zigzag, the fastest stage. The plan's per-world points reset does not exist (standings run all season). |
 | L49 | needs_input | — | stage, fan_idea, credit | Operator sets params.stage to the passing stage nearest the winning idea (drop section) and posts the credit; blocked if nothing fits. |
+| L51 | ready | dicetrack | — | section dice-gate-paths: a die (faces one to three) at the gate's throat picks the lane; the field waits until it lands. |
+| L52 | ready | dicegrid | — | section dice-start-grid: every marble rolls; the highest starts at the front of a grid that drops at once. |
+| L53 | ready | diceblock | — | section dice-remove-obstacle: six blockers, each with a die face; the die removes one. traps -> blockers. |
+| L54 | ready | dicetriple | — | section dice-gates-duel: three dice gates, one die each; the lanes are short drops (three full gates do not fit the frame). |
+| L55 | ready | dicegrid | — | section dice-round-count, rounds 3: the heat's die (one to three) sets how many rounds run; later rounds race the same stage. |
+| L56 | ready | dicetrack | — | section loaded-dice: the die always lands on the lane with the shelves, the same for every marble. |
+| L57 | ready | dicesurface | — | section dice-surface: three ramp bands, each with a painted die (ice, sand, plain) on the core's surface zones, not World 5's sections. |
+| L58 | ready | plinko | — | section handicap-start: start cups numbered left to right; the die picks one, which goes early (head_start_s, 1.2 s). |
+| L59 | needs_input | dicegrid | back_marker | section handicap-back-start: a rolled grid, the back marker last with no die. Operator sets operator_input.back_marker and params.mechanics.back_marker to the standings leader at plan time. |
+| L60 | ready | dicefinal | — | section dice-final, rounds 3: rolled grid, a round die in the heat, a path die and a surface die at the gate. |
 | L91 | needs_input | zigzag | seeds | World 1 track -> zigzag (L01's stage) under the Christmas theme. Seed 1 vs seed 8. Seeds come from standings at plan time; do not hard-code names. A six-marble cast cannot fill the plan's eight seeds, so the operator decides byes or guests. |
 | L97 | needs_input | — | seeds, stage | Losers of L95 and L96. Operator sets params.stage to the fan-chosen passing stage (drop section). Seeds come from standings at plan time; do not hard-code names. A six-marble cast cannot fill the plan's eight seeds, so the operator decides byes or guests. |
 

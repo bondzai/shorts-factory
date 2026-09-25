@@ -151,7 +151,46 @@ def _soft_limit(stereo: np.ndarray, drive: float | None = None, ceiling: float =
     return shaped / (float(np.max(np.abs(shaped))) or 1.0) * ceiling
 
 
-def render_wav(impacts: list[Impact], duration_s: float, out_path: Path) -> Path:
+def whoosh(seconds: float = 0.6) -> np.ndarray:
+    """An ignite: noise through a low-pass whose cutoff sweeps up, over a
+    short rising tone, swelling in and dying away. Synthesised, like every
+    other sound here; the seed is fixed, so it is the same whoosh every time."""
+    n = int(SAMPLE_RATE * seconds)
+    t = np.arange(n) / SAMPLE_RATE
+    noise = np.random.default_rng(11).normal(0, 1, n)
+    # One-pole low-pass, cutoff 250 Hz -> 5 kHz: the sweep is the "whoo".
+    cutoff = 250.0 * (5000.0 / 250.0) ** np.clip(t / (seconds * 0.7), 0, 1)
+    alpha = 1 - np.exp(-2 * np.pi * cutoff / SAMPLE_RATE)
+    out = np.empty(n)
+    acc = 0.0
+    for k in range(n):
+        acc += alpha[k] * (noise[k] - acc)
+        out[k] = acc
+    out /= float(np.max(np.abs(out))) or 1.0
+    peak = 0.22
+    env = np.where(t < peak, (t / peak) ** 2, np.exp(-(t - peak) * 9.0))
+    tone = np.sin(2 * np.pi * np.cumsum(120.0 + 260.0 * t / seconds) / SAMPLE_RATE) * 0.25
+    return (out * 0.75 + tone) * env
+
+
+def thump(seconds: float = 0.5) -> np.ndarray:
+    """A low hit under the opening's slow-mo: a sine falling 95 -> 42 Hz with
+    a fast decay and a soft click on the front."""
+    n = int(SAMPLE_RATE * seconds)
+    t = np.arange(n) / SAMPLE_RATE
+    freq = 42.0 + 53.0 * np.exp(-t * 14.0)
+    body = np.sin(2 * np.pi * np.cumsum(freq) / SAMPLE_RATE) * np.exp(-t * 8.0)
+    click = np.random.default_rng(12).normal(0, 1, n) * np.exp(-t * 320.0) * 0.25
+    return body + click
+
+
+SOUNDS = {"whoosh": whoosh, "thump": thump}
+
+
+def render_wav(impacts: list[Impact], duration_s: float, out_path: Path,
+               sounds: list[tuple[float, str, float]] | None = None) -> Path:
+    """`sounds`: (t, kind, gain) of the presentation's own sounds (SOUNDS),
+    mixed centre; None leaves the track exactly as it was without them."""
     length = int(SAMPLE_RATE * duration_s)
     rng = np.random.default_rng(1)
     left = _room_tone(length, rng)
@@ -169,6 +208,15 @@ def render_wav(impacts: list[Impact], duration_s: float, out_path: Path) -> Path
         pan = float(np.clip(impact.pan, -1.0, 1.0))
         left[start:end] += sample * (0.5 - pan * 0.35)
         right[start:end] += sample * (0.5 + pan * 0.35)
+
+    for t, kind, gain in sounds or ():
+        start = int(t * SAMPLE_RATE)
+        if not 0 <= start < length:
+            continue
+        sample = SOUNDS[kind]() * gain
+        end = min(length, start + len(sample))
+        left[start:end] += sample[: end - start] * 0.5
+        right[start:end] += sample[: end - start] * 0.5
 
     stereo = np.stack([left, right], axis=1)
     stereo = _tail(stereo, _tail_mix(len(impacts), duration_s))

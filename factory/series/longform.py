@@ -46,8 +46,11 @@ INK = (235, 235, 242)
 DIM = (143, 143, 163)
 KINDS = ("tournament", "recap")
 
-# (trace meta, trace directory) -> the race's frames at sim size, as shipped.
-Redraw = Callable[[dict, Path], Iterator[bytes]]
+# (trace meta, trace directory, raw=True) -> the race's frames at sim size.
+# A long-form asks for the raw race: a short's presentation (camera, slow-mo,
+# its HUD) is that short's edit, and this is a different one — every source
+# frame once, in real time, as the trace's impacts and frame count assume.
+Redraw = Callable[..., Iterator[bytes]]
 
 
 @dataclass
@@ -223,7 +226,7 @@ def _race(piece: Piece, backdrop: Image.Image, race_w: int, out: Path, preset: s
     proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
     assert proc.stdin is not None
     try:
-        for i, frame in enumerate(redraw(piece.meta, piece.trace_dir)):
+        for i, frame in enumerate(redraw(piece.meta, piece.trace_dir, raw=True)):
             if i >= first_frame:
                 proc.stdin.write(frame)
     finally:

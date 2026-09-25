@@ -99,6 +99,9 @@ def test_a_race_without_mechanics_writes_the_trace_it_wrote_before(no_ffmpeg, tm
         pytest.skip(f"no trace pins recorded for {sys.platform}/{platform.machine()}")
     engine, seed, params = PINNED_RACES[name]
     settings.load().raw["render"]["engine"] = engine
+    # The presentation adds its own time map to the trace; these pins are the
+    # race as it was drawn before it (off is byte-identical: test_presentation).
+    settings.load().raw["presentation"]["enabled"] = False
     clip = _race(tmp_path, name, seed, **params)
     folder = clip.trace_path.parent
     # The closing ask's words replaced a flag in trace.json (factory/captions);

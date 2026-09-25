@@ -59,6 +59,13 @@ SCHEMA: list[dict[str, Any]] = [
      "help": "On screen after the winner crosses, e.g. COMMENT YOUR PICK. Empty turns it off."},
     {"section": "overlay", "key": "cta_seconds", "type": "number", "min": 0, "max": 5, "step": 0.1,
      "label": "Closing ask (s)"},
+    {"section": "presentation", "key": "enabled", "type": "select", "options": [True, False],
+     "label": "Race presentation", "help": "Camera, slow-mo, fire and a live leaderboard over the race. "
+     "Off renders a race exactly as before."},
+    {"section": "presentation", "key": "fire", "type": "select", "options": [True, False],
+     "label": "Coloured fire on marbles"},
+    {"section": "presentation", "key": "leaderboard", "type": "select", "options": [True, False],
+     "label": "Live leaderboard and progress bar"},
     {"section": "retention", "key": "rejected_days", "type": "number", "min": -1, "max": 365, "step": 1,
      "label": "Keep rejected files (days)", "help": "-1 keeps them forever. Only `factory gc` deletes."},
     {"section": "retention", "key": "published_days", "type": "number", "min": -1, "max": 3650, "step": 1,

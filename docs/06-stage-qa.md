@@ -65,3 +65,166 @@ What the numbers say, and what they changed:
 - **`launched` no longer fires at frame 8** on a marble that starts the clip inside a field (`outcome.launches`). On stages already live no field reaches the start row, so their outcomes do not move (the pinned traces pass).
 
 Reproduce a row: `factory stage-qa --stage lodestone --section magnet-flip --mechanics '{"flip_at": 0.45}' --seeds 48` for plain. Add `--cast main` for the cast row; with a section, the CLI prints the gates, not the balance cells.
+## World 6: the dice track (L51–L60)
+
+Measured with each level's own params and cast (`section`, and for L59 a back marker), seeds 700–747, through the same retry loop a render uses (`stage_qa.run(stage, seeds, params=…, cast=…)`). A multi-round level (L55, L60) is measured on its heat, where its dice roll. Every dice stage is trial (weight 0): it races when a level names it and is never picked at random.
+
+The ordinary gates are the table above's. Two more are World 6's own. **Followed**: every marble that went below a dice gate's lanes went down the lane its die showed (0 off-lane of every race, all levels); the blocker, grid, surface and head-start dice are pinned per seed in `tests/test_dice.py`. **Balance**: each regular wins 10–45% of the races that finished (docs/08, "Cast"); the duel (L54) has two marbles, so it shows its split and is not judged.
+
+| level | stage | built from | gravity | finished | first try | runner-up | parked | out | median s | lead changes | blaze | tide | volt | moss | nova | followed | verdict |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| L51 `dice-gate-paths` | `dicetrack` | dicegate → pegs | -34 | 48/48 | 48/48 | 100% | 6/133 | 0 | 13.1 | 3.1 | 19% | 27% | 25% | 17% | 12% | 48/48 | pass |
+| L52 `dice-start-grid` | `dicegrid` | runway → pegs → sieve → funnel | -40 | 48/48 | 48/48 | 100% | 2/140 (1 short) | 0 | 13.9 | 1.7 | 31% | 12% | 27% | 17% | 12% | 48/48 | pass |
+| L53 `dice-remove-obstacle` | `diceblock` | diceblock → funnel | -40 | 48/48 | 48/48 | 92% | 7/143 (23 short) | 0 | 14.4 | 2.0 | 21% | 25% | 15% | 21% | 19% | 48/48 | pass |
+| L54 `dice-gates-duel` | `dicetriple` | dicetriple | -150 | 48/48 | 47/48 | 96% | 0/2 | 0 | 16.4 | 3.3 | 52% | — | — | — | 48% | 48/48 | pass (duel: split shown) |
+| L55 `dice-round-count` | `dicegrid` | runway → pegs → sieve → funnel | -40 | 48/48 | 48/48 | 100% | 6/136 | 0 | 13.7 | 2.5 | 23% | 25% | 21% | 19% | 12% | 48/48 | pass |
+| L56 `loaded-dice` | `dicetrack` | dicegate → pegs | -34 | 48/48 | 47/48 | 92% | 10/138 | 0 | 15.7 | 3.3 | 19% | 23% | 27% | 19% | 12% | 48/48 | pass |
+| L57 `dice-surface` | `dicesurface` | surfaceramps ×3 | -60 | 48/48 | 48/48 | 81% | 9/146 (26 short) | 0 | 13.7 | 2.4 | 25% | 21% | 15% | 17% | 23% | 48/48 | pass |
+| L58 `handicap-start` | `plinko` | pegs → wheel → pegs | -31 | 48/48 | 48/48 | 100% | 12/132 | 0 | 15.8 | 2.2 | 21% | 15% | 27% | 15% | 23% | 48/48 | pass |
+| L59 `handicap-back-start` | `dicegrid` | runway → pegs → sieve → funnel | -40 | 48/48 | 48/48 | 100% | 2/140 | 0 | 13.7 | 1.7 | 27% | 19% | 25% | 17% | 12% | 48/48 | pass |
+| L60 `dice-final` | `dicefinal` | runway → dicegate → pegs | -60 | 48/48 | 48/48 | 100% | 5/122 | 0 | 13.4 | 3.6 | 17% | 25% | 12% | 15% | 31% | 48/48 | pass |
+
+L59's back marker rotates through the field by seed (the level names the standings leader at plan time; QA cannot know who that will be). Starting last with no die, the back marker won 3 of 48: a handicap, not a scripted loss. With one fixed back marker (tide on every seed) it won 8%; it is the handicap under test and is not held to the balance gate.
+
+What the numbers changed, in the order they were found:
+
+- **The flap sat 18 px under the throat** and made a second throat 65 px across: the field queued there for seconds. It now sits a marble's room down, and a fence from the far lip closes the gap that opened (without it 6–86 marbles a set went down the wrong lane).
+- **A grid by a wall is a free fall.** The first grid stood against the left wall, where the pegs keep a marble's room clear, and the front marble fell the height of the frame untouched (every first attempt under the 10.6 s floor). The grid is now a ramp across the middle with a lip, dropped whole, on a side the seed picks.
+- **How much the grid decides is the stage under it.** Front-slot wins over 48 seeds: pegs → bumpers → spinners 44 of 48; sieve → funnel → pegs 5 (the back did better); pegs → sieve → funnel 25, back 6 — the grid matters and does not decide, which is the stage L52/L55/L59 use.
+- **Three holds make a long clip.** The duel ran 21 s at the median; a later gate's die now rolls as the leader clears the gate above, so it lands while the field falls to it.
+- **A dice stage raced with no mechanic** (the stage tests do) still holds at every gate for as long as a die takes and then opens the middle lane; the blockers stay up. Without that, the triple stage fell straight through in two seconds.
+## World 5: Ice vs Sand (L41–L50)
+
+Written by hand, not by `--report`: these stages are measured with each level's own params and the
+four regulars (`cast main`: blaze, tide, volt, moss), seeds 700–747. `factory stage-qa --stage <id>
+--cast main --seeds 48` prints the balance row for a level with no `section`, `format` or
+`mechanics`. For the rest, add the level's params (`--section`, `--format elimination`, `--mechanics
+'{"melt": 0.55}'`); the CLI then prints the plain row, and the balance column below is
+`stage_qa.balance` on the same run. All nine are weight 0 (trial). The gates are the ones above, plus
+`ELIMINATION_GATES` for L46. None of them was loosened. Every stage is in
+`factory/generators/physics/worlds/ice_sand.py`.
+
+| level | stage | built from | params | gravity | finished | first try | runner-up | parked | out | median s | lead changes | verdict | wins b/t/v/m | ice / sand speed |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| L41 | `icesand` | ice_ramps → pegs → sand_ramps | — | -85 | 48/48 | 38/48 | 92% | 2/92 (12 short) | 0 | 12.9 | 2.1 | pass | 15/23/35/27% | 62 / 32 px/s |
+| L42 | `stripes` | striped_ramps → striped_ramps | — | -200 | 48/48 | 48/48 | 100% | 4/73 | 0 | 14.5 | 2.0 | pass | 29/25/23/23% | 80 / 41 |
+| L43 | `skijump` | ice_launch → sand_ramps | — | -300 | 48/48 | 48/48 | 100% | 0/66 | 0 | 13.2 | 2.3 | pass | 27/33/19/21% | 133 / 75; 4.0 `launched` a race |
+| L44 | `sandpit` | ice_ramps → sand_pit → sand_ramps | — | -120 | 48/48 | 48/48 | 100% | 1/83 | 0 | 15.1 | 1.8 | pass | 27/23/29/21% | 79 / 40; 1.0 `sank` a race |
+| L45 r1 | `icefall` | ice_ramps → pegs → ice_ramps | melt 0.2 | -50 | 48/48 | 44/48 | 100% | 0/90 (6 short) | 0 | 12.5 | 2.1 | pass | 35/25/21/19% | ice 54 / slush 48 |
+| L45 r2 | `icefall` | same layout | melt 0.55 | -50 | 48/48 | 46/48 | 100% | 1/84 (6 short) | 0 | 12.9 | 1.6 | pass | 19/27/31/23% | ice 54 / slush 41 |
+| L45 r3 | `icefall` | same layout | melt 0.9 | -50 | 48/48 | 43/48 | 96% | 1/89 | 0 | 13.5 | 2.1 | pass | 21/27/27/25% | ice 59 / slush 42 |
+| L46 | `thinice` | thin_ice → pegs → thin_ice | elimination | -60 | 48/48 | 48/48 | 79% | 0/40 | 0 | 16.2 | 2.2 | pass | 27/19/23/31% | ice 53; 1.6 `broke` a race |
+| L47 | `dunes` | dunes → dunes | — | -140 | 48/48 | 47/48 | 100% | 1/85 | 0 | 15.9 | 1.6 | pass | 29/21/27/23% | sand 40 |
+| L48 | `icebowl` | ice_bowl → sand_chute | — | -80 | 48/48 | 48/48 | 98% | 1/90 (1 short) | 0 | 14.6 | 1.9 | pass | 17/25/23/35% | 70 / 29 |
+| L50 | `terrain` | ice_ramps → striped_ramps → dunes → sand_pit | section sideline-watcher | -230 | 48/48 | 44/48 | 98% | 3/88 | 0 | 14.5 | 2.1 | pass | 19/23/42/17% | 96 / 53 |
+
+L46 against the elimination gates: 1.8 finishers and 1.4 eliminations a race, 79% of races take
+someone out, the decided gate (95%) holds, last two 1.75 s apart at the median: pass.
+
+**The surface changes the race.** The last column is the mean speed of a marble whose centre is in an
+ice layer against one in a sand layer, over 24 of the same seeds: ice is 1.8–2.4 times as fast
+everywhere both appear. Round by round on L45, the ice left grips more and the slush share rises
+(about a fifth, half, nine tenths of the track), and the median round goes 12.5 → 12.9 → 13.5 s.
+
+What the numbers were bought with, in order of the lessons:
+
+- **Floors, then chutes.** The first stages were full-width floors, one wall to the other. On ice
+  every marble slides at the same speed, so a floor is single file: the lead changed 0.4–0.8 times a
+  race. Every ramp is now laid on the `chutes` section's split-and-rejoin rows (`_chutes`), so there
+  are two ways down each split and the two need not be the same ground.
+- **Where the split's point sits.** The chutes section's tilted cap, and a point half a marble off
+  the throat above it, both sent the whole field the same way at every split. Under the throat
+  (`APEX_SHIFT`), the field divides: stripes went 1.4 → 1.7 over 96 seeds. After a pit or the bowl
+  (a straight drop) the point moves clear (`DROP_SHIFT`): a marble dropped dead onto it sat balanced.
+- **Fresh sand.** Sand drags (`SAND_DRAG` 0.75/s), and the first marble through each sand patch drags
+  `TRAIL` more (2.0/s; 3.0 on the stripes), because it breaks the trail. It is arrival order, never
+  identity (docs/08 rule 2.4). It is what keeps a sand race close: without it dunes and stripes both
+  measured 1.4 lead changes. Frost on the ice (the same, on ice) was tried and made ice worse (0.9–1.2).
+- **Ice alone barely changes the lead.** Ice-only chutes sit at 1.2–1.5 however they are tuned
+  (slope, throat, offset, gravity). L41, L45 and L46 put a band of the kit's pegs mid-course. That is
+  the approximation, and each level's `note` says so.
+- **Pace is the gravity, per stage.** Ice wants low gravity (it is quick anyway) and sand high (on
+  sand the drag, not the slope, sets the pace: speed is (2/3)·g·sin(slope)/drag). A mixed stage sits
+  between, which is why the gravities run from -50 to -300.
+- **What parked marbles.** Ramps shorter than the frame put a ramp's end over the next ramp, 45–60 px
+  above it against a 57 px marble (the first ice stage parked its whole field there); a squeezed
+  one-row band laid its sand at 0.14 (the terrain stage parked 64 of 123 before a single row was
+  allowed the band's full height); the ski jump's upturned lip was a hollow (a flat table now); the
+  bowl's gap off to one side left every slowed marble resting on the ice beside it (the gap now takes
+  in the lowest point); the pit's throat under a throat let a marble fall through three sections in
+  4.4 s (a cap over the pit's throat now, and a split under every throat).
+## World 2: Trapdoor Roulette (L11–L20)
+
+Written by hand, not by `--report`: each row is a *level*, raced with its own
+params (`section`, `format`, `teams`, cast `main`), 48 seeds from 700 through
+the render's retry loop (`stage_qa.run(stage, seeds, params=..., cast=...)`).
+All nine stages are trial (weight 0): a level names one, a random seed never
+lands on one. The stages and mechanics are in
+`factory/generators/physics/worlds/trapdoor.py`.
+
+What the columns add to the table above: **out a race** is the mean number of
+marbles taken out, with trapdoor catches in brackets (the relay's handovers
+also leave the race); **races with a catch** is how often the mechanism took
+anyone; **last two** is the elimination gate's gap (docs/10). The verdict is
+the ordinary gates, plus `stage_qa.ELIMINATION_GATES` for an elimination or
+last-standing level; a race-format level (L13, L17, L19) must catch someone in
+a quarter of races, because its story asks for a `trap_catch` and a seed
+search should find one in a few tries. L16 has no line, so it has no
+runner-up.
+
+| level | stage · section | finished | first try | runner-up | parked | median s | lead changes | out a race (trap) | races with a catch | last two s | verdict |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| L11 | `trapfall` · `timer-trap` | 48/48 | 43/48 | 94% | 7/200 (5 short) | 14.7 | 2.5 | 1.7 (1.7) | 41/48 | 2.9 | pass |
+| L12 | `trapstairs` · `trap-sequence` | 48/48 | 48/48 | 100% | 6/203 (1 short) | 13.6 | 3.6 | 1.5 (1.5) | 43/48 | 1.4 | pass |
+| L13 | `trapline` · `finish-trapdoor` | 48/48 | 47/48 | 90% | 0/40 (3 short) | 15.7 | 3.5 | 1.2 (1.2) | 41/48 | 2.2 | pass |
+| L14 | `decoys` · `fake-panels` | 48/48 | 47/48 | 88% | 3/45 (4 short) | 15.1 | 2.7 | 1.2 (1.2) | 36/48 | 2.1 | pass |
+| L15 | `tripwire` · `leader-sensor-trap` | 48/48 | 48/48 | 92% | 4/41 (1 short) | 14.8 | 2.6 | 1.1 (1.1) | 47/48 | 2.3 | pass |
+| L16 | `sinkhole` · `spiral-bowl-reverse` | 48/48 | 47/48 | n/a (no line) | 1/47 | 12.6 | 3.4 | 3.0 (3.0) | 48/48 | 0.0 | pass |
+| L17 | `relay` · `relay-legs` | 48/48 | 39/48 | 90% | 2/57 (15 short) | 12.4 | 1.8 | 4.8 (0.8) | 30/48 | 2.2 | pass |
+| L18 | `trapfall` · `trap-timer-overlay` | 48/48 | 48/48 | 81% | 3/51 (2 short) | 16.6 | 2.0 | 1.1 (1.1) | 33/48 | 1.8 | pass |
+| L19 | `trapwalk` · `five-trapdoors` | 48/48 | 42/48 | 58% | 0/0 (1 short) | 13.9 | 1.7 | 0.4 (0.4) | 20/48 | 4.5 | pass |
+| L20 | `pitfall` · `trap-gauntlet` | 48/48 | 34/48 | 100% | 2/153 (3 short) | 11.7 | 1.7 | 6.7 (6.7) | 48/48 | 1.5 | pass |
+
+What the numbers changed on the way (each is in the code where it applies):
+
+- **A lid must not shut on a marble falling through it.** At -30 a marble
+  resting on a lid needs 1.1–1.4 s to drop below the lid line, and a lid that
+  shut first closed through it; the solver pushed it back on top, every cycle.
+  One crept along a lid for eight seconds. A lid due to shut now waits for the
+  marbles that are on it at that moment to go through
+  (`worlds/trapdoor._is_open`) — only those: waiting for anyone over the pit
+  let a stream through the finish throat hold it open until all four were
+  gone.
+- **Nothing beside a pit.** A peg one marble's room out from a pit wall made
+  a cradle: four of eight marbles stacked into it against L11's lid. Pits keep
+  two rooms clear on both sides, all the way down.
+- **Pace.** Eight or twelve marbles bring a runner-up home fast, so a stage
+  that is fine for four finishes under the QC floor: L11 went 9/24 first try
+  on a plain stack until a funnel above the panel slowed and gathered the
+  field. `trapline` (-45), `tripwire` (-40) and `sinkhole` (-45) run at more
+  than the kit's -30 because their geometry is slow — long throat arms, a tall
+  peg band, a bowl; `pitfall` runs at -27 because a leader clear of the doors
+  was home in 6–9 s.
+- **The bowl** (L16) parked every marble on its flat bottom until its lip
+  was held to a 0.55 slope, then let two marbles swing across it for eight
+  seconds (a bowl loses almost nothing) until mud on the lower slopes took the
+  energy out; its drain opens for 1.5 s at a time because that is how long a
+  marble takes to fall clear of the lid at -45, and it widened to 1.6 rooms
+  after two marbles jammed across it.
+- **No door opens in the first 2.5 s** (`GRACE_S`). Panels right under the
+  start grid took five of twelve gauntlet marbles in the first second, before
+  the caption was off; L12's top door, which opens as the leader reaches it,
+  was taking 4.6 marbles a race that way. `trapstairs` also got a wider top
+  panel (`trap1wide`): its first band has no room for pegs, and a start that
+  missed a narrow one fell two silent seconds.
+- **Two marbles** (L19): open more, and the first fall decides the race
+  (0.60 of the time: a runner-up in 44%); open less, and nobody falls (0.25:
+  a catch in 13 of 48). 0.45 is between them.
+
+One change to stage QA itself, to the *parked* measure and not to a gate:
+`stage_qa.held` now also treats a marble resting on a **shut, level door**
+(`rig.door`, from `style.mech`) as held, as it already did a marble in a
+trap's pit. The relay keeps each team's second marble in a pen until its
+teammate reaches the gate; a slow first leg left those waiting marbles in the
+parked count (8 of 43, all in pens). A sloped lid is never a floor, and a
+marble stuck while a pen waits for it is still counted as parked itself.

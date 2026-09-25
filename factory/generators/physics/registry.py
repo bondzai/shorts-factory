@@ -13,6 +13,9 @@ from typing import Any
 from .. import stagekit
 from . import stages
 from .worlds import polarity
+from .worlds import dice
+from .worlds import ice_sand  # World 5: registers its sections before they are composed below
+from .worlds import trapdoor as w2  # World 2's sections register with the kit on import
 
 @dataclass(frozen=True)
 class Stage:
@@ -176,6 +179,82 @@ STAGE_SPECS: list[Stage] = [
               blurb="a funnel dropping the field onto one big magnet, then pegs", gate=True),
     composed("maelstrom", [("pegs", 0.5), ("magnets", 1.1), ("arm", 2.0)], gravity=-30.0, noun="magnets",
               blurb="pegs, a band of magnets, then a rotating magnet arm", gate=True),
+    # World 6, the dice track (trial; docs/06 "World 6" has their QA). The dice
+    # sections are geometry; the dice themselves are the levels' mechanics.
+    composed("dicetrack", [("dicegate", 2.2), ("pegs", 1.0)], gravity=-34.0, noun="dice gate",
+             blurb="a dice gate that opens one of three lanes, then pegs"),
+    composed("dicegrid", [("runway", 0.8), ("pegs", 1.0), ("sieve", 1.3), ("funnel", 1.0)], gravity=-40.0,
+             noun="start grid", blurb="a start grid that drops at once, then pegs, a sieve and a funnel"),
+    composed("diceblock", [("diceblock", 1.8), ("funnel", 0.8)], gravity=-40.0, noun="blockers",
+             blurb="six blockers a die can remove, then a funnel"),
+    Stage("dicetriple", stagekit.compose([("dicetriple", 1.0)], top_frac=0.93, bottom_frac=0.15), -150.0,
+          "dice gates", "three dice gates, one under the other",
+          # One section holding three gates (a band each would lose two margins
+          # apiece, and three gates only just fit the frame without them).
+          lambda style, segments: "a stage of " + ", then ".join(["a dice gate"] * 3),
+          parts=(("dicetriple", 1.0),)),
+    composed("dicesurface", [("surfaceramps", 1.0), ("surfaceramps", 1.0), ("surfaceramps", 1.0)], gravity=-60.0,
+             noun="ramps", blurb="three bands of zigzag ramps, each with a surface a die rolls"),
+    composed("dicefinal", [("runway", 0.8), ("dicegate", 2.0), ("pegs", 0.6)], gravity=-60.0, noun="dice gate",
+             blurb="a start ramp behind a gate, a dice gate into three lanes, then pegs"),
+    # World 5, Ice vs Sand (L41-L50; worlds/ice_sand.py). Trial: they race when a
+    # level names them. Gravity measured by stage QA over 48 seeds (docs/06).
+    composed("icesand", [("ice_ramps", 1.0), ("pegs", 0.7), ("sand_ramps", 1.3)], gravity=-85.0,
+             noun="the ice and the sand", blurb="ramps of ice, a band of pegs, then ramps under sand"),
+    composed("stripes", [("striped_ramps", 1.0), ("striped_ramps", 1.0)], gravity=-200.0, noun="the stripes",
+             blurb="ramps striped ice and sand"),
+    composed("skijump", [("ice_launch", 2.4), ("sand_ramps", 1.0)], gravity=-300.0, noun="the ice jump",
+             blurb="an ice in-run and kicker that launch the marbles onto a sand slope, then sand ramps"),
+    composed("sandpit", [("ice_ramps", 1.0), ("sand_pit", 1.0), ("sand_ramps", 1.0)], gravity=-120.0,
+             noun="the sand pit", blurb="ice ramps, a soft sand pit at halfway, then sand ramps"),
+    composed("icefall", [("ice_ramps", 1.0), ("pegs", 0.8), ("ice_ramps", 1.0)], gravity=-50.0, noun="the ice",
+             blurb="ramps of ice, a band of pegs, ramps of ice; with mechanics.melt they go to slush"),
+    composed("thinice", [("thin_ice", 1.0), ("pegs", 0.6), ("thin_ice", 1.3)], gravity=-60.0, noun="the thin ice",
+             blurb="ice ramps with thin panels over cold water that crack under weight, pegs, then more"),
+    composed("dunes", [("dunes", 1.4), ("dunes", 0.6)], gravity=-140.0, noun="the dunes",
+             blurb="ramps of sand dunes, a gentle back and a steep face, over and over"),
+    composed("icebowl", [("ice_bowl", 1.2), ("sand_chute", 1.0)], gravity=-80.0, noun="the ice bowl",
+             blurb="an ice bowl with a gap in its floor, into a sand chute"),
+    composed("terrain", [("ice_ramps", 0.8), ("striped_ramps", 0.8), ("dunes", 0.8), ("sand_pit", 0.9)],
+             gravity=-230.0, noun="the terrain", blurb="ice ramps, striped ramps, dunes, then a soft sand pit"),
+    # World 2, Trapdoor Roulette (L11-L20): trapdoor panels that take a marble
+    # out of the race (worlds/trapdoor.py). Trial stages, each raced only by
+    # the level that names it; docs/06 "World 2" has their numbers.
+    composed("trapfall", [("pegs", 0.8), ("funnel", 0.8), ("trap1", 1.2), ("pegs", 0.8)], gravity=-30.0,
+              noun="the trapdoor", blurb="pegs, a funnel, one trapdoor panel, then pegs"),
+    composed("trapstairs", [("trap1wide", 1.0), ("trap1", 1.0), ("funnel", 0.7), ("trap1", 1.0)], gravity=-30.0,
+              noun="trapdoors", blurb="three trapdoor panels one above another, a funnel before the last"),
+    # -45, not -30: its throat's arms are long and shallow, and at -30 the
+    # field crawled down them (median 16.6-17.9 s against the 18 s ceiling).
+    Stage("trapline", w2.finish_build([("ramps", 1.0), ("pegs", 1.0)]), -45.0, "the finish trapdoor",
+          "ramps, pegs, then a throat with a trapdoor under it just above the line",
+          lambda s, g: stagekit.describe_parts((("ramps", 1.0), ("pegs", 1.0))) + ", then a trapdoor under the run-in",
+          parts=(("ramps", 1.0), ("pegs", 1.0))),
+    composed("decoys", [("pegs", 0.8), ("trap3", 1.0), ("pegs", 0.8), ("trap3", 1.0)], gravity=-30.0, noun="panels",
+              blurb="two rows of three trapdoor panels, only some of them real", gate=True),
+    # The shares put the sensor line at the middle of the course (y 524 of the
+    # 930 -> 110 run): halfway is what the level says. -40 because the tall
+    # peg band ran the median to 17.6 s at -30.
+    composed("tripwire", [("pegs", 2.0), ("trap3", 1.0), ("pegs", 0.75)], gravity=-40.0, noun="the sensor",
+              blurb="pegs, a sensor line at halfway over a row of trapdoor panels, pegs"),
+    # No finish line: the bowl drains until one is left. -45 so a marble on
+    # the drain's lid falls clear of it inside one opening (see spiral_bowl).
+    Stage("sinkhole", w2.bowl_build([("pegs", 1.0), ("bowl", 1.6)]), -45.0, "the bowl",
+          "pegs into a bowl that drains through a trapdoor",
+          lambda s, g: stagekit.describe_parts((("pegs", 1.0), ("bowl", 1.6))),
+          parts=(("pegs", 1.0), ("bowl", 1.6))),
+    composed("relay", [("trap1", 1.3), ("relaystation", 1.0), ("trap1", 1.3)], gravity=-30.0, noun="the relay",
+              blurb="a trapdoor leg, a halfway gate with a pen per team, a second trapdoor leg"),
+    composed("trapwalk", [("trap2", 1.0), ("trap1", 1.0), ("trap2", 1.0)], gravity=-30.0, noun="trapdoors",
+              blurb="five trapdoor panels in three bands", gate=True),
+    # Starts lower than a composed stage (top 0.84 h): twelve marbles need a
+    # start grid of two rows, and the kit's usual stack reaches the second.
+    # -27, under the kit's -30: at -30 a leader clear of the doors was home
+    # in 6-9 s and 10 of 24 first attempts finished under the QC floor.
+    Stage("pitfall", w2.grid_build([("trap2", 1.0), ("trap1", 1.0), ("trap2", 1.0), ("trap2", 1.0)]), -27.0,
+          "trapdoors", "seven trapdoor panels in four bands",
+          lambda s, g: stagekit.describe_parts((("trap2", 1.0), ("trap1", 1.0), ("trap2", 1.0), ("trap2", 1.0))),
+          gate=True, parts=(("trap2", 1.0), ("trap1", 1.0), ("trap2", 1.0), ("trap2", 1.0))),
     # COMPOSED-STAGES-END
 ]
 
@@ -231,6 +310,37 @@ MECHANIC_SPECS: list[Mechanic] = [
              blurb="the big magnet grips the whole field, then lets go"),
     Mechanic("all-magnets", polarity.all_magnets, stage="maelstrom",
              blurb="band magnets flip, the arm pulls, the finish pushes back"),
+    # World 6, the dice track (physics/worlds/dice.py).
+    Mechanic("dice-gate-paths", dice.dice_gate_paths, stage="dicetrack", blurb="a die picks one of three lanes"),
+    Mechanic("dice-start-grid", dice.dice_start_grid, stage="dicegrid", blurb="every marble rolls; high roll starts in front"),
+    Mechanic("dice-remove-obstacle", dice.dice_remove_obstacle, stage="diceblock", blurb="a die removes one of six blockers"),
+    Mechanic("dice-gates-duel", dice.dice_gates_duel, stage="dicetriple", blurb="three dice gates, each picks a lane"),
+    Mechanic("dice-round-count", dice.dice_round_count, stage="dicegrid", blurb="a die sets how many rounds, one to three"),
+    Mechanic("loaded-dice", dice.loaded_dice, stage="dicetrack", blurb="every die lands on the hardest lane"),
+    Mechanic("dice-surface", dice.dice_surface, stage="dicesurface", blurb="a die rolls each band's surface: ice, sand or plain"),
+    Mechanic("handicap-start", dice.handicap_start, stage="plinko", blurb="a die picks one marble to start early"),
+    Mechanic("handicap-back-start", dice.handicap_back_start, stage="dicegrid",
+             blurb="a rolled grid; the level's back marker starts last with no die"),
+    Mechanic("dice-final", dice.dice_final, stage="dicefinal", blurb="rolled grid, rounds, path and surface"),
+    Mechanic("sideline-watcher", ice_sand.sideline_watcher, stage="terrain",
+             blurb="a purple marble watches from the sidelines at the end; drawn, never an entrant"),
+    # World 2, Trapdoor Roulette (worlds/trapdoor.py; docs/06 "World 2").
+    Mechanic("timer-trap", w2.timer_trap, stage="trapfall", blurb="the trapdoor opens once, at a hidden time"),
+    Mechanic("trap-sequence", w2.trap_sequence, stage="trapstairs",
+             blurb="three trapdoors, each opening as the leader comes down to it"),
+    Mechanic("finish-trapdoor", w2.finish_trapdoor, stage="trapline",
+             blurb="the trapdoor under the run-in opens as the first marble reaches it"),
+    Mechanic("fake-panels", w2.fake_panels, stage="decoys", blurb="six panels, two of them real"),
+    Mechanic("leader-sensor-trap", w2.leader_sensor, stage="tripwire",
+             blurb="the panel under the leader opens when it crosses the halfway sensor"),
+    Mechanic("spiral-bowl-reverse", w2.spiral_bowl, stage="sinkhole",
+             blurb="a bowl drains through a trapdoor; the last one in wins"),
+    Mechanic("relay-legs", w2.relay_legs, stage="relay",
+             blurb="team relay: the second marble is let out when its teammate reaches the halfway gate"),
+    Mechanic("trap-timer-overlay", w2.timer_overlay, stage="trapfall",
+             blurb="the timer trapdoor, with its countdown on screen"),
+    Mechanic("five-trapdoors", w2.five_trapdoors, stage="trapwalk", blurb="five trapdoors on their own cycles"),
+    Mechanic("trap-gauntlet", w2.trap_gauntlet, stage="pitfall", blurb="seven trapdoors opening in a wave"),
     # MECHANICS-END
 ]
 MECHANICS: dict[str, Mechanic] = {m.id: m for m in MECHANIC_SPECS}

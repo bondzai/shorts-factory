@@ -18,7 +18,8 @@ levels:
 """
 
 
-def redraw(meta, trace_dir):
+def redraw(meta, trace_dir, raw=False):
+    assert raw, "a long-form draws the raw race, not a short's presentation"
     arrays, _ = trace.read(trace_dir)
     for _ in range(arrays["round0_positions"].shape[0]):
         yield bytes([int(meta["seed"]) % 255]) * (SIM_W * SIM_H * 3)

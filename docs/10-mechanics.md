@@ -74,6 +74,8 @@ recording shifts them to the clip's clock.
 | `rig.countdown(name, t)` | whole seconds left, then `None` (what a timer shows) |
 | `rig.on_frame(fn)` | a per-frame hook (move a kinematic body, `rig.emit(...)`) |
 | `rig.emit(kind, index, **data)` | an Event now |
+| `rig.hold(clock)` | the field is held on purpose while the clock is truthy (a start gate, a die still rolling): the stall check does not count those frames |
+| `rig.clip_rounds = n` | set in the heat, the clip runs `n` rounds, never more than `params.rounds` (World 6's round die) |
 
 `progress` is how far the leader has come from the start row to the line,
 0..1, and never goes back: "halfway" is `progress=0.5`.
@@ -95,12 +97,14 @@ sparks in its colour where it went.
 | | |
 |---|---|
 | `rig.surface(space, a, b, kind="ice", thickness=6, friction=None)` | a static segment with the surface's friction and bounce, drawn with its colour |
-| `rig.zone(rect \| poly, kind="sand", damping=None, friction=None, first_only=False, when=None, event=None)` | a region that drags: `damping` 1/s on velocity every substep (default the kind's), a marble's own friction set to `friction` while inside; `first_only` (a cobweb) affects only the first marble in, with `event` when it is caught |
+| `rig.zone(rect \| poly, kind="sand", damping=None, friction=None, first_only=False, when=None, event=None, appear=False)` | a region that drags: `damping` 1/s on velocity every substep (default the kind's), a marble's own friction set to `friction` while inside; `first_only` (a cobweb) affects only the first marble in, with `event` when it is caught; `appear`: drawn only while `when` is truthy (a surface rolled mid-race is not on screen before the roll) |
 | `rig.breakable(space, a, b, kind="thin_ice", hold=(0.8, 2.0), thickness=5)` | breaks after a **seeded** amount of load (contact-seconds x mass, from `hold`); cracks drawn at half; `broke` Event |
 
 Kinds (`mechanics.SURFACES`): `ice` (friction 0.02), `sand` (0.95, damping
-1.4), `mud`, `cobweb` (damping 3, no friction change), `thin_ice`. Zones are
-drawn with a texture: an ice sheen, a sand grain, cobweb threads.
+1.4), `mud`, `cobweb` (damping 3, no friction change), `thin_ice`, `slush`
+(0.35, damping 0.25: ice going soft, World 5's melt). Zones are drawn with a
+texture: an ice sheen, a sand (or slush) grain, cobweb threads; a slanted
+`poly` zone keeps only the marks inside it.
 
 ### Per-entrant filters and forces
 
@@ -121,9 +125,17 @@ A door gives each marble a collision bit, so a race holds at most 12
 |---|---|
 | `rig.effect("blackout", clock=…)` | marbles and trails hidden and a dark veil while the clock is truthy; sound carries on |
 | `rig.effect("countdown", clock=…, at=(x, y))` | the clock's value drawn as a number |
+| `rig.effect("die", clock=… \| value=k, at=(x, y), size=px, layer="top" \| "under", tints={"1": rgb})` | a die face with pips; the clock's value is None (not drawn), a face, or `{"f": face, "s": "roll" \| "set" \| "lit" \| "dim"}` — tumbling while it rolls, ringed when lit, faded when dim. `worlds/dice.roll` registers one with its clocks |
+| `rig.effect("prop", clock=…, at=(x, y), radius=r, color=[r, g, b])` | a marble drawn there while the clock is truthy (always, with no clock): a picture with no body, never an entrant, never in the outcome — L50's purple watcher |
 
 Gate lights, surface textures and outward magnet chevrons need no effect
 call: they come with the door, the zone, the polarity clock.
+
+The presentation (`[presentation]`, physics `present.py`) sits over all of
+this and reads the same recording: no fire and no chip for a marble that is
+`hidden` (eliminated, or in a blackout), the eliminated at the foot of the
+leaderboard, dimmed, and no progress bar on a race with `no_finish_line`.
+A section needs to do nothing for it.
 
 ## Level params
 
@@ -250,3 +262,32 @@ three days before its first level (docs/08, "Calendar").
 some seed of a few, the same seed gives the same `style.mech`, and a redraw
 of one clip equals its shipped frames in both engines. Leave the pinned
 traces alone: if they move, something that was not opt-in changed.
+
+## What World 2 built (L11–L20)
+
+The worked example above is the shape; `factory/generators/physics/worlds/trapdoor.py`
+is the real thing, and it went a different way in one respect worth copying:
+the stage kit's holding `trap` stays as it was (the pinned `trapdoor-cast`
+trace depends on it), and World 2 brought its own **panel** — a lid (a
+`rig.door`) over a pit (two `rig.out_zone`s) — built by sections `trap1` (and `trap1wide`),
+`trap2`, `trap3` (one, two, three panels at the foot of a band), `bowl` and
+`relaystation`, registered into `stagekit.SECTIONS` from the world module.
+Nine trial stages use them (`trapfall`, `trapstairs`, `trapline`, `decoys`,
+`tripwire`, `sinkhole`, `relay`, `trapwalk`, `pitfall`; docs/06 "World 2"),
+and each level's mechanic only sets the panels' `opener(frame)`. Three things
+a world with doors that open under marbles should know:
+
+- **A door must not close through a marble.** At the kit's gravity a marble
+  needs over a second to fall below a lid, and a door that closes on it is
+  resolved by the solver shoving it back up. World 2's lids stay open while a
+  marble is falling through (`_is_open`); another world's doors will want the
+  same.
+- **Events**: `trap_catch` (with `eliminated`, by `trapdoor`) when a pit
+  takes a marble; `trap_opened` the first time each panel opens;
+  `sensor_tripped` (L15); `handed_off` and `relay_dropped` (L17: a relay's
+  first leg leaving the race at the gate, and a second leg that never gets
+  to run). A handover is recorded as an elimination (`by: handoff`), so a
+  relay's `eliminations` count includes them; its story asks for a catch.
+- **A held marble is not parked.** Stage QA counts a marble resting on a
+  shut, level door as held (`stage_qa._on_shut_floor`), as it does one in a
+  trap's pit: a relay pen, a drain between openings.

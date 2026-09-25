@@ -96,6 +96,18 @@ Beside `clip.mp4`: `trace.npz` + `trace.json`.
   bodies, segments, winner, winner_frame, impacts, overlay text), `outcome`.
 - Redraw needs no pymunk: the generator's `redraw(trace_dir)` feeds the existing
   renderer, so a redrawn frame is the shipped frame.
+- Presentation (a race shipped with `[presentation] enabled`, physics
+  `present.py`): `trace.npz` adds `round{n}_timemap` float64 `[output frames, 4]`
+  — source frame (fractional in a slowed stretch), zoom, camera centre x, y in
+  screen px — and `trace.json` adds `presentation` (the settings, display
+  labels, each round's finishes and moments: the opening hit, reveal,
+  punch-ins, finish slow-mo). `redraw(trace_dir)` plays the renderer's frames
+  through the map, so it is still the shipped frame; `redraw(trace_dir,
+  raw=True)` is the race without it (every source frame once, real time, the
+  caption and ask as the renderer draws them), which is what the long-form
+  asks for. Everything else in the trace, the outcome and the facts stays in
+  source seconds; `facts["presentation"]` gives the output length and the
+  moments on the output clock. Off, the trace is byte-for-byte what it was.
 - Retention: `[retention] trace_days = -1` keeps traces of approved and
   published clips forever; rejected traces go with `rejected_days`.
 
