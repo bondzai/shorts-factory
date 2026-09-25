@@ -127,6 +127,12 @@ class _Door:
     passes: Any  # None, a list of entrant ids, or a clock name
     color: tuple[int, int, int] | None
     filter_now: Any = None
+    # World 9's colour gates: what the gate's lamps show (a list of ids or a
+    # clock; default: who passes), how the bar is lit ("pass": in the lamps'
+    # colours; "block": the lamps crossed out) and where extra lamps sit.
+    lights: Any = None
+    look: str | None = None
+    lamps: list | None = None
 
 
 @dataclass
@@ -350,15 +356,26 @@ class Rig:
     # --- per-entrant filters and forces ---------------------------------------------
 
     def door(self, space, a, b, *, closed: str | None = None, passes: Any = None,
-             color: tuple[int, int, int] | None = None, thickness: float = 6.0) -> Any:
+             color: tuple[int, int, int] | None = None, thickness: float = 6.0,
+             lights: Any = None, look: str | None = None, lamps: list | None = None) -> Any:
         """A barrier some marbles go through. Solid while clock `closed` is
         truthy (always, if None) — except for the entrants in `passes`: a list
-        of ids, or a clock whose value is one. `color` lights it."""
+        of ids, or a clock whose value is one. `color` lights it.
+
+        A colour gate (World 9) may say what its lamps show apart from who
+        passes: `lights` (ids, or a clock), `look` "pass" (the shut bar is
+        drawn in the lamps' colours: those may pass) or "block" (the lamps
+        are crossed out: those may not), `lamps` [(x, y)...] extra places
+        the lamps are drawn, clear of the marbles queued on the bar."""
+        if look not in (None, "pass", "block"):
+            raise ValueError(f"door look {look!r}: use pass or block")
         a, b = self._pt(a), self._pt(b)
         seg = pymunk.Segment(space.static_body, a, b, thickness)
         seg.elasticity, seg.friction = 0.46, 0.30
         space.add(seg)
-        self.doors.append(_Door(seg, a, b, closed, passes, tuple(color) if color else None))
+        self.doors.append(_Door(seg, a, b, closed, passes, tuple(color) if color else None,
+                                lights=lights, look=look,
+                                lamps=[list(self._pt(p)) for p in lamps] if lamps else None))
         return seg
 
     def pair_force(self, strength: float, *, reach: float = 4.0, soft: float = 1.0,
@@ -445,6 +462,8 @@ class Rig:
             br.a, br.b = (w - br.a[0], br.a[1]), (w - br.b[0], br.b[1])
         for d in self.doors:
             d.a, d.b = (w - d.a[0], d.a[1]), (w - d.b[0], d.b[1])
+            if d.lamps:
+                d.lamps = [[w - x, y] for x, y in d.lamps]
         for e in self.effects:
             if "at" in e:
                 e["at"] = [w - e["at"][0], e["at"][1]]
@@ -695,8 +714,13 @@ class Rig:
             mech["breakables"] = [{"a": list(b.a), "b": list(b.b), "kind": b.kind, "thickness": b.thickness,
                                    "cracked": at(b.cracked), "broke": at(b.broke)} for b in self.breakables]
         if self.doors:
+            # The colour-gate keys only when a door has them, so every
+            # recording made before World 9 is the same JSON it was.
             mech["doors"] = [{"a": list(d.a), "b": list(d.b), "closed": d.closed,
-                              "passes": d.passes, "color": list(d.color) if d.color else None}
+                              "passes": d.passes, "color": list(d.color) if d.color else None,
+                              **({"lights": d.lights} if d.lights is not None else {}),
+                              **({"look": d.look} if d.look else {}),
+                              **({"lamps": d.lamps} if d.lamps else {})}
                              for d in self.doors]
         if self.walls:
             mech["walls"] = [{"a": list(w.a), "b": list(w.b), "offset": w.offset} for w in self.walls]
@@ -761,6 +785,17 @@ def door_state(mech: dict, door: dict, frame: int) -> tuple[bool, list[str]]:
     if isinstance(passes, str):
         passes = clock_at(mech, passes, frame) or []
     return closed, list(passes or [])
+
+
+def door_lights(mech: dict, door: dict, frame: int) -> list[str]:
+    """Whose lamps a door shows at a frame: its `lights` (ids or a clock),
+    else who passes it."""
+    lights = door.get("lights")
+    if lights is None:
+        return door_state(mech, door, frame)[1]
+    if isinstance(lights, str):
+        lights = clock_at(mech, lights, frame) or []
+    return list(lights or [])
 
 
 def _sign(value: Any) -> float:

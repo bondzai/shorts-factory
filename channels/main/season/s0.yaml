@@ -2516,6 +2516,7 @@ levels:
   generator: physics
   variant: marble_race
   params:
+    stage: colourgate
     section: random-colour-gate
   entrants:
   - blaze
@@ -2528,6 +2529,7 @@ levels:
   story:
     must:
       lead_changes: '>=1'
+      any_event: gate_lit
   copy:
     angle: a gate lights one colour and opens only for that marble; seeding week begins
     title: 'Color gate marble race: the door picks'
@@ -2536,16 +2538,17 @@ levels:
     pin: Which color does the gate choose? Pure guess, pick one.
     pin_type: pick_color
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 colour-gates: gate that opens for one random colour (per-entrant collision filter)'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: null
+  note: 'colourgate (trial): pegs, a colour gate, pegs, finish throat. A funnel to a wide bar across its throat; shut, the bar is drawn in the colour that may pass, with lamps of that colour under the funnel''s arms; open, a faint line. The seed picks one of the six colours (rig.rng, never a persona); that marble drops through, everyone else waits on the bar until a seeded 2-3 s after the first marble reached it, then the gate opens for everyone. Stage QA (docs/06, World 9) passes over 48 seeds with this field.'
 - id: L82
   date: 2026-12-15
   world: colour-gates
   generator: physics
   variant: marble_race
   params:
+    stage: threegates
     section: three-colour-gates
   entrants:
   - blaze
@@ -2558,24 +2561,26 @@ levels:
   story:
     must:
       lead_changes: '>=2'
+      any_event: gate_lit
   copy:
     angle: three gates, three colours; the winner loses the least time waiting
     title: Three color gates marble race
-    hook: Nobody gets all three
+    hook: Which marble gets no gate?
     desc: 'Three gates, three different colors. The winner is whoever loses the least time waiting. Standings: Blaze {standing:blaze}, Tide {standing:tide}, Volt {standing:volt}, Moss {standing:moss}, Nova {standing:nova}, Ember {standing:ember}.'
     pin: Which marble gets no gate in its color? Name it.
     pin_type: predict_outcome
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 colour-gates: three colour gates in sequence'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: null
+  note: 'threegates (trial): three colour gates, pegs under each. Three different colours drawn by the seed, one per gate; each gate holds the rest a seeded 1.4-2 s from its first arrival, then opens for everyone. Three of the six marbles get no gate of their own. Stage QA (docs/06, World 9) passes over 48 seeds with this field.'
 - id: L83
   date: 2026-12-16
   world: colour-gates
   generator: physics
   variant: marble_race
   params:
+    stage: lockout
     section: leader-lockout-gate
   entrants:
   - blaze
@@ -2588,6 +2593,7 @@ levels:
   story:
     must:
       lead_changes: '>=1'
+      any_event: gate_locked
   copy:
     angle: the gate reads the leader and closes for that colour only
     title: 'Leader lockout marble race: the gate shuts'
@@ -2596,16 +2602,17 @@ levels:
     pin: Who is second when the gate shuts? Pick.
     pin_type: predict_outcome
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 colour-gates: gate that closes for the leader''s colour'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: null
+  note: 'lockout (trial): ramps, a colour gate, pegs, finish throat. As the field reaches the gate it shuts for the colour of whoever is lowest on the course at that frame (the leader: a position, never a persona) for a seeded 2.5-3.5 s; drawn pale with that colour''s lamps crossed out; everyone else drops straight through. Then it opens for everyone. Stage QA (docs/06, World 9) passes over 48 seeds with this field.'
 - id: L84
   date: 2026-12-17
   world: colour-gates
   generator: physics
   variant: marble_race
   params:
+    stage: colourgate
     section: alliance-gate
   entrants:
   - blaze
@@ -2618,24 +2625,26 @@ levels:
   story:
     must:
       lead_changes: '>=2'
+      any_event: gate_lit
   copy:
     angle: 'the gate picks two colours: temporary allies, one finish line'
     title: 'Alliance marble race: two colors pass'
-    hook: Two pass, the rest wait
+    hook: Pick the two that pass
     desc: The gate picks two colors. Temporary allies, one finish line.
     pin: Which two colors would you pair? Comment two.
     pin_type: vote_track
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 colour-gates: gate that opens for two random colours'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: null
+  note: 'colourgate (trial), as L81, with two colours drawn by the seed: the bar is lit half in each, both drop through, the rest wait a seeded 2-3 s. Stage QA (docs/06, World 9) passes over 48 seeds with this field.'
 - id: L85
   date: 2026-12-18
   world: colour-gates
   generator: physics
   variant: marble_race
   params:
+    stage: rhythm
     section: cycling-colour-gate
   entrants:
   - blaze
@@ -2656,17 +2665,17 @@ levels:
     pin: Who arrives exactly on their color? Name the marble.
     pin_type: predict_outcome
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 colour-gates: gate cycling through every colour'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: null
+  note: 'rhythm (trial): pegs, a colour gate, split-and-rejoin chutes. The bar lights each of the six colours in a seeded order, one second each, from the start; a marble on the bar when its colour lights drops through. A marble stacked on another can miss its turn and wait a lap (median wait 4.8 s, 95th percentile about 11 s). Stage QA (docs/06, World 9) passes over 48 seeds with this field.'
 - id: L86
   date: 2026-12-19
   world: colour-gates
   generator: physics
   variant: marble_race
   params:
-    stage: trapdoor
+    stage: colourtrap
     section: colour-trapdoor-gate
   entrants:
   - blaze
@@ -2675,28 +2684,32 @@ levels:
   - moss
   - nova
   - ember
+  - acorn
+  - juniper
   format: elimination
   story:
     must:
       any_event: trap_catch
+      eliminations: '>=1'
   copy:
     angle: 'the gate doesn''t block, it drops: the wrong colour falls through'
     title: 'Color gate trapdoor race: wrong color drops'
-    hook: Wrong color, straight down
+    hook: Which color drops first?
     desc: The gate doesn't block, it drops. Wrong color falls through.
     pin: How many marbles fall? Guess a number.
     pin_type: predict_outcome
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 colour-gates: colour gate that drops the wrong colours through a trapdoor, elimination format'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: Plan says eight marbles; the cast has six. Base stage trapdoor exists but fails QA today (lead changes 1.4).
+  note: 'Eight marbles: the six personas plus the two guests (acorn, juniper; scores = false), as L63 did. colourtrap (trial): World 2''s trapfall stack (pegs, funnel, one trapdoor panel with a way round each side, pegs) starting lower for a two-row grid. The panel opens on a seeded cycle (40% open, shut for the first 2.5 s); each opening lights one colour drawn by the seed, the lid drawn in that colour: it rolls over, anyone else on the lid drops into the pit and is out. About 2.6 marbles fall a race. Stage QA (docs/06, World 9) passes over 48 seeds with this field. The guests are shown, not judged, by the balance gate.'
 - id: L87
   date: 2026-12-20
   world: colour-gates
   generator: physics
   variant: marble_race
   params:
+    stage: snowtrack
     section: snow-colour-gates
   entrants:
   - blaze
@@ -2709,24 +2722,26 @@ levels:
   story:
     must:
       lead_changes: '>=1'
+      any_event: gate_lit
   copy:
     angle: 'the Grand Final track gets a snow coat: gates on ice and a first look at the venue'
     title: 'Snow marble race: color gates on ice'
-    hook: 'First look: the final venue'
+    hook: 'Call it: gates on snow'
     desc: The Grand Final track gets a snow coat. Gates on ice and a first look at the final venue. The Grand Final is on Christmas Day.
     pin: First look at the Grand Final track. What obstacle is missing? Suggest one.
     pin_type: vote_track
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 colour-gates: colour gates on an ice floor (needs ice-sand friction)'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: Christmas theme (window 12-01..12-26) exists.
+  note: 'snowtrack (trial): ice ramps (World 5), a colour gate whose arms are ice, pegs, a second gate on ice, ice ramps. The first gate lights one seeded colour (the rest wait 1.4-2 s), the second cycles every colour a second. Christmas lighting is the Christmas theme (window 12-01..12-26, snow falling, red and green palettes), which is active on this date: the theme follows the render date, not the level. ''The final venue'' holds only if L92/L95 are raced on snowtrack or snowfinal. Stage QA (docs/06, World 9) passes over 48 seeds with this field.'
 - id: L88
   date: 2026-12-21
   world: colour-gates
   generator: physics
   variant: marble_race
   params:
+    stage: breakgate
     section: gate-breaker
   entrants:
   - blaze
@@ -2740,23 +2755,24 @@ levels:
     must:
       lead_changes: '>=2'
   copy:
-    angle: 'the heaviest marble can''t wait: if the gate isn''t open it breaks through and takes a penalty'
-    title: The marble that can't stop vs the gate
-    hook: Too heavy to wait
-    desc: The heaviest marble can't wait. If the gate isn't open when it arrives, it breaks through and takes a penalty.
+    angle: a cycling colour gate that breaks under enough momentum; only a heavy marble usually has it, and a marble that breaks it serves a penalty
+    title: Heavy marble vs the color gate
+    hook: Break or wait? Call it
+    desc: The gate cycles through the colors and breaks under enough momentum. Only a heavy marble usually has that much. Break it and you sit in the penalty box.
     pin: Does the gate break? Comment "break" or "wait".
     pin_type: either_or
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 colour-gates: breakable colour gate with a penalty rule for heavy marbles'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: The penalty needs a scoring rule (scoring.toml) as well as the gate.
+  note: 'breakgate (trial): pegs, a colour gate with room under it, pegs. The bar cycles every colour a second (as L85). The rule is the same for every marble: meeting the bar while it is shut for you with mass x downward speed of 260 or more breaks it for good (it opens for everyone) and drops you onto a penalty floor under it, solid for you alone, for 2.5 s with a countdown. Over 48 seeds it broke in 10 races, every time under Ember (mass 2.7 against the regulars'' 1.3-1.9); in the other 38 Ember waits like everyone. The copy says so (''usually''); the penalty is physical, not points: scoring.toml has no penalty rule. Stage QA (docs/06, World 9) passes over 48 seeds with this field.'
 - id: L89
   date: 2026-12-22
   world: colour-gates
   generator: physics
   variant: marble_race
   params:
+    stage: seeding
     section: seeding-cycling-gate
   entrants:
   - blaze
@@ -2772,21 +2788,22 @@ levels:
   copy:
     angle: every finalist together for the first time; the result sets the bracket
     title: 'Grand Final seeding race: every finalist'
-    hook: One race sets the bracket
+    hook: Who takes the top seed?
     desc: All the finalists together for the first time. The result sets the bracket, and the top seed picks its semifinal opponent.
     pin: Who takes the top seed, and who do they choose to face? Two answers.
     pin_type: predict_outcome
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 colour-gates: cycling gate on the seeding track'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: 'Plan: eight finalists, points x2. The cast has six scoring entrants, so all six race; double points are not mapped (final: false per the season''s final list).'
+  note: 'STAND-IN VALUES set 2026-09-25, replace when the real finalists exist: entrants are the four regulars plus Nova and Ember, and the copy says ''the finalists'' rather than a count. seeding (trial): bumpers, a cycling colour gate (as L85), pegs, finish throat. Plan: eight finalists, points x2; the cast has six scoring entrants and double points are not mapped (final: false). Stage QA (docs/06, World 9) passes over 48 seeds with this field.'
 - id: L90
   date: 2026-12-23
   world: colour-gates
   generator: physics
   variant: marble_race
   params:
+    stage: snowfinal
     section: all-gates-snow
   entrants:
   - blaze
@@ -2800,19 +2817,20 @@ levels:
   story:
     must:
       lead_changes: '>=2'
+      any_event: gate_locked
   copy:
     angle: 'world nine final: every gate type on the snow track; the bracket goes out in the pinned comment'
     title: 'Color gate final on snow: every gate type'
-    hook: Every gate at once
+    hook: Who gets through every gate?
     desc: Random gates, reverse gates, cycling gates and trapdoor gates. The last tune-up before Christmas; the bracket is in the pinned comment.
     pin: The bracket is out in the seed list above. Predict all four semifinalists.
     pin_type: rank
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 colour-gates: composite final: random, reverse, cycling and trapdoor gates on snow'
+  status: needs_input
+  blocked_on: null
   operator_input:
     seed_list: null
-  note: 'seed_list: from standings after L89, posted by the operator with the pin.'
+  note: 'snowfinal (trial): a random-colour gate on ice, pegs, a reverse gate on ice (shuts for the leader''s colour), a trapdoor gate (World 2''s panel, lit one colour per opening, 25% open), a cycling gate on ice. Race format: the trapdoor gate takes about two of the six out a race (they place last). Christmas theme by date (as L87). seed_list: from standings after L89, posted by the operator with the pin. Stage QA (docs/06, World 9) passes over 48 seeds with this field.'
 - id: L91
   date: 2026-12-24
   world: grand-final

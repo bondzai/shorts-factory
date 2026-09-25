@@ -111,6 +111,7 @@ texture: an ice sheen, a sand (or slush) grain, cobweb threads; a slanted
 | | |
 |---|---|
 | `rig.door(space, a, b, closed=clock, passes=[ids] \| clock, color=rgb)` | solid while `closed` is truthy (always, if None) for everyone except `passes` — a list of entrant ids or a clock whose value is one. Drawn in `color` with a light per passing entrant's colour; faint while open |
+| `rig.door(..., lights=[ids] \| clock, look="pass" \| "block", lamps=[(x, y)])` | a colour gate (World 9): the lamps show `lights` instead of who passes; `look="pass"` draws the shut bar in the lamps' colours on a pale rim (those may pass), `"block"` draws it pale with the lamps crossed out (those may not); `lamps` puts them where the queue cannot hide them. Without a look a door is drawn as before, and its recording has no new keys |
 | `rig.pair_force(strength, reach=4.0, soft=1.0, trait="charge", when=clock)` | every pair pushes apart (> 0) or pulls together (< 0), `strength` x gravity at contact, zero at `reach` x the pair's radii (the magnet's softened law), per substep. Each marble's share is its cast trait (`charge`, default 1); `when` scales it; `force_immune` marbles skip it |
 | `rig.magnet_polarity(clock)` | every magnet's pull times the clock's value: 1 pulls, -1 pushes (chevrons drawn outward), 0 off. `force_immune` still skips. The value may be a list, one number per magnet in `style.magnets` order (World 3: the band flips while the arm pulls and the finish pushes) |
 | `rig.magnet_track(clock)` | magnets that move: the clock's value is a list, one `[x, y]` (or null: where it was built) per magnet. The field, both renderers and `launched` use it; carrying the core is the section's (a kinematic body). World 3's `arm` section |
@@ -285,3 +286,26 @@ a world with doors that open under marbles should know:
 - **A held marble is not parked.** Stage QA counts a marble resting on a
   shut, level door as held (`stage_qa._on_shut_floor`), as it does one in a
   trap's pit: a relay pen, a drain between openings.
+
+## What World 9 built (L81–L90)
+
+`factory/generators/physics/worlds/colour_gates.py`: a colour gate is a funnel
+down to a wide level bar (`rig.door` with `look`), built by the sections
+`colourgate`, `icegate` (arms of World 5's ice) and `boxgate` (room under the
+bar for L88's penalty box). A level's mechanic sets each gate's rule — lit for
+seeded colours, locked for the leader's colour, cycling every colour a second —
+and L86/L90 re-clock World 2's trapdoor lid into a colour gate. Two things a
+world with selective doors should know:
+
+- **A door that lets some marbles through must not shut on one that is
+  going through.** A marble the rule lets pass, touching the bar, stays in the
+  pass list until clear (`Gate.crossing`), whatever the rule says next.
+- **Every selective door needs an end.** A lit gate opens for everyone after
+  its wait, a reverse gate after its lock, a cycling gate lights everyone in
+  turn, and any gate opens for good once a marble has sat on it `GIVE_UP_S`
+  (15 s). Stage QA ran each level 30 s past the winner to check it
+  (docs/06, "World 9"). Marbles waiting on a shut bar are a `rig.hold`.
+
+Events: `gate_lit` (colours on screen), `gate_locked`, `gate_opened`,
+`gate_broken` (L88), plus World 2's `trap_opened` and `trap_catch`. None
+reveals a result.
