@@ -223,7 +223,7 @@ _ALLOWED_COLUMNS = {
     "hashtags_json", "qc_json", "reject_reason", "platform", "remote_id",
     "params_json", "hook_text", "comment_prompt", "title_history_json", "deleted_at",
     "published_at", "views", "avg_view_pct", "swipe_away_pct", "likes",
-    "metrics_at", "purged_at",
+    "metrics_at", "purged_at", "trace_path", "level_id",
 }
 
 
