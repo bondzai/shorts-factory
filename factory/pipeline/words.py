@@ -16,6 +16,7 @@ from .. import publish as drivers
 from ..models import (
     APPROVED,
     AWAITING_APPROVAL,
+    AWAITING_QC,
     DESCRIBED,
     FAILED,
     PLANNED,
@@ -30,7 +31,7 @@ from ..agents import qc, titles as title_agent
 from ..generators import physics
 from ..series import standings
 from . import building
-from .common import StageOutcome
+from .common import StageOutcome, qc_enabled
 from .spoilers import spoiler
 
 
@@ -46,7 +47,7 @@ def attach_metadata(conn: sqlite3.Connection, clip_id: str, meta) -> None:
     if problem:
         raise ValueError(problem)
     db.update(
-        conn, clip_id, status=DESCRIBED, title=meta.title,
+        conn, clip_id, status=DESCRIBED if qc_enabled() else AWAITING_QC, title=meta.title,
         description=meta.description, hashtags_json=json.dumps(meta.hashtags),
         comment_prompt=(meta.comment_prompt or "").strip() or None,
     )

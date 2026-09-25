@@ -13,7 +13,7 @@ similarity — read them.
    see. The returned `description` is what the render measured; your title has
    to be true against it.
 3. `submit_metadata` with a title, description and hashtags.
-4. `submit_qc` with a verdict.
+4. `submit_qc` with a verdict — unless `submit_metadata` answered `status: awaiting_qc`: QC is off on this server, so skip this step; the clip is judged later.
 
 If step 1 fails, read the error and change the seed or the variant. Do not retry
 the same call.

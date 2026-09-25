@@ -84,6 +84,11 @@ allow_identity_constraints = false
 copy_source = "local"
 
 [qc]
+# Making a clip and judging it are separate steps. Off: a clip stops after
+# render and copy as "awaiting QC" — whoever makes it (factory work, or an
+# agent over MCP) needs no QC brain. Turn it on and `factory qc`, or Run QC in
+# the console, judges everything waiting; new clips are then judged as made.
+enabled = false
 min_seconds = 10
 max_seconds = 60
 target_lufs = -14.0

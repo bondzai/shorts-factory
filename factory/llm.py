@@ -195,9 +195,31 @@ def readiness(agents: tuple[str, ...] = AGENTS) -> dict[str, dict[str, Any]]:
 
 
 def has_credentials() -> bool:
-    """Whether every built-in agent could run right now."""
+    """Whether every built-in agent a clip needs right now could run. With QC
+    off (`[qc] enabled = false`) making a clip needs no QC brain."""
+    from .pipeline.common import qc_enabled
+
     try:
-        return all(r["ok"] for r in readiness().values())
+        return all(r["ok"] for name, r in readiness().items() if name != "qc" or qc_enabled())
+    except Exception:
+        return False
+
+
+def can_make_clips() -> bool:
+    """Whether a queued clip can be made now: rendering needs no brain, the
+    template writes metadata unless `metadata_source = "agent"`, and QC only
+    runs when it is on. Idea and Analyst are not part of making a clip."""
+    from .pipeline.common import qc_enabled
+
+    needed = []
+    if settings.load().raw.get("llm", {}).get("metadata_source", "template") == "agent":
+        needed.append("metadata")
+    if qc_enabled():
+        needed.append("qc")
+    if not needed:
+        return True
+    try:
+        return all(r["ok"] for r in readiness(agents=tuple(needed)).values())
     except Exception:
         return False
 

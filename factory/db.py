@@ -359,7 +359,7 @@ WORK_SORTS = {"created_at", "title", "phase", "views", "avg_view_pct", "swipe_aw
 # One vocabulary for where a piece of work is, whether it is still a task or
 # already a clip. Ordered the way work moves. Called a phase, because a stage
 # is what the marbles run down.
-PHASES = ["queued", "rendering", "to_review", "approved", "published", "rejected", "failed", "cancelled", "done"]
+PHASES = ["queued", "rendering", "awaiting_qc", "to_review", "approved", "published", "rejected", "failed", "cancelled", "done"]
 _CLIP_PHASE = ("CASE status WHEN 'planned' THEN 'queued' WHEN 'rendered' THEN 'rendering' "
                "WHEN 'described' THEN 'rendering' WHEN 'awaiting_approval' THEN 'to_review' "
                "WHEN 'qc_rejected' THEN 'rejected' ELSE status END")

@@ -233,8 +233,8 @@ def work(
     """Pull tasks the built-in agents can do, until the queue has none left."""
     from . import llm
 
-    if not llm.has_credentials():
-        raise ValueError("the built-in agents are not ready (see `factory brains`); "
+    if not llm.can_make_clips():
+        raise ValueError("the brains a clip needs are not ready (see `factory brains`); "
                          "an external agent can still work the queue over MCP")
     kinds = [k for k, spec in KINDS.items() if spec["builtin"]]
     done = []

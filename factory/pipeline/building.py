@@ -24,13 +24,14 @@ from ..channels import Channel
 from ..series import planning as series_planning
 from ..models import (
     AWAITING_APPROVAL,
+    AWAITING_QC,
     DESCRIBED,
     FAILED,
     PLANNED,
     QC_REJECTED,
     RENDERED,
 )
-from .common import StageOutcome, resolve, sample_times
+from .common import StageOutcome, qc_enabled, resolve, sample_times
 from .spoilers import spoiler
 
 
@@ -94,14 +95,16 @@ def _render_stage(conn, ch, clip_id, params, *, by=None):
     return clip, info, loudness, frames, sameness
 
 
-def build(conn: sqlite3.Connection, clip_id: str, *, force: bool = False) -> StageOutcome:
+def build(conn: sqlite3.Connection, clip_id: str, *, force: bool = False,
+          run_qc: bool | None = None) -> StageOutcome:
     """Take a clip as far as the review queue, resuming from wherever it stopped.
 
     A build that dies after the render but before QC used to leave the clip
     stranded: re-running it would re-render and re-title, paying twice for work
     already on disk. Each stage is skipped when its output is already there and
     still valid, so `resume` is just `build` on a clip that is not `planned`.
-    `force` ignores all of that and redoes everything.
+    `force` ignores all of that and redoes everything. `run_qc` overrides
+    `[qc] enabled`; with QC off the clip stops, made and titled, as awaiting QC.
     """
     row = db.get(conn, clip_id)
     if row is None:
@@ -185,6 +188,12 @@ def build(conn: sqlite3.Connection, clip_id: str, *, force: bool = False) -> Sta
             stage="metadata", error=str(exc),
         )
         return StageOutcome(clip_id, FAILED, f"metadata failed: {exc}", spent)
+
+    if not (qc_enabled() if run_qc is None else run_qc):
+        db.add_cost(conn, clip_id, spent)
+        db.update(conn, clip_id, status=AWAITING_QC, reject_reason=None)
+        logs.event("clip.awaiting_qc", channel=ch.id, clip=clip_id, title=meta.title)
+        return StageOutcome(clip_id, AWAITING_QC, "made and titled; QC is off — `factory qc` judges it", spent)
 
     try:
         failures = qc.hard_failures(
@@ -289,6 +298,22 @@ def _level_copy(conn, row, ch, clip):
     finally:
         if own:
             conn.close()
+
+
+def run_qc(conn: sqlite3.Connection, channel: Channel | str | None, *,
+           clip_ids: list[str] | None = None, limit: int = 50) -> list[StageOutcome]:
+    """Judge clips that were made while QC was off. Nothing is re-rendered or
+    re-titled: build resumes each one at the QC stage."""
+    from .. import llm
+
+    ready = llm.readiness(agents=["qc"]).get("qc", {})
+    if not ready.get("ok"):
+        raise ValueError(f"the QC brain is not ready: {ready.get('why')}")
+    ch = resolve(conn, channel)
+    rows = db.by_status(conn, ch.id, AWAITING_QC, limit)
+    if clip_ids:
+        rows = [r for r in rows if r["id"] in set(clip_ids)]
+    return [build(conn, row["id"], run_qc=True) for row in rows]
 
 
 def build_all(

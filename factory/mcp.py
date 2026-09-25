@@ -331,10 +331,14 @@ def build_server():
         logs.event("mcp.call", actor="mcp", tool="submit_metadata", clip=clip_id)
         with db.connect() as conn:
             row = db.get(conn, clip_id)
-        return {
+        out = {
             "clip": clip_id, "status": row["status"], "title": meta.title,
             "hook_text": row["hook_text"], "comment_prompt": row["comment_prompt"],
         }
+        if row["status"] == "awaiting_qc":
+            out["next"] = ("QC is off on this server: do not call submit_qc. Call finish_task; "
+                           "the clip waits as awaiting_qc until QC is turned on.")
+        return out
 
     @server.tool(
         description=(
@@ -407,6 +411,45 @@ def build_server():
             "status": "awaiting_approval" if passed else "qc_rejected",
             "reason": reason or None,
         }
+
+    @server.tool(
+        description=(
+            "Clips made while QC was off, waiting to be judged. Look at each "
+            "with look_at_clip, then submit_qc — the same verdict as when QC "
+            "runs at make time."
+        )
+    )
+    def qc_pending(channel: str | None = None, limit: int = 20) -> list[dict[str, Any]]:
+        from .models import AWAITING_QC
+
+        with db.connect() as conn:
+            channel_id = resolve_channel_id(conn, channel)
+            return [_clip_summary(r) for r in db.by_status(conn, channel_id, AWAITING_QC, limit)]
+
+    @server.tool(
+        description=(
+            "Four frames of an already rendered clip (the opening, two middle "
+            "points and the end) with its measurements — what render_clip "
+            "returned when it was made, for judging it later."
+        )
+    )
+    def look_at_clip(clip_id: str) -> list[Any]:
+        from mcp.server.mcpserver.utilities.types import Image
+
+        from . import render
+
+        with db.connect() as conn:
+            row = db.get(conn, clip_id)
+            if row is None:
+                raise ToolError(f"no clip {clip_id}")
+            video = db.video_file(row)
+            if video is None or not video.exists():
+                raise ToolError(f"{clip_id} has no file on disk")
+            frames = render.sample_frames(video, pipeline.common.sample_times(row["duration_s"]))
+            summary = _clip_summary(row)
+        return [json.dumps(summary, indent=1, default=str)] + [
+            Image(data=f, format="png").to_image_content() for f in frames
+        ]
 
     @server.tool(description="Everything known about one clip.")
     def get_clip(clip_id: str) -> dict[str, Any]:

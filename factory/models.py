@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 PLANNED = "planned"
 RENDERED = "rendered"
 DESCRIBED = "described"
+AWAITING_QC = "awaiting_qc"  # made and titled; QC is off, so it waits for `factory qc`
 AWAITING_APPROVAL = "awaiting_approval"
 QC_REJECTED = "qc_rejected"
 APPROVED = "approved"

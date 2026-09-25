@@ -98,7 +98,7 @@ function Header({ channels, channelId, setChannelId, snap, refresh, error, navig
   const job = snap?.job;
   const run = (path: string, body?: Record<string, unknown>) => act(() => send(path, { channel: channelId, ...(body || {}) }), { after: refresh });
   const counts = snap?.counts || {};
-  const order = ["planned", "awaiting_approval", "approved", "published", "qc_rejected", "failed"];
+  const order = ["planned", "awaiting_qc", "awaiting_approval", "approved", "published", "qc_rejected", "failed"];
   const agents = snap?.agents?.available;
   const manual = snap?.channel.driver === "manual";
   return (
@@ -106,6 +106,7 @@ function Header({ channels, channelId, setChannelId, snap, refresh, error, navig
       <select value={channelId || ""} onChange={(e) => setChannelId(e.target.value)}>{channels.map((c) => <option key={c.id} value={c.id}>{c.name}{c.queue ? ` · ${c.queue} waiting` : ""}{c.active ? "" : " (paused)"}</option>)}</select>
       {order.filter((k) => counts[k]).map((k) => <span key={k} className="pill">{statusWord(k)} <b>{counts[k]}</b></span>)}
       <span className="grow" />
+      {!!counts.awaiting_qc && <button disabled={busy} onClick={() => run("/api/qc")} title="Judge the clips made while QC was off. Nothing is re-rendered; needs the QC brain.">Run QC ({counts.awaiting_qc})</button>}
       {agents ? (
         <>
           <button disabled={busy} onClick={() => run("/api/plan", { count: 1 })} title="Ask the built-in Idea agent for one clip">Plan 1</button>

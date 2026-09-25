@@ -65,6 +65,29 @@ def build(body: ChannelOnly) -> dict[str, Any]:
     return JOB.state()
 
 
+@router.post("/api/qc")
+def run_qc(body: ChannelOnly) -> dict[str, Any]:
+    with db.connect() as conn:
+        ch = resolve(conn, body.channel)
+
+    def work(emit) -> float:
+        with db.connect() as conn:
+            emit(f"{ch.name}: judging clips made while QC was off")
+            outcomes = pipeline.run_qc(conn, ch)
+            if not outcomes:
+                emit("nothing waiting for QC")
+                return 0.0
+            spend = 0.0
+            for o in outcomes:
+                spend += o.cost_usd
+                emit(f"{o.clip_id}  {o.status}: {o.detail}")
+            emit(f"done, ${spend:.4f}")
+            return spend
+
+    JOB.start("qc", ch.id, work)
+    return JOB.state()
+
+
 @router.post("/api/publish")
 def publish(body: ChannelOnly) -> dict[str, Any]:
     with db.connect() as conn:

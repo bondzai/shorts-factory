@@ -33,6 +33,20 @@ def _print_row(row) -> None:
     print(f"  cost       ${row['cost_usd']:.4f}")
 
 
+def cmd_qc(args) -> int:
+    with db.connect() as conn:
+        channel = channels.resolve(conn, args.channel)
+        outcomes = pipeline.run_qc(conn, channel, clip_ids=args.clip, limit=args.limit)
+    if not outcomes:
+        print(f"{channel.name}: nothing waiting for QC")
+        return 0
+    for o in outcomes:
+        print(f"{o.clip_id}  {o.status:18} {o.detail}")
+    passed = sum(1 for o in outcomes if o.status == "awaiting_approval")
+    print(f"\n{passed}/{len(outcomes)} reached the review queue")
+    return 0
+
+
 def cmd_queue(args) -> int:
     with db.connect() as conn:
         channel = channels.resolve(conn, args.channel)
@@ -107,6 +121,12 @@ def cmd_bin(args) -> int:
 
 def add(sub) -> None:
     sub.add_parser("queue", help="clips awaiting your approval", description="clips awaiting your approval").set_defaults(func=cmd_queue)
+
+    p = sub.add_parser("qc", help="judge the clips made while QC was off",
+                       description="judge the clips made while QC was off; nothing is re-rendered or re-titled")
+    p.add_argument("--clip", action="append", help="only this clip; repeat for several")
+    p.add_argument("--limit", type=int, default=50)
+    p.set_defaults(func=cmd_qc)
 
     p = sub.add_parser("approve", help="approve one or more clips", description="approve one or more clips")
     p.add_argument("clip_ids", nargs="+")

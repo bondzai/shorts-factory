@@ -15,7 +15,7 @@ an agent over MCP all call these and nothing deeper.
 
 from __future__ import annotations
 
-from .building import Written, build, build_all, create_and_render, render_stage
+from .building import Written, build, build_all, create_and_render, render_stage, run_qc
 from .common import StageOutcome, resolve, sample_times
 from .metrics import digest, pull_metrics, set_metrics
 from .planning import plan

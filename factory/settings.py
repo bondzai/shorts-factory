@@ -21,6 +21,9 @@ ROOT = Path(os.environ.get("FACTORY_ROOT") or Path(__file__).resolve().parent.pa
 # database, shown as such, and removable. Paths are not here on purpose — the
 # database's own location cannot come from the database.
 SCHEMA: list[dict[str, Any]] = [
+    {"section": "qc", "key": "enabled", "type": "select", "options": [False, True],
+     "label": "Run QC when a clip is made", "help": "Off: clips stop after render and copy as awaiting QC, and "
+     "making them needs no QC brain. Turn on, then Run QC judges everything waiting."},
     {"section": "qc", "key": "max_sameness", "type": "number", "min": 0.5, "max": 1.0, "step": 0.01,
      "label": "Sameness ceiling", "help": "Perceptual similarity above this against any clip that could ship is a hard reject."},
     {"section": "qc", "key": "min_seconds", "type": "number", "min": 3, "max": 60, "step": 1,

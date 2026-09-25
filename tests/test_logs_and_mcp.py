@@ -230,7 +230,9 @@ async def test_the_agent_path_needs_no_credential(sandbox, monkeypatch):
     })
     assert not result.is_error
     with db.connect() as conn:
-        assert db.get(conn, clip_id)["status"] == "described"
+        # With QC off the clip waits for `factory qc` instead of an agent's verdict.
+        from factory.pipeline.common import qc_enabled
+        assert db.get(conn, clip_id)["status"] == ("described" if qc_enabled() else "awaiting_qc")
 
 
 @pytest.mark.anyio

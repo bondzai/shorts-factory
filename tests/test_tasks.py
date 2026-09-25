@@ -99,7 +99,7 @@ def test_the_builtin_worker_only_takes_what_it_can_do(conn, monkeypatch):
 def test_the_builtin_worker_refuses_without_a_ready_brain(conn, monkeypatch):
     from factory import llm
 
-    monkeypatch.setattr(llm, "has_credentials", lambda: False)
+    monkeypatch.setattr(llm, "can_make_clips", lambda: False)
     tasks.enqueue(conn, CH, "make-clip", {"variant": "marble_race"})
     with pytest.raises(ValueError, match="external agent"):
         tasks.work(conn)

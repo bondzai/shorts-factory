@@ -17,6 +17,13 @@ class StageOutcome:
     cost_usd: float = 0.0
 
 
+def qc_enabled() -> bool:
+    """Whether a clip is judged as it is made, or waits for `factory qc`."""
+    from .. import settings
+
+    return bool(settings.load().raw.get("qc", {}).get("enabled", True))
+
+
 def sample_times(duration: float) -> list[float]:
     return [
         min(0.3, duration / 10),
