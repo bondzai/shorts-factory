@@ -313,7 +313,16 @@ def run_qc(conn: sqlite3.Connection, channel: Channel | str | None, *,
     rows = db.by_status(conn, ch.id, AWAITING_QC, limit)
     if clip_ids:
         rows = [r for r in rows if r["id"] in set(clip_ids)]
-    return [build(conn, row["id"], run_qc=True) for row in rows]
+    outcomes = []
+    for row in rows:
+        outcome = build(conn, row["id"], run_qc=True)
+        if outcome.status == FAILED and outcome.detail.startswith("qc failed"):
+            # The brain erred (down, context too small, bad JSON): that is not
+            # a verdict on the clip, so it goes back to wait for the next run.
+            db.update(conn, row["id"], status=AWAITING_QC, reject_reason=outcome.detail[:300])
+            outcome = StageOutcome(row["id"], AWAITING_QC, outcome.detail, outcome.cost_usd)
+        outcomes.append(outcome)
+    return outcomes
 
 
 def build_all(

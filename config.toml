@@ -107,9 +107,10 @@ model = "claude-opus-5"
 #             template does not know (it only writes marble races).
 metadata_source = "template"
 # Sampled frames are shrunk to this long edge before any brain sees them.
-# 1080x1920 was 2-3 thousand tokens an image; 768 is a fifth of that and
-# every marble is still plain to see.
-image_long_edge = 768
+# 1080x1920 was 2-3 thousand tokens an image; 512 is a tenth of that, and
+# every marble is still plain to see. Four frames at 768 overflowed a local
+# model's 4k context (5,192 tokens on 2026-09-25).
+image_long_edge = 512
 
 # The brains a clip can use. A local one costs nothing and needs no key;
 # `factory brains` shows which are ready, `factory brains --test ollama`
