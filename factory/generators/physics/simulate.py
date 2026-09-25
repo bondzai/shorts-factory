@@ -18,6 +18,15 @@ from .model import (FUNNEL_GRAVITY, IMPACT_DV, MAX_ATTEMPTS, MAX_IMPACTS_PER_FRA
                     PACE_SLOWER, POST_WIN_MAX_S, POST_WIN_S, RACE_GRAVITY, ROCK_AMPLITUDE,
                     STALL_SPEED, SUBSTEPS, Stalled, trap_angle)
 
+# A `jitter` trait's kick, per frame, as a fraction of what the stage's
+# gravity adds to a marble's speed in that frame, times the trait's value;
+# the direction is uniform. Scaled to gravity because the stages run from
+# -30 to -600: a kick in px/s that nudges on the zigzag would throw a marble
+# across a -30 pegboard. The kicks come from their own stream, derived from
+# the seed, so the build's draws are untouched.
+JITTER_G = 0.5
+_JITTER_SALT = 0x6A177E4
+
 def run_round(seed, variant, params, cfg, sim_w, sim_h, fps, lineup=None, *,
               post_win_s: float | None = None, post_win_max_s: float | None = None) -> dict:
     """One simulated race, opened mid-action, with its finish arithmetic."""
@@ -36,7 +45,8 @@ def run_round(seed, variant, params, cfg, sim_w, sim_h, fps, lineup=None, *,
             sim = simulate(
                 seed=seed + attempt * 7919, variant=variant, sim_w=sim_w, sim_h=sim_h,
                 fps=fps, max_frames=max_frames, stage=params.get("stage") or params.get("course"),
-                background=params.get("background"), lineup=lineup, pace=pace, min_frames=min_frames,
+                background=params.get("background"), lineup=lineup, cast=params.get("cast"),
+                pace=pace, min_frames=min_frames,
                 post_win_max_s=POST_WIN_MAX_S if post_win_max_s is None else post_win_max_s,
                 post_win_s=POST_WIN_S if post_win_s is None else post_win_s,
             )
@@ -79,7 +89,7 @@ def run_round(seed, variant, params, cfg, sim_w, sim_h, fps, lineup=None, *,
 def simulate(*, seed: int, variant: str, sim_w: int, sim_h: int, fps: int, max_frames: int,
     stage: str | None = None, background: str | None = None, lineup: list | None = None,
     pace: float = 1.0, min_frames: int | None = None, stall_speed: float = STALL_SPEED,
-    post_win_s: float = POST_WIN_S, post_win_max_s: float = POST_WIN_MAX_S,
+    post_win_s: float = POST_WIN_S, post_win_max_s: float = POST_WIN_MAX_S, cast: list | None = None,
 ):
     """Run the physics only. Raises Stalled when a race goes nowhere, or
     finishes before min_frames (the QC floor, by default)."""
@@ -87,7 +97,7 @@ def simulate(*, seed: int, variant: str, sim_w: int, sim_h: int, fps: int, max_f
     space = pymunk.Space()
     if variant == "marble_race":
         space.gravity = (0.0, RACE_GRAVITY)
-        balls, segments, style = build_race(space, sim_w, sim_h, rng, stage, background, lineup)
+        balls, segments, style = build_race(space, sim_w, sim_h, rng, stage, background, lineup, cast)
         space.gravity = (0.0, space.gravity.y * pace)
         style.seed = seed
         finish_y: float | None = 110.0
@@ -108,8 +118,19 @@ def simulate(*, seed: int, variant: str, sim_w: int, sim_h: int, fps: int, max_f
     winner_frame: int | None = None
     finishes: dict[str, int] = {}
     stalled = 0
+    jitter = [float(b.traits.get("jitter", 0.0)) for b in balls]
+    jitter_rng = random.Random(seed ^ _JITTER_SALT) if any(jitter) else None
+    kick = JITTER_G * gravity_mag / fps
+    immune = [bool(b.traits.get("force_immune")) for b in balls]
 
     for frame in range(max_frames):
+        if jitter_rng is not None:
+            for ball, amount in zip(balls, jitter):
+                if amount:
+                    angle = jitter_rng.uniform(0.0, 2 * math.pi)
+                    v = ball.body.velocity
+                    ball.body.velocity = (v.x + math.cos(angle) * kick * amount,
+                                          v.y + math.sin(angle) * kick * amount)
         for ball in balls:
             v = ball.body.velocity
             if v.length > MAX_SPEED:
@@ -138,7 +159,9 @@ def simulate(*, seed: int, variant: str, sim_w: int, sim_h: int, fps: int, max_f
             # gives a visibly different race at a different substep count.
             # `body.force` is set, not accumulated, so nothing carries over.
             if style.magnets:
-                for ball in balls:
+                for ball, skip_field in zip(balls, immune):
+                    if skip_field:
+                        continue
                     px, py = ball.body.position
                     ax = ay = 0.0
                     for mx, my, _core, soft, reach, pull in style.magnets:

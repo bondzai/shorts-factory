@@ -115,6 +115,8 @@ class Report:
     gaps: list[float | None] = field(default_factory=list)
     leads: list[int] = field(default_factory=list)
     comebacks: int = 0
+    # Races won, by marble — the balance gate when a cast runs (`--cast`).
+    wins: dict[str, int] = field(default_factory=dict)
     failures: list[str] = field(default_factory=list)
 
     @property
@@ -307,7 +309,7 @@ def held(states, i: int, style=None) -> bool:
 
 def run(stage: str, seeds: range | list[int], *, gravity_value: float | None = None,
         tail_s: float | None = None, max_seconds: float | None = None,
-        cut_on_runner_up: bool = True) -> Report:
+        cut_on_runner_up: bool = True, cast: list[dict] | None = None) -> Report:
     """Measure one stage over seeds.
 
     `tail_s` stands in for POST_WIN_MAX_S for this run only, which is how a
@@ -320,9 +322,14 @@ def run(stage: str, seeds: range | list[int], *, gravity_value: float | None = N
     off put the cost of a 5.0 s tail at +1.8 s a round when it is +0.2 s.
     It needs `max_seconds` raised to match, or the race is truncated by the
     frame budget before a long gap can be seen.
+
+    `cast` races those entrants (dicts as a task passes them) instead of the
+    theme's marbles, and `Report.wins` says who won; see `balance`.
     """
     cfg = settings.load().render
-    params = {"stage": stage}
+    params: dict = {"stage": stage}
+    if cast:
+        params["cast"] = cast
     if max_seconds is not None:
         params["max_seconds"] = max_seconds
     report = Report(stage=stage, gravity=gravity_value if gravity_value is not None else physics.STAGE_GRAVITY[stage])
@@ -365,7 +372,28 @@ def run(stage: str, seeds: range | list[int], *, gravity_value: float | None = N
             report.leads.append(changes)
             winner_index = next((i for i, b in enumerate(r["balls"]) if b.name == r["winner"]), None)
             report.comebacks += winner_index in ever_last
+            report.wins[r["winner"]] = report.wins.get(r["winner"], 0) + 1
     return report
+
+
+# The cast's balance gate (docs/08, "Cast"): over 48 seeds of a live stage
+# every regular entrant wins between these shares of the races that finished.
+BALANCE = (0.10, 0.45)
+
+
+def balance(report: Report, entrants: list[str], scoring: set[str] | None = None) -> tuple[str, list[str]]:
+    """Each entrant's win share on this stage, and who is outside BALANCE.
+    Guests (not in `scoring`) are shown and never judged."""
+    done = max(report.finished, 1)
+    lo, hi = BALANCE
+    cells, outside = [], []
+    for who in entrants:
+        share = report.wins.get(who, 0) / done
+        judged = scoring is None or who in scoring
+        if judged and not lo <= share <= hi:
+            outside.append(f"{who} {share:.0%}")
+        cells.append(f"{share:.0%}" + ("" if judged else " (guest)"))
+    return f"| `{report.stage}` | {report.finished}/{report.seeds} | " + " | ".join(cells) + " |", outside
 
 
 def calibrate(stage: str, seeds, *, start: float | None = None, rounds: int = 5, log=print) -> float:

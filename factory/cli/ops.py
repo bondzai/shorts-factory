@@ -115,13 +115,16 @@ def cmd_gc(args) -> int:
 
 def cmd_stage_qa(args) -> int:
     """Measure stages over many seeds; optionally tune gravity; write the report."""
-    wanted = args.stage or ([s.id for s in physics.STAGE_SPECS if s.composed] if args.composed
-                            else [s.id for s in physics.STAGE_SPECS])
+    named = [s for arg in (args.stage or []) for s in arg.split(",") if s]
+    wanted = named or ([s.id for s in physics.STAGE_SPECS if s.composed] if args.composed
+                       else [s.id for s in physics.STAGE_SPECS])
     unknown = [s for s in wanted if s not in physics.STAGE_BY_ID]
     if unknown:
         print(f"no stage {unknown}; have {sorted(physics.STAGE_BY_ID)}")
         return 2
     seeds = list(range(args.first_seed, args.first_seed + args.seeds))
+    if args.cast:
+        return _stage_qa_cast(args.cast, wanted, seeds, args.entrants)
     reports = []
     for stage in wanted:
         g = None
@@ -136,6 +139,42 @@ def cmd_stage_qa(args) -> int:
         path.write_text(stage_qa.report_markdown(reports, args.seeds), encoding="utf-8")
         print(f"wrote {path.relative_to(settings.ROOT)}")
     return 0 if all(r.passed for r in reports) else 1
+
+
+def cast_entrants(channel_id: str, entrants: str | None = None) -> list[dict]:
+    """A channel's cast as a task passes it: the L01 regulars by default, or
+    the ids named (comma-separated). Raises SystemExit with a reason."""
+    from ..series import cast as series_cast
+
+    cast = series_cast.load(channel_id)
+    if cast is None:
+        raise SystemExit(f"no cast: {series_cast.path_for(channel_id)} does not exist")
+    if entrants:
+        picked = [cast.get(e.strip()) for e in entrants.split(",") if e.strip()]
+    else:
+        picked = [e for e in cast.entrants if e.scores and e.debuted_by("L01")]
+    return [{"id": e.id, "name": e.name, "color": e.color, "traits": dict(e.traits), "scores": e.scores}
+            for e in picked]
+
+
+def _stage_qa_cast(channel_id: str, stages: list[str], seeds: list[int], entrants: str | None) -> int:
+    """The balance gate: every regular's win share per stage."""
+    field = cast_entrants(channel_id, entrants)
+    ids = [e["id"] for e in field]
+    scoring = {e["id"] for e in field if e["scores"]}
+    lo, hi = stage_qa.BALANCE
+    print(f"cast {channel_id}: {', '.join(ids)} over {len(seeds)} seeds; every regular wins {lo:.0%}-{hi:.0%}")
+    print("| stage | finished | " + " | ".join(ids) + " |")
+    print("|---|---|" + "---|" * len(ids))
+    failed = []
+    for stage in stages:
+        rep = stage_qa.run(stage, seeds, cast=field)
+        row, outside = stage_qa.balance(rep, ids, scoring)
+        print(row, flush=True)
+        failed += [f"{stage}: {o}" for o in outside]
+    if failed:
+        print("outside the gate: " + "; ".join(failed))
+    return 1 if failed else 0
 
 
 def cmd_mcp(args) -> int:
@@ -173,7 +212,10 @@ def add(sub) -> None:
 
     p = sub.add_parser("stage-qa", help="measure race stages over many seeds: stalls, parked marbles, runner-ups, pace, drama",
                        description="measure race stages over many seeds: stalls, parked marbles, runner-ups, pace, drama")
-    p.add_argument("--stage", action="append", help="a stage id; repeat for several (default: all)")
+    p.add_argument("--stage", "--stages", dest="stage", action="append",
+                   help="a stage id, or several comma-separated; repeatable (default: all)")
+    p.add_argument("--cast", help="race this channel's cast (channels/<id>/cast.toml) and report each entrant's win share")
+    p.add_argument("--entrants", help="with --cast: these ids, comma-separated (default: the L01 regulars)")
     p.add_argument("--composed", action="store_true", help="only the stages stacked from sections")
     p.add_argument("--seeds", type=int, default=16, help="seeds per stage (default 16)")
     p.add_argument("--first-seed", type=int, default=700)
