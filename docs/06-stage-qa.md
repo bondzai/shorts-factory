@@ -556,3 +556,91 @@ What the numbers changed, in the order they were found:
 
 Reproduce a row: `stage_qa.run("trapdice", range(700, 748), params={"section":
 "gauntlet-trapdoors-repulsion-dice"}, cast=[<nova>, <tide> from cast.toml])`.
+
+## World 7: Harvest Cup, Shrinking Arena (L61–L70, and L77)
+
+Written by hand, not by `--report`: each row is a *level*, raced with its own
+params (`section`, `format: last_standing`, `teams`) and its own entrants from
+`channels/main/cast.toml`, seeds 700–747 through the render's retry loop
+(`stage_qa.run(stage, seeds, params=…, cast=…)`), measured 2026-09-25.
+Everything is in `factory/generators/physics/worlds/arena.py`; the four stages
+(`arena`, `arenatrap`, `arenahill`, `arenaw`) are trial (weight 0).
+
+An arena has no line, so the plain gates' finish, runner-up, parked and lead
+numbers mean nothing (a survivor resting on the floor is not parked). It is
+judged on `stage_qa.last_standing_problems`: the elimination gates above, plus
+**one left** in every race (48/48), **first try** in half the seeds (a stall,
+or an arena whose last two went out together, is retried on a derived seed),
+and every clip **inside the window**, 10 s (QC's floor) to 22 s (the render's
+cap). **Balance** is each persona's share of wins (a team's marbles summed):
+with four or five regulars each 10–45%; with more, nobody under 5% or over
+50%. **Last two** is the median from the second-last exit to the decision.
+
+| level | stage · section | finished | first try | one left | median s | min–max s | out a race | last two s | wins % | verdict |
+|---|---|---|---|---|---|---|---|---|---|---|
+| L61 | `arena` · `shrinking-walls` | 48/48 | 35/48 | 48/48 | 13.6 | 10.1-16.1 | 4.0 | 0.03 | Vol29 Tid23 Bla23 Nov12 Mos12 | pass |
+| L62 | `arenahill` · `king-of-the-hill` | 48/48 | 48/48 | 48/48 | 12.2 | 12.2-12.2 | 4.0 | 0.0 | Nov25 Mos21 Vol21 Bla17 Tid17 | pass |
+| L63 | `arenatrap` · `arena-trapdoors` | 48/48 | 35/48 | 48/48 | 11.8 | 10.0-18.1 | 6.0 | 0.0 | Jun19 Vol17 Nov15 Bla15 Aco12 Mos12 Tid10 | pass |
+| L64 | `arena` · `arena-pushers` | 48/48 | 43/48 | 48/48 | 17.2 | 10.6-19.8 | 4.0 | 0.03 | Mos27 Vol25 Bla25 Tid12 Nov10 | pass |
+| L65 | `arena` · `team-arena` | 48/48 | 39/48 | 48/48 | 13.7 | 10.1-17.4 | 4.9 | 0.03 | Bla40 Vol33 Tid27 | pass |
+| L66 | `arena` · `ice-arena` | 48/48 | 34/48 | 48/48 | 16.4 | 12.8-19.2 | 4.0 | 0.03 | Vol27 Tid23 Bla21 Nov17 Mos12 | pass |
+| L67 | `arena` · `centre-magnet` | 48/48 | 41/48 | 48/48 | 13.2 | 10.3-17.4 | 4.0 | 0.03 | Bla25 Vol21 Mos21 Tid21 Nov12 | pass |
+| L68 | `arenatrap` · `sudden-death-duel` | 48/48 | 45/48 | 48/48 | 10.6 | 10.1-14.9 | 1.0 | 0.0 | Tid52 Nov48 | pass |
+| L69 | `arenaw` · `fan-arena-shape` | 48/48 | 36/48 | 48/48 | 13.2 | 10.2-17.7 | 4.0 | 0.03 | Tid25 Vol21 Mos21 Nov17 Bla17 | pass |
+| L70 | `arenatrap` · `mega-arena` | 48/48 | 33/48 | 48/48 | 11.2 | 10.0-15.7 | 9.0 | 0.03 | Bla27 Mos23 Tid23 Nov15 Vol12 | pass |
+| L77 | `arena` · `repulsion-arena` | 48/48 | 40/48 | 48/48 | 13.3 | 10.3-16.6 | 5.0 | 0.03 | Tid38 Vol17 Mos15 Bla12 Emb10 Nov8 | pass |
+
+L65 is three teams of two (blaze, tide, volt: the stand-in pairs), decided when
+one team is left; its wins are by team. L70 is ten marbles, two per persona.
+Guests (acorn, juniper on L63) are shown, never judged. L68 is a duel: 52/48.
+
+**Mechanism**, over the same seeds: every race of every level took marbles
+out over the walls (`pitted`); L63 and L70 caught someone in a trapdoor in 48
+of 48; `launched` (a moving wall shoving a marble 260 px/s faster while
+touching it) fired in 46 of 48 races on L64 and 48 of 48 on L66 and L77; on
+L62 one marble held the hill's lit top at the stop in 41 of 48, two in 2, and
+nobody in 5 (then the marble nearest the top holds it).
+
+What the numbers changed, in the order they were found:
+
+- **The physics generator, not battle.** `battle.py` races colour-named
+  fighters with health bars and no gravity: no cast, no trace a redraw reads,
+  no presentation layer, no standings. An arena under gravity is a floor
+  between walls, and every other world's machinery comes with it.
+- **A squeeze picks the smallest marble.** With walls that only closed in, a
+  flat floor and the last gap 1.3 marbles wide, the smallest marble in the
+  field won 37 of 46 (Volt 61%, Nova 2%): pressed between two walls, the
+  bigger of two marbles is the one lifted out. Lower walls (0.55 of a marble)
+  emptied the arena instead. What made size stop deciding it: a low dome for
+  a floor (slope 0.15), so marbles roll to the walls, and slams — each step
+  goes in past its mark and back in 0.25 s, harder step by step, up to 1.2
+  marbles — so the field is knocked about and the one left is the one that
+  was not knocked out. Six steps, three seconds apart from 3 s: with five
+  steps and the full slam from the first, the arena was decided before QC's
+  10 s floor.
+- **Judged on landing.** The first version called a race the frame one marble
+  was left, and in 2 of 48 the survivor was already airborne off a wall's top
+  and fell out after its win. The race is now undecided while anyone is in the
+  air or on a wall's top (`rig.unsettled`), a marble is out the frame its
+  centre passes a wall's line rather than at the bottom of the pit, and an
+  arena whose last two went out together is retried (`rig.survivor_needed`).
+- **Crowded fields are gentler.** Seven marbles (L63) and ten (L70) filled the
+  floor and were decided in 7–9 s; they start their steps at 4 s with half
+  slams (L63) or none (L70, where the jabs are the hits), and the panels from
+  7 s. The pushers (L64) jab from 6 s, a third of a marble deep: at a full
+  marble from 2.5 s the arena was over in 4–6 s.
+- **Ice carries a shove.** On L66's ice floor the full slam left Nova 4%; half
+  of it gives 17%.
+- **A duel is mass against position.** Tide (heavier, grippier) won 75–90% of
+  duels decided by walls, jabs or no jabs; the trapdoors alone gave Nova 69%.
+  L68 is the arena with trapdoors (from 9 s): 25 to 23.
+- **The hill's top is a cup.** Flat, nobody was on it at the stop in 19 of
+  48 and the "nearest the top" rule decided those; a cup a fifth of a marble
+  deep holds whoever gets up there until they are knocked off.
+- **The camera frames the arena.** The arena is a strip across the lower third;
+  at the whole frame the marbles are small. The arena records a `view` box
+  (the walls, the floor, the countdown), which the presentation holds after
+  the opening and which tightens as the walls close; punch-ins come at each
+  elimination, the leaderboard keeps the ones still in in entrant order, and
+  a row dims when its marble goes, not before (it used to dim from the first
+  frame, which told the viewer who would go).

@@ -184,6 +184,17 @@ class Rig:
         # A mechanic may cut the clip to fewer rounds than `params.rounds`
         # (a die that sets the round count); read by sandbox.race_rounds.
         self.clip_rounds: int | None = None
+        # A team arena (World 7, L65): a team survives while any of its
+        # marbles is left, so a last_standing race is decided when the
+        # marbles left are all one team's. Off: one marble.
+        self.team_survival = False
+        # A clock that keeps a last_standing race undecided while it is
+        # truthy (World 7: the last marble is still in the air, or on a
+        # wall's top): who is left is judged once they have landed.
+        self.unsettled: str | None = None
+        # A last_standing race that must end with one marble left: one where
+        # everyone went out is retried on a derived seed (simulate.run_round).
+        self.survivor_needed = False
         fmt = self.params.get("format")
         self.elimination = fmt in ("elimination", "last_standing")
         self.win = str(self.params.get("win") or ("last_standing" if fmt == "last_standing" else "first_across"))
@@ -706,6 +717,17 @@ class Rig:
     @property
     def contenders(self) -> list[int]:
         return [i for i, ok in enumerate(self.alive) if ok and self.names[i] not in self.finished]
+
+    def one_left(self, contenders: list[int]) -> bool:
+        """A last_standing race is decided: one marble left, or — with
+        `team_survival` — every marble left runs for one team."""
+        if self.unsettled and contenders and self.values.get(self.unsettled):
+            return False
+        if len(contenders) <= 1:
+            return True
+        if not self.team_survival:
+            return False
+        return len({getattr(self.balls[i], "team", None) or self.names[i] for i in contenders}) <= 1
 
     @property
     def all_gone(self) -> bool:

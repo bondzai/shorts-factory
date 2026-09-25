@@ -23,6 +23,7 @@ from .worlds import haunted as w4  # World 4's maze sections, likewise
 from .worlds import repel as w8  # World 8's sections register with the kit on import
 
 from .worlds import grand_final as w10  # World 10: the scaffold section registers on import
+from .worlds import arena as w7  # World 7: the shrinking arena's stages and mechanics
 
 @dataclass(frozen=True)
 class Stage:
@@ -330,6 +331,22 @@ STAGE_SPECS: list[Stage] = [
              blurb="a dice gate into three lanes, a trapdoor panel under pegs, then pegs"),
     composed("construction", list(w10.CONSTRUCTION), gravity=-50.0, noun="the new track",
              blurb="pegs, ramps still being built, then pegs"),
+
+    # World 7, Harvest Cup: Shrinking Arena (L61-L70, L77; worlds/arena.py): no
+    # line, a floor between two walls that close in, a pit beyond them. Trial
+    # stages, each raced by the level that names it; docs/06 "World 7".
+    Stage("arena", w7.arena_build("dome"), -300.0, "the arena",
+          "a low-domed floor between two low walls that close in, a pit beyond them",
+          lambda s, g: "an arena whose walls close in"),
+    Stage("arenahill", w7.arena_build("hill"), -300.0, "the hill",
+          "the arena with a hill in the middle, its top lit",
+          lambda s, g: "an arena with a hill in the middle"),
+    Stage("arenatrap", w7.arena_build("trap"), -300.0, "the arena",
+          "the arena with a trapdoor panel in its floor each side of the middle",
+          lambda s, g: "an arena with trapdoors in its floor"),
+    Stage("arenaw", w7.arena_build("w"), -300.0, "the valleys",
+          "the arena on a W-shaped floor: two valleys either side of a ridge",
+          lambda s, g: "an arena with two valleys and a ridge"),
     # COMPOSED-STAGES-END
 ]
 
@@ -477,6 +494,26 @@ MECHANIC_SPECS: list[Mechanic] = [
              blurb="one marble through the final's tracks, trapdoors shut, the standings on screen"),
     Mechanic("season-one-teaser", w10.season_one_teaser, stage="construction",
              blurb="ramps built as the field comes down to them; a new marble's silhouette at the end"),
+    # World 7, Harvest Cup: Shrinking Arena (worlds/arena.py; docs/06 "World 7").
+    Mechanic("shrinking-walls", w7.shrinking_walls, stage="arena",
+             blurb="the walls close a step every three seconds until one marble is left"),
+    Mechanic("king-of-the-hill", w7.king_of_the_hill, stage="arenahill",
+             blurb="the walls stop after three steps; whoever holds the hill then wins"),
+    Mechanic("arena-trapdoors", w7.arena_trapdoors, stage="arenatrap",
+             blurb="the closing arena with a trapdoor each side of the middle"),
+    Mechanic("arena-pushers", w7.arena_pushers, stage="arena", blurb="the closing walls jab in and back"),
+    Mechanic("team-arena", w7.team_arena, stage="arena",
+             blurb="teams; a team survives while either of its marbles is left"),
+    Mechanic("ice-arena", w7.ice_arena, stage="arena", blurb="the closing arena on an ice floor"),
+    Mechanic("centre-magnet", w7.centre_magnet, stage="arena",
+             blurb="a magnet under the middle of the floor pulls every marble in"),
+    Mechanic("sudden-death-duel", w7.sudden_death_duel, stage="arenatrap",
+             blurb="two marbles, the closing arena with trapdoors; the first one out loses"),
+    Mechanic("fan-arena-shape", w7.fan_arena_shape, stage="arenaw",
+             blurb="the closing arena on a W-shaped floor (the fan-vote stand-in)"),
+    Mechanic("mega-arena", w7.mega_arena, stage="arenatrap", blurb="walls, pushers and trapdoors"),
+    Mechanic("repulsion-arena", w7.repulsion_arena, stage="arena",
+             blurb="every marble pushes every other apart in the closing arena"),
     # MECHANICS-END
 ]
 MECHANICS: dict[str, Mechanic] = {m.id: m for m in MECHANIC_SPECS}
