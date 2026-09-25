@@ -98,7 +98,7 @@ function Briefing({ snap, team, brains, season }: { snap: Snap; team: Overview |
   if (approved) parts.push(`${plural(approved, "approved clip")} ${approved === 1 ? "is" : "are"} ready to ${manual ? "upload" : "publish"}`);
   if (season) {
     const next = season.levels.filter((l) => l.plannable).slice(0, 3);
-    if (next.length) parts.push(`${next.length === 1 ? next[0].id : `${next[0].id}–${next[next.length - 1].id}`} ${next.length === 1 ? "is" : "are"} ready to plan`);
+    if (next.length) parts.push(`${runs(next.map((l) => l.id))} ${next.length === 1 ? "is" : "are"} ready to plan`);
   }
   const doing: string[] = [];
   for (const m of team?.members || []) {
@@ -268,4 +268,18 @@ function Panel({ id, title, note, want, children }: { id: string; title: string;
       {open && children}
     </details>
   );
+}
+
+// "L02–L04, L21, L29": a dash only for levels that really are consecutive,
+// so a list of three never reads as the fifteen levels between them.
+function runs(ids: string[]): string {
+  const n = (id: string) => parseInt(id.replace(/\D/g, ""), 10);
+  const out: string[] = [];
+  for (let i = 0; i < ids.length; ) {
+    let j = i;
+    while (j + 1 < ids.length && n(ids[j + 1]) === n(ids[j]) + 1) j++;
+    out.push(j - i >= 2 ? `${ids[i]}–${ids[j]}` : ids.slice(i, j + 1).join(", "));
+    i = j + 1;
+  }
+  return out.join(", ");
 }
