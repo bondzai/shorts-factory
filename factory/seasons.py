@@ -22,13 +22,17 @@ def known_stages() -> set[str]:
     return set(STAGE_BY_ID)
 
 
-def redraw(meta: dict, trace_dir):
-    """A trace's frames from the generator that wrote it (long-form's Redraw)."""
+def redraw(meta: dict, trace_dir, raw: bool = False):
+    """A trace's frames from the generator that wrote it (long-form's Redraw).
+    `raw`: the race without the short's presentation (camera, slow-mo, HUD),
+    for a generator that has one."""
     from . import generators
 
     gen = generators.get(meta["generator"])
     if not hasattr(gen, "redraw"):
         raise ValueError(f"generator {meta['generator']!r} cannot redraw from a trace")
+    if raw and "presentation" in meta:
+        return gen.redraw(trace_dir, raw=True)
     return gen.redraw(trace_dir)
 
 
