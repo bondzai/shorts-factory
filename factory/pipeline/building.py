@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from .. import channels, db, gc, generators, logs, phash, render, settings
 from ..agents import metadata as metadata_agent, qc, template
 from ..channels import Channel
+from ..series import planning as series_planning
 from ..models import (
     AWAITING_APPROVAL,
     DESCRIBED,
@@ -48,6 +49,16 @@ def render_stage(conn: sqlite3.Connection, ch: Channel, clip_id: str, params: di
     One body for build, the credential-free agent path and a caption re-render,
     so the three cannot drift apart in what they measure.
     """
+    try:
+        return _render_stage(conn, ch, clip_id, params, by=by)
+    except Exception as exc:
+        # A season level that cannot be built says why on the level, too
+        # (story_unsatisfiable: … is the one the plan has to answer).
+        series_planning.mark(conn, ch.id, params, clip_id, series_planning.FAILED, str(exc))
+        raise
+
+
+def _render_stage(conn, ch, clip_id, params, *, by=None):
     row = db.get(conn, clip_id)
     gen = generators.get(row["generator"])
     clip = gen.generate(
@@ -69,7 +80,10 @@ def render_stage(conn: sqlite3.Connection, ch: Channel, clip_id: str, params: di
         duration_s=info["duration_s"], width=info["width"], height=info["height"],
         fps=info["fps"], loudness_lufs=loudness, phash=digest_hash, sameness=sameness,
         hook_text=clip.facts.get("hook_text"),
+        trace_path=db.relative_video_path(clip.trace_path) if clip.trace_path else None,
+        level_id=params.get("level_id"),
     )
+    series_planning.mark(conn, ch.id, params, clip_id, series_planning.RENDERED)
     # The silent mp4 and the wav are dead the moment the mux lands.
     swept = gc.sweep_intermediates(clip.video_path.parent)
     logs.event(

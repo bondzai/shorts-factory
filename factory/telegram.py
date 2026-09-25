@@ -136,11 +136,38 @@ def clip_caption(row) -> str:
         bits[-1] += f" · stage {facts['stage']}"
     if row["duration_s"]:
         bits[-1] += f" · {float(row['duration_s']):.1f}s"
+    level = _level_line(row)
+    if level:
+        bits.append(level)
     if qc:
         bits.append(f"QC hook {qc.get('hook_strength', '—')}/5 · policy {qc.get('policy_risk', '—')}")
     if row["comment_prompt"]:
         bits.append(f"pinned: {row['comment_prompt']}")
     return "\n".join(bits)[:1000]
+
+
+def _level_line(row) -> str | None:
+    """"level L22 · before it: Blaze 9 · Tide 7 · …" for a season level clip.
+
+    The table is the one before this level, so approving does not read as
+    already counted. Never breaks the caption: a missing season file or cast
+    just drops the standings half.
+    """
+    from . import db
+    from .series import standings
+
+    if "level_id" not in row.keys() or not row["level_id"]:
+        return None
+    ids = standings.level_of_clip(row)
+    line = f"level {row['level_id']}"
+    if ids is None:
+        return line
+    try:
+        with db.connect() as conn:
+            table = standings.summary_line(conn, row["channel_id"], ids[0], before_level=ids[1])
+    except Exception:
+        return line
+    return f"{line} · before it: {table}"
 
 
 def send_clip(clip_id: str, *, chat_id: str | None = None) -> dict[str, Any]:

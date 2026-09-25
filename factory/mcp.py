@@ -264,7 +264,9 @@ def build_server():
                 clip_id, frames, facts = pipeline.create_and_render(
                     conn, channel, variant=use["variant"], generator=use["generator"] or "physics",
                     seed=use["seed"], hook=hook,
-                    params={k: v for k, v in (("stage", use.get("stage")), ("background", use.get("background"))) if v} or None,
+                    # A season task also carries cast, story and level ids; they
+                    # ride along from the held task untouched.
+                    params=task_queue.clip_params(use) or None,
                 )
                 task_id = db.attach_clip_to_claimed_task(
                     conn, channel_id, clip_id, HELD.get(channel_id))
@@ -592,6 +594,88 @@ def build_server():
 
         with db.connect() as conn:
             return [tasks.as_dict(r) for r in db.tasks(conn, channel, status)]
+
+    # --- seasons (docs/08): read and build only ------------------------------
+
+    @server.tool(
+        description=(
+            "Check a channel's season file against its cast and the series rules "
+            "(schema, debut order, identity predicates, anti-repetition, dates, "
+            "copy-hint placeholders). Returns problems, blocked levels and levels "
+            "waiting for operator input."
+        )
+    )
+    def season_check(channel: str | None = None, season: str | None = None) -> dict[str, Any]:
+        from . import seasons
+
+        with db.connect() as conn:
+            ch = channels.resolve(conn, channel)
+            out = seasons.check(conn, ch, season)
+        logs.event("mcp.call", actor="mcp", tool="season_check", channel=ch.id)
+        return {
+            "season": out["season"], "levels": out["levels"],
+            "errors": [p.as_dict() for p in out["problems"] if p.severity == "error"],
+            "warnings": [p.as_dict() for p in out["problems"] if p.severity == "warning"],
+            "blocked": [{"level": i, "blocked_on": why} for i, why in out["blocked"]],
+            "needs_input": [{"level": i, "missing": m} for i, m in out["needs_input"]],
+        }
+
+    @server.tool(
+        description=(
+            "Queue make-clip tasks for season levels, e.g. levels=\"L01..L03\" or "
+            "\"L03,L05\". Refuses blocked levels, levels waiting for operator "
+            "input, levels with season-check errors and levels already planned "
+            "(replan=true queues those again). Nothing is rendered here; the "
+            "tasks are worked like any other. Same rules as `factory season plan`."
+        )
+    )
+    def season_plan(levels: str, channel: str | None = None, season: str | None = None,
+                    replan: bool = False) -> list[dict[str, Any]]:
+        from . import seasons
+
+        with db.connect() as conn:
+            ch = channels.resolve(conn, channel)
+            try:
+                out = seasons.plan(conn, ch, levels, season_id=season, replan=replan, by="mcp")
+            except (ValueError, KeyError, FileNotFoundError) as exc:
+                raise ToolError(str(exc)) from None
+        logs.event("mcp.call", actor="mcp", tool="season_plan", channel=ch.id, levels=levels)
+        return out
+
+    @server.tool(
+        description=(
+            "The season table: points, wins and races per entrant, from approved "
+            "and published level clips. after=\"L20\" gives the table as it stood "
+            "once L20 was counted."
+        )
+    )
+    def get_standings(channel: str | None = None, season: str | None = None,
+                      after: str | None = None) -> dict[str, Any]:
+        from . import seasons
+
+        with db.connect() as conn:
+            ch = channels.resolve(conn, channel)
+            try:
+                return seasons.standings_view(conn, ch, season, after=after)
+            except (ValueError, KeyError, FileNotFoundError) as exc:
+                raise ToolError(str(exc)) from None
+
+    @server.tool(
+        description=(
+            "One season level: its definition from the season file, what became "
+            "of it (task, clip, status, failure reason, story attempts, copy "
+            "source, points) and the standings before it."
+        )
+    )
+    def get_level(level: str, channel: str | None = None, season: str | None = None) -> dict[str, Any]:
+        from . import seasons
+
+        with db.connect() as conn:
+            ch = channels.resolve(conn, channel)
+            try:
+                return seasons.get_level(conn, ch, level, season)
+            except (ValueError, KeyError, FileNotFoundError) as exc:
+                raise ToolError(str(exc)) from None
 
     @server.tool(description="Recent pipeline events, newest first.")
     def recent_logs(
