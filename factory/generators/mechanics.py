@@ -214,12 +214,8 @@ class Rig:
         """Anything registered. A rig that is not live changes nothing."""
         return bool(self.clocks or self.zones or self.surfaces or self.breakables or self.doors
                     or self.walls or self.forces or self.effects or self.hooks or self.magnet_clock
-<<<<<<< HEAD
                     or self.magnet_tracker
-                    or self.finish_y != FINISH_Y or self.elimination)
-=======
                     or self.finish_y != FINISH_Y or self.elimination or self.holds)
->>>>>>> wp7-w6
 
     def _pt(self, p) -> tuple[float, float]:
         return (float(p[0]), float(p[1]))

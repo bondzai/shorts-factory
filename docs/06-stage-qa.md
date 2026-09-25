@@ -38,7 +38,6 @@ A stage built from sections is given a weight — picked at random — only afte
 | `lodestone` | pegs → magnets → pegs | trial | -30 | 48/48 | 40/48 | 98% | 1/92 (11 short) | 0 | 12.4 | 1.5 | 15% | pass |
 | `trapdoor` | pegs → trap → pegs | trial | -30 | 48/48 | 42/48 | 77% | 6/108 (9 short) | 0 | 14.7 | 1.4 | 27% | FAIL: lead changes 1.4 |
 
-<<<<<<< HEAD
 ## World 3 (polarity swap)
 
 Each World 3 level measured over 48 seeds (700-747) with its own params (`section`, `mechanics`), through the retry loop a render uses, measured 2026-09-25. **plain** is the table above's run: the gates on the theme's marbles. **cast** is the same run with the four regulars (Blaze, Tide, Volt, Moss). Balance is each regular's share of the cast run's wins (gate: 10-45%). **Mechanism** is the share of races where the mechanism did what the copy says. L27 is measured twice, round one's layout and the mirrored one round two runs. Every stage is trial (weight 0). The mechanics are in `factory/generators/physics/worlds/polarity.py`; the sections are in `stagekit` (`tug`, `side-magnets`, `detour`, `arm`, `clump`).
@@ -66,7 +65,6 @@ What the numbers say, and what they changed:
 - **`launched` no longer fires at frame 8** on a marble that starts the clip inside a field (`outcome.launches`). On stages already live no field reaches the start row, so their outcomes do not move (the pinned traces pass).
 
 Reproduce a row: `factory stage-qa --stage lodestone --section magnet-flip --mechanics '{"flip_at": 0.45}' --seeds 48` for plain. Add `--cast main` for the cast row; with a section, the CLI prints the gates, not the balance cells.
-=======
 ## World 6: the dice track (L51–L60)
 
 Measured with each level's own params and cast (`section`, and for L59 a back marker), seeds 700–747, through the same retry loop a render uses (`stage_qa.run(stage, seeds, params=…, cast=…)`). A multi-round level (L55, L60) is measured on its heat, where its dice roll. Every dice stage is trial (weight 0): it races when a level names it and is never picked at random.
@@ -95,4 +93,3 @@ What the numbers changed, in the order they were found:
 - **How much the grid decides is the stage under it.** Front-slot wins over 48 seeds: pegs → bumpers → spinners 44 of 48; sieve → funnel → pegs 5 (the back did better); pegs → sieve → funnel 25, back 6 — the grid matters and does not decide, which is the stage L52/L55/L59 use.
 - **Three holds make a long clip.** The duel ran 21 s at the median; a later gate's die now rolls as the leader clears the gate above, so it lands while the field falls to it.
 - **A dice stage raced with no mechanic** (the stage tests do) still holds at every gate for as long as a die takes and then opens the middle lane; the blockers stay up. Without that, the triple stage fell straight through in two seconds.
->>>>>>> wp7-w6

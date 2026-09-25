@@ -12,11 +12,8 @@ from typing import Any
 
 from .. import stagekit
 from . import stages
-<<<<<<< HEAD
 from .worlds import polarity
-=======
 from .worlds import dice
->>>>>>> wp7-w6
 
 @dataclass(frozen=True)
 class Stage:
@@ -159,7 +156,6 @@ STAGE_SPECS: list[Stage] = [
     composed("trapdoor", [("pegs", 0.8), ("trap", 1.6), ("bumpers", 0.8)], gravity=-30.0, noun="the trapdoor",
               blurb="pegs, a trapdoor pit that holds a marble and lets it go, then bumpers",
               gate=True),
-<<<<<<< HEAD
     # World 3, polarity swap (docs/10, physics/worlds/polarity.py; the
     # measurements are in docs/06, "World 3"). Trial: each races when a level
     # names it. Two stacks were changed by what QA found. honeypot opens with
@@ -181,7 +177,6 @@ STAGE_SPECS: list[Stage] = [
               blurb="a funnel dropping the field onto one big magnet, then pegs", gate=True),
     composed("maelstrom", [("pegs", 0.5), ("magnets", 1.1), ("arm", 2.0)], gravity=-30.0, noun="magnets",
               blurb="pegs, a band of magnets, then a rotating magnet arm", gate=True),
-=======
     # World 6, the dice track (trial; docs/06 "World 6" has their QA). The dice
     # sections are geometry; the dice themselves are the levels' mechanics.
     composed("dicetrack", [("dicegate", 2.2), ("pegs", 1.0)], gravity=-34.0, noun="dice gate",
@@ -200,7 +195,6 @@ STAGE_SPECS: list[Stage] = [
              noun="ramps", blurb="three bands of zigzag ramps, each with a surface a die rolls"),
     composed("dicefinal", [("runway", 0.8), ("dicegate", 2.0), ("pegs", 0.6)], gravity=-60.0, noun="dice gate",
              blurb="a start ramp behind a gate, a dice gate into three lanes, then pegs"),
->>>>>>> wp7-w6
     # COMPOSED-STAGES-END
 ]
 
@@ -245,7 +239,6 @@ class Mechanic:
 # world's WP7 lands one.
 MECHANIC_SPECS: list[Mechanic] = [
     # MECHANICS-BEGIN
-<<<<<<< HEAD
     # World 3, polarity swap.
     Mechanic("magnet-flip", polarity.magnet_flip, stage="lodestone", blurb="the magnets pull, then push from halfway"),
     Mechanic("reverse-finish-magnet", polarity.reverse_finish, stage="lodestone",
@@ -257,7 +250,6 @@ MECHANIC_SPECS: list[Mechanic] = [
              blurb="the big magnet grips the whole field, then lets go"),
     Mechanic("all-magnets", polarity.all_magnets, stage="maelstrom",
              blurb="band magnets flip, the arm pulls, the finish pushes back"),
-=======
     # World 6, the dice track (physics/worlds/dice.py).
     Mechanic("dice-gate-paths", dice.dice_gate_paths, stage="dicetrack", blurb="a die picks one of three lanes"),
     Mechanic("dice-start-grid", dice.dice_start_grid, stage="dicegrid", blurb="every marble rolls; high roll starts in front"),
@@ -270,7 +262,6 @@ MECHANIC_SPECS: list[Mechanic] = [
     Mechanic("handicap-back-start", dice.handicap_back_start, stage="dicegrid",
              blurb="a rolled grid; the level's back marker starts last with no die"),
     Mechanic("dice-final", dice.dice_final, stage="dicefinal", blurb="rolled grid, rounds, path and surface"),
->>>>>>> wp7-w6
     # MECHANICS-END
 ]
 MECHANICS: dict[str, Mechanic] = {m.id: m for m in MECHANIC_SPECS}
