@@ -1,0 +1,2900 @@
+# Gravity Lab, Season 0: 100 levels, one Short a day (2026-09-25 .. 2027-01-02).
+# Converted from the editorial plan (02-season0-plan.md) under docs/08-series-layer.md,
+# which wins on any conflict. The companion is docs/09-season0.md.
+#
+# - story.must / prefer use mechanism predicates only (rule 2.4): nothing here says
+#   who wins, ranks or falls.
+# - copy hints are seeds for the copy brain, never published as they stand. No digit
+#   appears outside a placeholder (rule 2.5).
+# - status: ready levels use stages that pass docs/06 today; blocked levels name the
+#   WP7 mechanic they wait for; needs_input levels wait on operator_input.
+# - Anchored dates: L37 2026-10-31, L63 2026-11-26, L92 2026-12-25, L98 2026-12-31.
+id: s0
+title: Season 0
+channel: main
+scoring: default
+keywords:
+- Marble Race
+- Marble Run
+- Elimination Race
+- Pick a Color
+- Marble Tournament
+footer: Original physics simulation & sound. New race daily. Full tournaments every Sunday. Season standings in the pinned comment.
+levels:
+- id: L01
+  date: 2026-09-25
+  world: foundations
+  generator: physics
+  variant: marble_race
+  params:
+    stage: zigzag
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  format: race
+  story:
+    must:
+      lead_changes: '>=1'
+    prefer:
+      margin_s: <=0.8
+  copy:
+    angle: 'season opener: meet the four regulars on the classic ramp stage; everyone starts level'
+    title: 'Marble race: pick a color before the drop'
+    hook: Pick your color now
+    desc: '{entrant_count} marbles, one winner. Meet Blaze, Tide, Volt and Moss. Season opener: everyone starts level on points.'
+    pin: 'Pick your color before you watch: red, blue, yellow or green? The winner''s fans get bragging rights all season.'
+    pin_type: pick_color
+  rematch_of: null
+  status: ready
+  blocked_on: null
+  operator_input: {}
+  note: gap jump -> zigzag; no gap-jump section exists, the drop from one ramp to the next is the nearest thing.
+- id: L02
+  date: 2026-09-26
+  world: foundations
+  generator: physics
+  variant: marble_race
+  params:
+    stage: rapids
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  format: race
+  story:
+    must:
+      lead_changes: '>=2'
+    prefer:
+      margin_s: <=0.8
+  copy:
+    angle: 'same four, new layout: ramps that double back into split chutes; can an early leader hold on'
+    title: 'Marble run switchback: can the lead hold?'
+    hook: Leader, meet the switchbacks
+    desc: 'Same {entrant_count} marbles, a new layout: ramps that double back into split chutes. Standings: Blaze {standing:blaze}, Tide {standing:tide}, Volt {standing:volt}, Moss {standing:moss}.'
+    pin: Does the marble leading at the first ramp survive the switchbacks? Call it.
+    pin_type: predict_outcome
+  rematch_of: null
+  status: ready
+  blocked_on: null
+  operator_input: {}
+  note: hairpin turn -> rapids; no hairpin section, the stage's opening ramps switch back before the chutes.
+- id: L03
+  date: 2026-09-27
+  world: foundations
+  generator: physics
+  variant: marble_race
+  params:
+    stage: funnels
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  format: race
+  story:
+    must:
+      lead_changes: '>=1'
+    prefer:
+      margin_s: <=0.5
+  copy:
+    angle: 'stacked funnels: the whole field hits every throat together and the order resets each time'
+    title: 'Pick a color: funnel start chaos'
+    hook: Everyone hits the throat
+    desc: Stacked funnels mean all {entrant_count} marbles hit every throat at once. The order resets at each one.
+    pin: Funnel starts are pure luck. Or are they? Pick the one that gets out first.
+    pin_type: pick_color
+  rematch_of: null
+  status: ready
+  blocked_on: null
+  operator_input: {}
+  note: funnel start, collide at the exit -> funnels (stacked funnels, every throat a bottleneck).
+- id: L04
+  date: 2026-09-28
+  world: foundations
+  generator: physics
+  variant: marble_race
+  params:
+    stage: spillway
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  format: race
+  story:
+    must:
+      finishers: '>=3'
+    prefer:
+      lead_changes: '>=2'
+  copy:
+    angle: the chutes split the field and rejoin it; nobody chooses a lane, the bounce does
+    title: 'Marble race split chutes: left or right?'
+    hook: Left chute or right chute?
+    desc: 'The chutes split the field and rejoin it before the finish. Nobody picks a lane; the bounce does. Standings: Blaze {standing:blaze}, Tide {standing:tide}, Volt {standing:volt}, Moss {standing:moss}.'
+    pin: 'Left chute or right chute: which side leads at the rejoin? Comment "left" or "right".'
+    pin_type: either_or
+  rematch_of: null
+  status: ready
+  blocked_on: null
+  operator_input: {}
+  note: two-lane split that rejoins -> spillway (split-and-rejoin chutes, pegs, funnel); lanes are not chosen, so 'short vs safe path' is not modelled.
+- id: L05
+  date: 2026-09-29
+  world: foundations
+  generator: physics
+  variant: marble_race
+  params:
+    stage: quarry
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  format: race
+  story:
+    must:
+      lead_changes: '>=2'
+    prefer:
+      margin_s: <=0.8
+  copy:
+    angle: row after row of drops; every drop is a chance for whoever sits at the back
+    title: 'Underdog marble race: drop after drop'
+    hook: Drop after drop after drop
+    desc: 'Row after row of bars to fall through. Every drop is a chance for the back marker. Standings: Blaze {standing:blaze}, Tide {standing:tide}, Volt {standing:volt}, Moss {standing:moss}.'
+    pin: Predict the finishing order before the first drop.
+    pin_type: predict_outcome
+  rematch_of: null
+  status: ready
+  blocked_on: null
+  operator_input: {}
+  note: 'five-drop staircase -> quarry: a sieve of bar rows to fall through, then a funnel and pegs; not five discrete steps.'
+- id: L06
+  date: 2026-09-30
+  world: foundations
+  generator: physics
+  variant: marble_race
+  params:
+    stage: seesaw
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  format: race
+  story:
+    must:
+      lead_changes: '>=1'
+    prefer:
+      finishers: '>=3'
+  copy:
+    angle: rocking planks tip under a marble's weight; arrive at the wrong moment and you ride it the wrong way
+    title: 'Marble run seesaw: timing decides it'
+    hook: Tip it or stall
+    desc: Rocking planks tip under a marble's weight. Arrive at the wrong moment and you ride it the wrong way.
+    pin: Which marble gets the worst tip off the planks? Name the color.
+    pin_type: predict_trap
+  rematch_of: null
+  status: ready
+  blocked_on: null
+  operator_input: {}
+  note: seesaw obstacle -> seesaw stage (rocking planks, pegs, funnel); planks tip under any marble, not only under two.
+- id: L07
+  date: 2026-10-01
+  world: foundations
+  generator: physics
+  variant: marble_race
+  params:
+    stage: rapids
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  format: race
+  story:
+    must:
+      margin_s: <=0.5
+    prefer:
+      margin_s: <=0.3
+  copy:
+    angle: 'declared rematch: the second race''s stage and field, run again for a close finish'
+    title: 'Marble race rematch: back to the switchbacks'
+    hook: Same track, one more time
+    desc: 'A declared rematch: the same stage and the same {entrant_count} marbles as the season''s second race. Standings: Blaze {standing:blaze}, Tide {standing:tide}, Volt {standing:volt}, Moss {standing:moss}.'
+    pin: 'Rematch rules: same track, no excuses. Does the same marble take it twice? Yes or no.'
+    pin_type: rematch_vote
+  rematch_of: L02
+  status: ready
+  blocked_on: null
+  operator_input: {}
+  note: declared rematch of L02 (same stage rapids, same four); must a close finish, prefers a photo finish.
+- id: L08
+  date: 2026-10-02
+  world: foundations
+  generator: physics
+  variant: marble_race
+  params:
+    stage: pinball
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  format: race
+  story:
+    must:
+      lead_changes: '>=2'
+    prefer:
+      lead_changes: '>=3'
+  copy:
+    angle: 'a bumper field between start and finish: chaos that favours nobody'
+    title: 'Pinball marble race: bumpers, zero control'
+    hook: Bumpers everywhere, no control
+    desc: 'A field of bumpers between the start and the finish. Chaos favors nobody, or everybody. Standings: Blaze {standing:blaze}, Tide {standing:tide}, Volt {standing:volt}, Moss {standing:moss}.'
+    pin: Rate the chaos after watching. Then tell us who you thought would win halfway through.
+    pin_type: rate_chaos
+  rematch_of: null
+  status: ready
+  blocked_on: null
+  operator_input: {}
+  note: bumper field -> pinball (bumpers, rocking planks, funnel); the bumper count is the stage's, not twelve.
+- id: L09
+  date: 2026-10-03
+  world: foundations
+  generator: physics
+  variant: marble_race
+  params:
+    stage: gallery
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  format: race
+  story:
+    must:
+      finishers: '>=4'
+  copy:
+    angle: 'no moving parts at all: pegs, bars and a funnel; the purest test on the channel'
+    title: 'Marble race speed test: no moving parts'
+    hook: No traps. Just the fall.
+    desc: 'No spinners, no planks, no magnets: just pegs, bars and a funnel. The purest test on the channel. Standings: Blaze {standing:blaze}, Tide {standing:tide}, Volt {standing:volt}, Moss {standing:moss}.'
+    pin: Is a no-trap race boring or the purest test? Vote "boring" or "pure".
+    pin_type: either_or
+  rematch_of: null
+  status: ready
+  blocked_on: null
+  operator_input: {}
+  note: 'long straight sprint -> gallery (pegs, sieve, funnel, nothing kinematic); a falling race has no straight, so ''no traps'' means nothing that moves. Must: all four finish.'
+- id: L10
+  date: 2026-10-04
+  world: foundations
+  generator: physics
+  variant: marble_race
+  params:
+    stage: delta
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  format: race
+  final: true
+  story:
+    must:
+      lead_changes: '>=2'
+    prefer:
+      margin_s: <=0.5
+  copy:
+    angle: 'week one final, double points: chutes, bumpers, pegs and a finish that forks'
+    title: 'Marble tournament final: the first cup'
+    hook: First cup. Double points.
+    desc: 'Chutes, bumpers, pegs and a finish that forks. Double points. Going in: Blaze {standing:blaze}, Tide {standing:tide}, Volt {standing:volt}, Moss {standing:moss}.'
+    pin: Week One final. Who lifts the first cup? The full bracket drops Sunday.
+    pin_type: pick_color
+  rematch_of: null
+  status: ready
+  blocked_on: null
+  operator_input: {}
+  note: 'all Week 1 obstacles combined -> delta (trial stage that passes QA: chutes, bumpers, pegs, forked finish); no composite stage exists. Double points come from final: true.'
+- id: L11
+  date: 2026-10-05
+  world: trapdoor
+  generator: physics
+  variant: marble_race
+  params:
+    stage: trapdoor
+    section: timer-trap
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  format: elimination
+  story:
+    must:
+      any_event: trap_catch
+  copy:
+    angle: 'the elimination format arrives: two of each colour, a trapdoor on a timer nobody knows'
+    title: 'Elimination race: one trapdoor, two per color'
+    hook: Two of each color
+    desc: 'Each color now runs two marbles. The trapdoor opens on a timer nobody knows. New format, new board: team points.'
+    pin: Two of each color. Which team loses a marble first?
+    pin_type: predict_trap
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 trapdoor: hidden-timer trap mode, elimination format, two marbles per colour (teams)'
+  operator_input: {}
+  note: 'Plan runs two marbles per colour with team points: entrants are the four colours; needs team entrants and team scoring. Base stage trapdoor exists but fails QA today (lead changes 1.4).'
+- id: L12
+  date: 2026-10-06
+  world: trapdoor
+  generator: physics
+  variant: marble_race
+  params:
+    stage: trapdoor
+    section: trap-sequence
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  format: elimination
+  story:
+    must:
+      any_event: trap_catch
+      lead_changes: '>=1'
+  copy:
+    angle: three trapdoors on staggered timing; speed is a liability if you arrive early
+    title: 'Marble race trapdoors: three drops in a row'
+    hook: Early is not safe
+    desc: Three trapdoors on staggered timing. Arrive early and speed becomes a liability.
+    pin: Does early or late arrival survive? Comment "early" or "late".
+    pin_type: either_or
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 trapdoor: three staggered trapdoors in sequence, elimination format, teams'
+  operator_input: {}
+  note: 'Plan runs two marbles per colour with team points: entrants are the four colours; needs team entrants and team scoring. Base stage trapdoor exists but fails QA today (lead changes 1.4).'
+- id: L13
+  date: 2026-10-07
+  world: trapdoor
+  generator: physics
+  variant: marble_race
+  params:
+    stage: trapdoor
+    section: finish-trapdoor
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  format: race
+  story:
+    must:
+      any_event: trap_catch
+  copy:
+    angle: the finish line itself is a trapdoor that opens just before anyone crosses
+    title: 'Pick a color: the finish line is a trapdoor'
+    hook: The finish line opens
+    desc: The finish line opens for a moment before anyone crosses. Arrive too fast and you fall.
+    pin: Who reads the finish door and who drops through it? Pick a color.
+    pin_type: predict_trap
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 trapdoor: finish-line trapdoor mode'
+  operator_input: {}
+  note: Base stage trapdoor exists but fails QA today (lead changes 1.4).
+- id: L14
+  date: 2026-10-08
+  world: trapdoor
+  generator: physics
+  variant: marble_race
+  params:
+    stage: trapdoor
+    section: fake-panels
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  format: elimination
+  story:
+    must:
+      any_event: trap_catch
+      finishers: '>=2'
+  copy:
+    angle: six panels look like trapdoors and only two open
+    title: 'Marble run fake trapdoors: which are real?'
+    hook: Only some panels open
+    desc: 'Six panels look like trapdoors; only two open. Standings: Blaze {standing:blaze}, Tide {standing:tide}, Volt {standing:volt}, Moss {standing:moss}.'
+    pin: Guess which panels are real before the first one opens.
+    pin_type: predict_trap
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 trapdoor: fake (painted) trap panels, elimination format'
+  operator_input: {}
+  note: Base stage trapdoor exists but fails QA today (lead changes 1.4).
+- id: L15
+  date: 2026-10-09
+  world: trapdoor
+  generator: physics
+  variant: marble_race
+  params:
+    stage: trapdoor
+    section: leader-sensor-trap
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  format: elimination
+  story:
+    must:
+      any_event: trap_catch
+      lead_changes: '>=1'
+  copy:
+    angle: a sensor trap drops whoever leads at halfway; nobody wants to lead
+    title: 'Elimination race: the trap takes the leader'
+    hook: Nobody wants to lead
+    desc: 'A sensor trap: whoever leads at the halfway mark drops. The first race here where slow is the strategy.'
+    pin: Who gets caught leading at halfway? Predict the marble that falls.
+    pin_type: predict_trap
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 trapdoor: leader-sensor trap (opens under whoever leads at halfway)'
+  operator_input: {}
+  note: Base stage trapdoor exists but fails QA today (lead changes 1.4).
+- id: L16
+  date: 2026-10-10
+  world: trapdoor
+  generator: physics
+  variant: marble_race
+  params:
+    section: spiral-bowl-reverse
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  format: last_standing
+  story:
+    must:
+      any_event: trap_catch
+  copy:
+    angle: a spiral bowl drains into a trapdoor; the last marble to reach the centre wins
+    title: 'Marble race spiral bowl: last one in wins'
+    hook: Stay out of the hole
+    desc: A spiral bowl drains into a trapdoor. The last marble to reach the centre wins. A reverse race.
+    pin: Reverse race. Pick the marble that stays out of the hole longest.
+    pin_type: pick_color
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 trapdoor: spiral bowl draining into a centre trapdoor, reverse scoring (last in wins)'
+  operator_input: {}
+  note: Reverse race mapped to format last_standing.
+- id: L17
+  date: 2026-10-11
+  world: trapdoor
+  generator: physics
+  variant: marble_race
+  params:
+    stage: trapdoor
+    section: relay-legs
+    rounds: 2
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  format: race
+  story:
+    must:
+      rounds: '>=2'
+      any_event: trap_catch
+  copy:
+    angle: 'a relay: the first marble tags in the second at the halfway gate, one trapdoor per leg'
+    title: 'Marble relay race: two legs, a trapdoor each'
+    hook: Tag in at the gate
+    desc: The first marble tags in the second at the halfway gate. Each leg has its own trapdoor.
+    pin: Which team fumbles the handoff? Name the color.
+    pin_type: predict_outcome
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 trapdoor: team relay (tag at a halfway gate, a trapdoor per leg), teams'
+  operator_input: {}
+  note: 'Two legs -> rounds: 2. Plan runs two marbles per colour with team points: entrants are the four colours; needs team entrants and team scoring. Base stage trapdoor exists but fails QA today (lead changes 1.4).'
+- id: L18
+  date: 2026-10-12
+  world: trapdoor
+  generator: physics
+  variant: marble_race
+  params:
+    stage: trapdoor
+    section: trap-timer-overlay
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  format: elimination
+  story:
+    must:
+      any_event: trap_catch
+  copy:
+    angle: the trapdoor countdown is on screen, so viewers can see who mistimes it
+    title: 'Trapdoor timer on screen: still a fair race?'
+    hook: Watch the clock
+    desc: The trapdoor countdown is on screen this time. Now you can see exactly who mistimes it.
+    pin: You can see the timer. Call the marble that drops; the first correct answer gets pinned.
+    pin_type: call_it
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 trapdoor: trapdoor countdown drawn on screen'
+  operator_input: {}
+  note: Base stage trapdoor exists but fails QA today (lead changes 1.4).
+- id: L19
+  date: 2026-10-13
+  world: trapdoor
+  generator: physics
+  variant: marble_race
+  params:
+    stage: trapdoor
+    section: five-trapdoors
+  entrants:
+  - blaze
+  - tide
+  format: race
+  story:
+    must:
+      any_event: trap_catch
+  copy:
+    angle: 'two marbles, five trapdoors, no teammates: speed against patience'
+    title: 'Blaze vs Tide marble race: speed vs patience'
+    hook: Speed against patience
+    desc: 'Two marbles, five trapdoors, no teammates. Head-to-head so far: {h2h:blaze:tide}.'
+    pin: Speed or patience? Comment "speed" or "patience".
+    pin_type: either_or
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 trapdoor: five-trapdoor track'
+  operator_input: {}
+  note: Base stage trapdoor exists but fails QA today (lead changes 1.4).
+- id: L20
+  date: 2026-10-14
+  world: trapdoor
+  generator: physics
+  variant: marble_race
+  params:
+    stage: trapdoor
+    section: trap-gauntlet
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  format: elimination
+  final: true
+  story:
+    must:
+      any_event: trap_catch
+      lead_changes: '>=1'
+  copy:
+    angle: 'world two final: twelve marbles enter the trapdoor gauntlet and one leaves'
+    title: 'Elimination race final: seven trapdoors'
+    hook: Twelve in, one out
+    desc: 'Twelve marbles enter the gauntlet, one leaves. The world champion takes a Grand Final seat. Going in: Blaze {standing:blaze}, Tide {standing:tide}, Volt {standing:volt}, Moss {standing:moss}.'
+    pin: World Two final. Rank all four colors and see how close you get.
+    pin_type: rank
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 trapdoor: seven-trapdoor gauntlet, elimination to one, three marbles per colour (teams)'
+  operator_input: {}
+  note: 'Plan has twelve marbles (three per colour); entrants are the four colours. Plan runs two marbles per colour with team points: entrants are the four colours; needs team entrants and team scoring. Base stage trapdoor exists but fails QA today (lead changes 1.4).'
+- id: L21
+  date: 2026-10-15
+  world: polarity-swap
+  generator: physics
+  variant: marble_race
+  params:
+    stage: lodestone
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  format: race
+  story:
+    must:
+      lead_changes: '>=1'
+    prefer:
+      margin_s: <=0.8
+  copy:
+    angle: magnets beside the track pull every marble off its line; pass too close and you drift
+    title: 'Magnet marble race: pulled off the line'
+    hook: Magnets pull. Who drifts?
+    desc: Magnets beside the track pull every marble off its line. Pass too close and you're dragged sideways.
+    pin: New mechanic. Who gets pulled off line first? Pick a color.
+    pin_type: pick_color
+  rematch_of: null
+  status: ready
+  blocked_on: null
+  operator_input: {}
+  note: 'single attract magnet -> lodestone (trial stage that passes QA): pegs, a band of magnets alternating side to side, pegs. Several magnets, not one.'
+- id: L22
+  date: 2026-10-16
+  world: polarity-swap
+  generator: physics
+  variant: marble_race
+  params:
+    stage: lodestone
+    section: magnet-flip
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  format: race
+  story:
+    must:
+      any_event: launched
+    prefer:
+      lead_changes: '>=1'
+      margin_s: <=0.8
+  copy:
+    angle: the magnet flips halfway; somebody gets launched
+    title: 'Marble race polarity swap: pull, then push'
+    hook: Halfway, the magnet flips
+    desc: The magnet attracts for the first half, then repels. Whoever is closest at the flip gets launched.
+    pin: 'Getting launched: good or bad? Predict it before the flip.'
+    pin_type: predict_outcome
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 polarity-swap: magnet flip_at (attract, then repel)'
+  operator_input: {}
+  note: null
+- id: L23
+  date: 2026-10-17
+  world: polarity-swap
+  generator: physics
+  variant: marble_race
+  params:
+    stage: lodestone
+    section: two-wall-tug
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  format: race
+  story:
+    must:
+      lead_changes: '>=2'
+  copy:
+    angle: magnets on both walls fight over every marble and the racing line bends
+    title: 'Pick a color: two magnets, tug of war'
+    hook: Both walls pull
+    desc: Magnets on both walls fight over every marble. The racing line bends.
+    pin: Which wall wins the tug of war, left or right?
+    pin_type: either_or
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 polarity-swap: magnets on both walls (tug of war)'
+  operator_input: {}
+  note: null
+- id: L24
+  date: 2026-10-18
+  world: polarity-swap
+  generator: physics
+  variant: marble_race
+  params:
+    stage: lodestone
+    section: reverse-finish-magnet
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  format: race
+  story:
+    must:
+      lead_changes: '>=1'
+    prefer:
+      margin_s: <=0.8
+  copy:
+    angle: a repelling magnet behind the finish pushes marbles back; momentum decides
+    title: Marble race reverse magnet at the finish
+    hook: The finish pushes back
+    desc: A repelling magnet behind the finish line pushes marbles away from it. Momentum decides.
+    pin: Does raw speed beat the reverse magnet? Say yes or no.
+    pin_type: either_or
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 polarity-swap: repelling magnet behind the finish line'
+  operator_input: {}
+  note: null
+- id: L25
+  date: 2026-10-19
+  world: polarity-swap
+  generator: physics
+  variant: marble_race
+  params:
+    stage: lodestone
+    section: rotating-magnet-arm
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  format: race
+  story:
+    must:
+      any_event: launched
+  copy:
+    angle: a spinning magnet arm sweeps the track on a steady beat; the wrong beat rides you backward
+    title: 'Marble run rotating magnet: time your pass'
+    hook: Pass on the beat
+    desc: A spinning magnet arm sweeps the track on a steady beat. Pass on the wrong beat and you ride the arm backward.
+    pin: Who rides the arm backward? Name the unlucky marble.
+    pin_type: predict_trap
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 polarity-swap: rotating magnet arm'
+  operator_input: {}
+  note: null
+- id: L26
+  date: 2026-10-20
+  world: polarity-swap
+  generator: physics
+  variant: marble_race
+  params:
+    stage: lodestone
+    section: shielded-lane
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  format: race
+  story:
+    must:
+      finishers: '>=3'
+  copy:
+    angle: one lane is shielded but longer, the other short and lined with magnets
+    title: 'Marble race: safe lane or magnet lane?'
+    hook: Long and safe, or short?
+    desc: One lane is shielded but longer. The other is short and lined with magnets.
+    pin: 'Safe lane or magnet lane: which would you take?'
+    pin_type: either_or
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 polarity-swap: shielded lane vs magnet lane (lane split with a field-free side)'
+  operator_input: {}
+  note: null
+- id: L27
+  date: 2026-10-21
+  world: polarity-swap
+  generator: physics
+  variant: marble_race
+  params:
+    stage: lodestone
+    section: magnet-swap
+    rounds: 2
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  format: race
+  story:
+    must:
+      rounds: '>=2'
+      lead_changes: '>=1'
+  copy:
+    angle: two rounds, and the magnets change sides between them; nobody can memorise the line
+    title: 'Two round marble race: the magnets move'
+    hook: Round two, new magnets
+    desc: Round one has the magnets on the left, round two on the right. Nobody can memorise the line.
+    pin: Two rounds. Who leads after round one but loses the race?
+    pin_type: predict_outcome
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 polarity-swap: magnet layout mirrored between rounds'
+  operator_input: {}
+  note: 'Two laps -> rounds: 2. Lodestone reseeds its magnets for a second round but does not mirror them; the section also keeps this level distinct from L21.'
+- id: L28
+  date: 2026-10-22
+  world: polarity-swap
+  generator: physics
+  variant: marble_race
+  params:
+    stage: lodestone
+    section: magnet-clump
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  format: race
+  story:
+    must:
+      lead_changes: '>=2'
+  copy:
+    angle: a strong magnet grabs every marble into one clump, then lets go
+    title: 'Marble race magnet clump: all stuck at once'
+    hook: Stuck together. Then released.
+    desc: A strong magnet grabs every marble into one clump, then lets go. The order out of the clump is anyone's.
+    pin: Who comes out of the clump first? Pure guess, pick a color.
+    pin_type: pick_color
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 polarity-swap: clump-and-release magnet (the current force law cannot hold a marble)'
+  operator_input: {}
+  note: null
+- id: L29
+  date: 2026-10-23
+  world: polarity-swap
+  generator: physics
+  variant: marble_race
+  params:
+    stage: lodestone
+  entrants:
+  - moss
+  - volt
+  format: race
+  story:
+    must:
+      lead_changes: '>=1'
+    prefer:
+      margin_s: <=0.5
+  copy:
+    angle: a declared head-to-head on the magnets; the winner takes a seat in the world final
+    title: 'Moss vs Volt marble race: one final seat'
+    hook: One seat. Two marbles.
+    desc: 'Luck against chaos on the magnet track; the winner takes a seat in the World Three final. Head-to-head so far: {h2h:moss:volt}.'
+    pin: Luck or chaos? Comment "Moss" or "Volt".
+    pin_type: either_or
+  rematch_of: null
+  status: ready
+  blocked_on: null
+  operator_input: {}
+  note: Head-to-head on lodestone with two entrants (stage QA measured three to five). The plan picked Moss and Volt from standings for the last final seed; here the pairing is fixed in advance and the seat is this race's stake.
+- id: L30
+  date: 2026-10-24
+  world: polarity-swap
+  generator: physics
+  variant: marble_race
+  params:
+    stage: lodestone
+    section: all-magnets
+  entrants: []
+  format: race
+  final: true
+  story:
+    must:
+      any_event: launched
+  copy:
+    angle: 'world three final: every magnet type at once, three marbles, one champion'
+    title: 'Magnet marble tournament final: every magnet'
+    hook: Every magnet at once
+    desc: Attract, repel, a rotating arm and a reverse finish. Three marbles, one champion.
+    pin: Final call. Who takes World Three? Full bracket Sunday with slow-motion replays.
+    pin_type: pick_color
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 polarity-swap: composite final: attract, flip, rotating arm, reverse finish'
+  operator_input:
+    finalists: null
+  note: 'finalists: the L29 winner plus the top two on points at plan time (the plan gave the World 2 champion a bye; seats are operator-tracked).'
+- id: L31
+  date: 2026-10-25
+  world: halloween-maze
+  generator: physics
+  variant: marble_race
+  params:
+    section: haunted-maze
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  format: elimination
+  story:
+    must:
+      finishers: '>=1'
+  copy:
+    angle: the Halloween Cup opens in a candle-lit maze; take a dead end and you're out
+    title: 'Halloween marble race: a haunted maze'
+    hook: Dead ends mean out
+    desc: The Halloween Cup opens in a candle-lit maze. Take a dead end and you're out. Points carry to the final on Halloween night.
+    pin: The Halloween Cup begins. Pick the color that finds the exit first.
+    pin_type: pick_color
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 halloween-maze: maze with dead ends (a dead end is out), elimination format'
+  operator_input: {}
+  note: Halloween theme window ends 10-31; extend to 11-03 or force the theme.
+- id: L32
+  date: 2026-10-26
+  world: halloween-maze
+  generator: physics
+  variant: marble_race
+  params:
+    stage: tumble
+    section: fog-blackout
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  format: race
+  story:
+    must:
+      lead_changes: '>=1'
+  copy:
+    angle: 'mid-track blackout: you hear the marbles but can''t see them until the exit'
+    title: 'Halloween marble run: lights out mid-race'
+    hook: Listen. Then look.
+    desc: 'Mid-track blackout: you hear the marbles but can''t see them. The reveal comes at the exit. Standings: Blaze {standing:blaze}, Tide {standing:tide}, Volt {standing:volt}, Moss {standing:moss}.'
+    pin: Blind for a moment. Predict the order at the reveal.
+    pin_type: predict_outcome
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 halloween-maze: blackout (fog) render effect mid-race'
+  operator_input: {}
+  note: Base stage tumble with the blackout effect over the drums. Halloween theme window ends 10-31; extend to 11-03 or force the theme.
+- id: L33
+  date: 2026-10-27
+  world: halloween-maze
+  generator: physics
+  variant: marble_race
+  params:
+    stage: pinball
+    section: rolling-pumpkins
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  format: race
+  story:
+    must:
+      lead_changes: '>=2'
+  copy:
+    angle: pumpkins roll when hit and become obstacles for whoever is behind
+    title: 'Pumpkin marble race: bumpers that roll'
+    hook: Hit it, it rolls
+    desc: Pumpkins on the track roll when hit and turn into obstacles for whoever's behind.
+    pin: Who knocks a pumpkin into a rival? Name the color.
+    pin_type: predict_outcome
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 halloween-maze: rolling obstacles (pumpkins that roll when hit)'
+  operator_input: {}
+  note: Base stage pinball with the bumpers as pumpkins. Halloween theme window ends 10-31; extend to 11-03 or force the theme.
+- id: L34
+  date: 2026-10-28
+  world: halloween-maze
+  generator: physics
+  variant: marble_race
+  params:
+    section: cobweb-strip
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  format: elimination
+  story:
+    must:
+      lead_changes: '>=1'
+  copy:
+    angle: a cobweb strip slows whoever hits it first; leading is a trap all week
+    title: 'Halloween elimination race: the cobweb'
+    hook: Leading is a trap
+    desc: 'A cobweb strip slows whoever hits it first. Leading is a trap all week. Standings: Blaze {standing:blaze}, Tide {standing:tide}, Volt {standing:volt}, Moss {standing:moss}.'
+    pin: Should the leader slow down on purpose? Yes or no.
+    pin_type: either_or
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 halloween-maze: cobweb slow strip (terrain friction on the leader), elimination format'
+  operator_input: {}
+  note: Halloween theme window ends 10-31; extend to 11-03 or force the theme.
+- id: L35
+  date: 2026-10-29
+  world: halloween-maze
+  generator: physics
+  variant: marble_race
+  params:
+    stage: pinwheel
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  - ghost
+  format: race
+  story:
+    must:
+      finishers: '>=3'
+    prefer:
+      lead_changes: '>=2'
+  copy:
+    angle: a white guest marble joins for Halloween week; it cannot score but it gets in the way
+    title: 'Fifth racer marble race: a guest joins'
+    hook: A white marble joins in
+    desc: A white guest marble joins for Halloween week. It can't score, but it can block. Gone after the Cup.
+    pin: Who does the white marble get in the way of? Pick the haunted color.
+    pin_type: pick_color
+  rematch_of: null
+  status: ready
+  blocked_on: null
+  operator_input: {}
+  note: 'The level is about the guest, not the maze: raced on pinwheel (one big wheel among pegs). The ghost scores = false: it can cross first and earns nothing. Public copy avoids its name, which would name one of five entrants.'
+- id: L36
+  date: 2026-10-30
+  world: halloween-maze
+  generator: physics
+  variant: marble_race
+  params:
+    stage: trapdoor
+    section: coffin-trapdoor
+  entrants: []
+  format: elimination
+  story:
+    must:
+      any_event: trap_catch
+  copy:
+    angle: 'semifinal: three marbles, one coffin trapdoor, two go through'
+    title: 'Halloween Cup semifinal: the coffin trapdoor'
+    hook: Two go through
+    desc: Three marbles, one coffin trapdoor, two go through to the final.
+    pin: Two advance. Who falls into the coffin?
+    pin_type: predict_trap
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 halloween-maze: coffin trapdoor (trap mode), elimination format'
+  operator_input:
+    entrants: null
+  note: 'entrants: the top three on points at plan time. Base stage trapdoor exists but fails QA today (lead changes 1.4).'
+- id: L37
+  date: 2026-10-31
+  world: halloween-maze
+  generator: physics
+  variant: marble_race
+  params:
+    section: haunted-maze-final
+  entrants: []
+  format: elimination
+  final: true
+  story:
+    must:
+      finishers: '>=1'
+  copy:
+    angle: 'Halloween Cup final: the whole haunted maze, everything combined'
+    title: 'Halloween Cup final: the whole haunted maze'
+    hook: Everything, all at once
+    desc: Fog, pumpkins, cobwebs and the coffin. The finalists run it all; the winner takes the Halloween trophy and a Grand Final seat.
+    pin: The final. Who wins the Halloween Cup? Your pick locks in when you comment.
+    pin_type: pick_color
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 halloween-maze: composite final: maze, blackout, rolling pumpkins, cobweb, coffin trapdoor'
+  operator_input:
+    finalists: null
+  note: 'Anchored to Oct 31. finalists: the two who advanced from L36.'
+- id: L38
+  date: 2026-11-01
+  world: halloween-maze
+  generator: physics
+  variant: marble_race
+  params:
+    section: maze-time-trial
+  entrants: []
+  format: race
+  story:
+    must:
+      finishers: ==1
+  copy:
+    angle: 'the marble at the bottom of the table runs the maze alone: no rivals, only dead ends'
+    title: 'Solo marble run: one marble, the whole maze'
+    hook: No rivals. Just dead ends.
+    desc: The marble at the bottom of the table runs the maze alone. No rivals to block it, only dead ends.
+    pin: 'Alone in the maze: does it find the exit on the first try? Yes or no.'
+    pin_type: either_or
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 halloween-maze: maze with dead ends, solo run (one entrant)'
+  operator_input:
+    entrant: null
+  note: 'entrant: last on points at plan time. No time comparison with another race: no placeholder carries a time from a different clip.'
+- id: L39
+  date: 2026-11-02
+  world: halloween-maze
+  generator: physics
+  variant: marble_race
+  params:
+    section: fan-track
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  format: race
+  story:
+    must:
+      lead_changes: '>=1'
+  copy:
+    angle: the most requested obstacle from Halloween week comments, on a real track
+    title: 'Fan-voted marble race: you chose the track'
+    hook: You picked this track
+    desc: The most-requested obstacle from Halloween week comments, on a real track. One fan track every world from now on.
+    pin: Your track. Comment your next obstacle idea; the top one gets built next world.
+    pin_type: vote_track
+  rematch_of: null
+  status: needs_input
+  blocked_on: null
+  operator_input:
+    stage: null
+    fan_idea: null
+  note: Operator picks the passing stage nearest the winning idea, sets params.stage and drops section; if nothing fits, set status blocked.
+- id: L40
+  date: 2026-11-03
+  world: halloween-maze
+  generator: physics
+  variant: marble_race
+  params:
+    stage: zigzag
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  format: race
+  story:
+    must:
+      lead_changes: '>=3'
+    prefer:
+      margin_s: <=0.8
+  copy:
+    angle: a flat-out sprint down the ramps to close Halloween week and take stock of the season
+    title: 'Marble race checkpoint: the season so far'
+    hook: Four marbles, full speed
+    desc: 'A sprint down the ramps to close Halloween week. Grand Final seats so far go to the world champions. Standings: Blaze {standing:blaze}, Tide {standing:tide}, Volt {standing:volt}, Moss {standing:moss}.'
+    pin: Who is most dangerous from here on? Pick a color.
+    pin_type: pick_color
+  rematch_of: null
+  status: ready
+  blocked_on: null
+  operator_input: {}
+  note: 4-way sprint -> zigzag, the fastest stage. The plan's per-world points reset does not exist (standings run all season).
+- id: L41
+  date: 2026-11-04
+  world: ice-sand
+  generator: physics
+  variant: marble_race
+  params:
+    section: ice-then-sand
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  format: race
+  story:
+    must:
+      lead_changes: '>=1'
+  copy:
+    angle: first half ice, fast and uncontrolled; second half sand, slow and controlled
+    title: 'Ice vs sand marble race: slick, then slow'
+    hook: Ice first. Sand second.
+    desc: 'The first half is ice: fast, no control. The second half is sand: slow, full control. Who wins the middle?'
+    pin: 'Ice or sand: which surface decides this race?'
+    pin_type: either_or
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 ice-sand: terrain friction sections (ice half, sand half)'
+  operator_input: {}
+  note: null
+- id: L42
+  date: 2026-11-05
+  world: ice-sand
+  generator: physics
+  variant: marble_race
+  params:
+    section: ice-sand-stripes
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  format: race
+  story:
+    must:
+      lead_changes: '>=3'
+  copy:
+    angle: stripes of ice and sand alternate; momentum builds and dies
+    title: 'Marble run striped track: ice, sand, ice'
+    hook: Grip, slide, grip, slide
+    desc: Stripes of ice and sand alternate. Momentum builds and dies every second.
+    pin: On which stripe does the lead change? Call it before the start.
+    pin_type: predict_outcome
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 ice-sand: alternating ice and sand stripes'
+  operator_input: {}
+  note: null
+- id: L43
+  date: 2026-11-06
+  world: ice-sand
+  generator: physics
+  variant: marble_race
+  params:
+    section: ice-ramp-launch
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  format: race
+  story:
+    must:
+      any_event: launched
+  copy:
+    angle: an ice ramp launches the marbles and sand catches them; the longest flight doesn't always win
+    title: 'Ice ramp marble race: launch far, land short'
+    hook: Launch far, land short
+    desc: An ice ramp launches the marbles and sand catches them. The farthest landing doesn't always win.
+    pin: 'Farthest launch or shortest: which one wins?'
+    pin_type: either_or
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 ice-sand: ice ramp launch into a sand landing zone'
+  operator_input: {}
+  note: null
+- id: L44
+  date: 2026-11-07
+  world: ice-sand
+  generator: physics
+  variant: marble_race
+  params:
+    section: sand-pit
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  format: race
+  story:
+    must:
+      lead_changes: '>=1'
+  copy:
+    angle: 'a soft sand pit at halfway: the first marble in sinks deepest'
+    title: 'Sand pit marble race: the leader sinks first'
+    hook: First in sinks deepest
+    desc: A soft sand pit at the halfway mark. The first marble in sinks deepest.
+    pin: Who sinks? Predict the color that stalls in the pit.
+    pin_type: predict_trap
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 ice-sand: soft sand pit (friction trap) at halfway'
+  operator_input: {}
+  note: null
+- id: L45
+  date: 2026-11-08
+  world: ice-sand
+  generator: physics
+  variant: marble_race
+  params:
+    section: melting-ice
+    rounds: 3
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  format: race
+  story:
+    must:
+      rounds: '>=3'
+  copy:
+    angle: three rounds on ice that melts a little every round; the last round is slush
+    title: Three round marble race on melting ice
+    hook: Every round, more slush
+    desc: Every round the ice melts a little. The last round is slush.
+    pin: Who leads the first round, and who takes the last? Two guesses.
+    pin_type: predict_outcome
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 ice-sand: ice that melts between rounds, and three rounds (the sandbox runs at most two)'
+  operator_input: {}
+  note: 'Three laps -> rounds: 3.'
+- id: L46
+  date: 2026-11-09
+  world: ice-sand
+  generator: physics
+  variant: marble_race
+  params:
+    section: thin-ice
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  format: elimination
+  story:
+    must:
+      any_event: trap_catch
+  copy:
+    angle: cracks open under weight anywhere on the ice; elimination with no way to plan
+    title: 'Thin ice marble race: cracks open at random'
+    hook: The ice gives way
+    desc: Cracks open under weight, anywhere. Elimination on ice, and no way to plan for it.
+    pin: Who falls through first? Name the color.
+    pin_type: predict_trap
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 ice-sand: thin ice that cracks at random under weight, elimination format'
+  operator_input: {}
+  note: null
+- id: L47
+  date: 2026-11-10
+  world: ice-sand
+  generator: physics
+  variant: marble_race
+  params:
+    section: sand-dunes
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  format: race
+  story:
+    must:
+      lead_changes: '>=2'
+  copy:
+    angle: dunes hide the racing line; every marble takes a different path
+    title: 'Sand dune marble race: no straight line'
+    hook: Hidden hills everywhere
+    desc: Dunes hide the racing line; every marble takes a different path. No leader trap this time.
+    pin: Which marble finds the hidden fast line through the dunes?
+    pin_type: predict_outcome
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 ice-sand: sand dunes (hidden hills in the floor)'
+  operator_input: {}
+  note: null
+- id: L48
+  date: 2026-11-11
+  world: ice-sand
+  generator: physics
+  variant: marble_race
+  params:
+    section: ice-bowl-sand-chute
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  format: race
+  story:
+    must:
+      lead_changes: '>=1'
+  copy:
+    angle: marbles spin round an ice bowl, then drop into a sand chute that kills their speed
+    title: 'Ice bowl marble race: spin fast, exit slow'
+    hook: Time the exit
+    desc: The marbles spin round an ice bowl, then drop into a sand chute that kills their speed. Timing the exit is everything.
+    pin: 'Early exit or late exit: which one wins? Comment "early" or "late".'
+    pin_type: either_or
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 ice-sand: ice bowl with a sand exit chute'
+  operator_input: {}
+  note: null
+- id: L49
+  date: 2026-11-12
+  world: ice-sand
+  generator: physics
+  variant: marble_race
+  params:
+    section: fan-obstacle
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  format: race
+  story:
+    must:
+      lead_changes: '>=2'
+  copy:
+    angle: the top-voted obstacle from the fan track comments is on the track
+    title: 'Fan-built marble race: your obstacle is live'
+    hook: You built this one
+    desc: The top-voted obstacle from Halloween week is on the track. Credit goes to the comment that won the vote, named in the pinned comment.
+    pin: This obstacle came from your votes; the winning comment is credited below. Vote the next one.
+    pin_type: vote_track
+  rematch_of: null
+  status: needs_input
+  blocked_on: null
+  operator_input:
+    stage: null
+    fan_idea: null
+    credit: null
+  note: Operator sets params.stage to the passing stage nearest the winning idea (drop section) and posts the credit; blocked if nothing fits.
+- id: L50
+  date: 2026-11-13
+  world: ice-sand
+  generator: physics
+  variant: marble_race
+  params:
+    section: terrain-gauntlet
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  format: race
+  final: true
+  story:
+    must:
+      lead_changes: '>=2'
+      finishers: '>=3'
+  copy:
+    angle: 'world five final: every terrain trick in one gauntlet, and a purple marble watching'
+    title: 'Ice vs sand final: a stranger is watching'
+    hook: Who is the purple one?
+    desc: Every terrain trick in one gauntlet; the winner takes a Grand Final seat. A purple marble watches from the sidelines.
+    pin: A purple marble is watching. Friend or threat? Comment your guess.
+    pin_type: predict_outcome
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 ice-sand: terrain gauntlet composite, plus a non-racing purple marble on the sidelines'
+  operator_input: {}
+  note: null
+- id: L51
+  date: 2026-11-14
+  world: dice
+  generator: physics
+  variant: marble_race
+  params:
+    section: dice-gate-paths
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  - nova
+  format: race
+  story:
+    must:
+      lead_changes: '>=1'
+  copy:
+    angle: a new purple marble enters, and a dice gate picks one of three paths each run
+    title: New marble debuts on the dice track
+    hook: A purple marble arrives
+    desc: A new purple marble enters. A dice gate picks one of three paths at random each run. Nobody, us included, knows how it races.
+    pin: First look at the purple newcomer. Fast, steady, or chaos? Guess the trait.
+    pin_type: name_racer
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 dice: dice gate (seeded choice of one of three paths)'
+  operator_input: {}
+  note: Nova debuts. Public copy does not name Nova alone (name all or none).
+- id: L52
+  date: 2026-11-15
+  world: dice
+  generator: physics
+  variant: marble_race
+  params:
+    section: dice-start-grid
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  - nova
+  format: race
+  story:
+    must:
+      lead_changes: '>=2'
+  copy:
+    angle: a dice roll sets the starting grid; the back of the grid has the longest way through
+    title: 'Dice start marble race: random grid'
+    hook: The die sets the grid
+    desc: A dice roll sets the starting grid. Whoever draws the back has the longest way through.
+    pin: Can the marble on the back row win from there? Yes or no.
+    pin_type: either_or
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 dice: dice-set random start grid'
+  operator_input: {}
+  note: null
+- id: L53
+  date: 2026-11-16
+  world: dice
+  generator: physics
+  variant: marble_race
+  params:
+    section: dice-remove-obstacle
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  - nova
+  format: race
+  story:
+    must:
+      lead_changes: '>=1'
+    prefer:
+      margin_s: <=0.8
+  copy:
+    angle: six traps on the track and the die removes one; which one changes the race
+    title: 'Marble race dice roll: one trap vanishes'
+    hook: The die deletes a trap
+    desc: Six traps on the track; the die removes one. Which one disappears changes the whole race.
+    pin: Which trap should the die remove? Name it before the roll.
+    pin_type: vote_track
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 dice: dice removes one obstacle per run'
+  operator_input: {}
+  note: null
+- id: L54
+  date: 2026-11-17
+  world: dice
+  generator: physics
+  variant: marble_race
+  params:
+    section: dice-gates-duel
+  entrants:
+  - nova
+  - blaze
+  format: race
+  story:
+    must:
+      lead_changes: '>=1'
+  copy:
+    angle: the newcomer against the original speedster, three dice gates, two marbles
+    title: 'Nova vs Blaze marble race: speed duel'
+    hook: New speed, old speed
+    desc: 'Three dice gates, two marbles, one answer. Head-to-head so far: {h2h:nova:blaze}.'
+    pin: Nova or Blaze? The comments name the rivalry.
+    pin_type: either_or
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 dice: three dice gates on one track'
+  operator_input: {}
+  note: null
+- id: L55
+  date: 2026-11-18
+  world: dice
+  generator: physics
+  variant: marble_race
+  params:
+    section: dice-round-count
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  - nova
+  format: race
+  story:
+    must:
+      lead_changes: '>=2'
+  copy:
+    angle: the die sets how many rounds; sprinters want one, grinders want three
+    title: Marble race with a random number of rounds
+    hook: The die sets the length
+    desc: The die sets the number of rounds at the start. Sprinters want one; grinders want three.
+    pin: Predict the number of rounds and the marble that takes it.
+    pin_type: predict_outcome
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 dice: dice-set round count, one to three (the sandbox runs at most two)'
+  operator_input: {}
+  note: Laps -> rounds, rolled by the die.
+- id: L56
+  date: 2026-11-19
+  world: dice
+  generator: physics
+  variant: marble_race
+  params:
+    section: loaded-dice
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  - nova
+  format: race
+  story:
+    must:
+      finishers: '>=3'
+  copy:
+    angle: 'every roll picks the hardest path this time: same gates, no mercy'
+    title: 'Loaded dice marble race: always the hard path'
+    hook: 'Every roll: the hard way'
+    desc: This time every roll picks the hardest path. Same dice gates, no mercy.
+    pin: 'Hardest path every time: who handles it best? Pick a color.'
+    pin_type: pick_color
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 dice: dice gates forced to the hardest path'
+  operator_input: {}
+  note: null
+- id: L57
+  date: 2026-11-20
+  world: dice
+  generator: physics
+  variant: marble_race
+  params:
+    section: dice-surface
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  - nova
+  format: race
+  story:
+    must:
+      lead_changes: '>=2'
+  copy:
+    angle: 'each section''s surface is rolled live: ice, sand or plain'
+    title: 'Random surface marble race: the dice pick'
+    hook: Ice, sand or neither?
+    desc: 'Each section''s surface is rolled live: ice, sand or plain. World Five skills meet World Six luck.'
+    pin: How many sections land on ice? Guess before the roll.
+    pin_type: predict_outcome
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 dice: dice-rolled surface per section (needs the ice-sand sections)'
+  operator_input: {}
+  note: null
+- id: L58
+  date: 2026-11-21
+  world: dice
+  generator: physics
+  variant: marble_race
+  params:
+    section: handicap-start
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  - nova
+  format: race
+  story:
+    must:
+      lead_changes: '>=1'
+  copy:
+    angle: the die picks one marble to start early and everyone else chases
+    title: 'Handicap marble race: a dice head start'
+    hook: One marble goes early
+    desc: The die picks one marble to start early. Everyone else chases.
+    pin: If the head start lands on the slowest marble, does it hold on? Pick who gets it.
+    pin_type: predict_outcome
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 dice: dice-picked handicap (one marble starts early)'
+  operator_input: {}
+  note: null
+- id: L59
+  date: 2026-11-22
+  world: dice
+  generator: physics
+  variant: marble_race
+  params:
+    section: handicap-back-start
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  - nova
+  format: race
+  story:
+    must:
+      lead_changes: '>=2'
+  copy:
+    angle: 'the standings leader starts from the back with no dice help: can a lead survive a handicap'
+    title: 'Marble race penalty: the leader starts last'
+    hook: The leader starts last
+    desc: The standings leader starts from the back of the grid with no dice help. Can a lead survive a handicap?
+    pin: Fair handicap or too harsh? Comment "fair" or "harsh".
+    pin_type: either_or
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 dice: handicap: one named marble starts from the back with no dice help'
+  operator_input:
+    back_marker: null
+  note: 'back_marker: the standings leader at plan time (a rule, not a pick).'
+- id: L60
+  date: 2026-11-23
+  world: dice
+  generator: physics
+  variant: marble_race
+  params:
+    section: dice-final
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  - nova
+  format: race
+  final: true
+  story:
+    must:
+      lead_changes: '>=2'
+      finishers: '>=3'
+  copy:
+    angle: 'world six final: random paths, rounds, surfaces and grid; the first five-marble final'
+    title: 'Dice track final: five marbles, nothing fixed'
+    hook: Nothing is fixed tonight
+    desc: Random paths, random rounds, random surfaces, random grid. The first five-marble final.
+    pin: Five racers. Rank your top three; the best prediction gets a shout on Sunday.
+    pin_type: rank
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 dice: composite final: dice paths, rounds, surfaces and grid'
+  operator_input: {}
+  note: null
+- id: L61
+  date: 2026-11-24
+  world: arena
+  generator: battle
+  variant: ball_battle
+  params:
+    section: shrinking-walls
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  - nova
+  format: last_standing
+  story: {}
+  copy:
+    angle: 'no finish line: the walls close in until one marble is left; Harvest Cup week opens'
+    title: 'Shrinking arena marble race: last one left'
+    hook: The walls are closing
+    desc: No finish line. The walls close in until one marble is left. Harvest Cup week opens; the final is on Thanksgiving.
+    pin: Battle royale marbles. Who survives the last wall?
+    pin_type: pick_color
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 arena: shrinking walls, last one standing'
+  operator_input: {}
+  note: Arena mode extends the battle generator (ball_battle).
+- id: L62
+  date: 2026-11-25
+  world: arena
+  generator: battle
+  variant: ball_battle
+  params:
+    section: king-of-the-hill
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  - nova
+  format: score
+  story: {}
+  copy:
+    angle: 'a hill in the arena centre: whoever holds it when the walls stop takes it'
+    title: 'King of the hill marble race: hold the middle'
+    hook: Hold the hill
+    desc: A hill in the middle of the arena. Whoever holds it when the walls stop takes the round.
+    pin: Hold the hill or wait at the edge? Comment "hill" or "edge".
+    pin_type: either_or
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 arena: centre hill, king-of-the-hill scoring'
+  operator_input: {}
+  note: Arena mode extends the battle generator (ball_battle). Scored as format score.
+- id: L63
+  date: 2026-11-26
+  world: arena
+  generator: battle
+  variant: ball_battle
+  params:
+    section: arena-trapdoors
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  - nova
+  - acorn
+  - juniper
+  format: last_standing
+  final: true
+  story:
+    must:
+      any_event: trap_catch
+  copy:
+    angle: 'Harvest Cup final on Thanksgiving: the regulars plus two harvest guests, walls close and floors open'
+    title: 'Harvest Cup final: the arena with trapdoors'
+    hook: Walls close, floors open
+    desc: '{entrant_count} marbles, two of them harvest guests. Walls close, trapdoors open, one survives. The winner takes a Grand Final seat.'
+    pin: Thanksgiving final. Pick one marble, no changing your mind.
+    pin_type: pick_color
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 arena: shrinking arena with trapdoors, seven entrants'
+  operator_input: {}
+  note: 'Anchored to Nov 26. Plan says all six personas plus two guests (eight), but Ember debuts at L71: the field is five personas plus the two harvest guests (acorn, juniper; scores = false). Arena mode extends the battle generator (ball_battle).'
+- id: L64
+  date: 2026-11-27
+  world: arena
+  generator: battle
+  variant: ball_battle
+  params:
+    section: arena-pushers
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  - nova
+  format: last_standing
+  story:
+    must:
+      any_event: launched
+  copy:
+    angle: 'the walls now hit back: get pinned and you''re launched into the pit'
+    title: 'Marble arena pushers: walls that shove back'
+    hook: Now the walls hit back
+    desc: The walls now hit back. Get pinned and you're launched into the pit. A heavy newcomer arrives next world, built for exactly this.
+    pin: Who gets pinned by the first wall? Pick a color.
+    pin_type: predict_trap
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 arena: pusher walls that shove marbles into a pit'
+  operator_input: {}
+  note: Arena mode extends the battle generator (ball_battle).
+- id: L65
+  date: 2026-11-28
+  world: arena
+  generator: battle
+  variant: ball_battle
+  params:
+    section: team-arena
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  - nova
+  format: last_standing
+  story: {}
+  copy:
+    angle: 'teams of two: a team survives while either of its marbles is alive'
+    title: 'Team arena marble race: pairs survive'
+    hook: Survive as a pair
+    desc: Teams of two. A team survives while either marble is alive.
+    pin: Which pair survives longest? Name both colors.
+    pin_type: predict_outcome
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 arena: team arena (a team survives while either marble is alive), teams'
+  operator_input:
+    teams: null
+  note: Plan's two vs two vs two needs six bodies; five personas raced by now. Operator sets the pairs. Arena mode extends the battle generator (ball_battle).
+- id: L66
+  date: 2026-11-29
+  world: arena
+  generator: battle
+  variant: ball_battle
+  params:
+    section: ice-arena
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  - nova
+  format: last_standing
+  story:
+    must:
+      any_event: launched
+  copy:
+    angle: 'the arena floor is ice: walls push, marbles slide, nobody stops where they want'
+    title: 'Ice arena marble race: a frozen floor'
+    hook: Nobody stops on ice
+    desc: The arena floor is ice. Walls push, marbles slide, and nobody stops where they want.
+    pin: 'Ice plus walls: rate the chaos after watching.'
+    pin_type: rate_chaos
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 arena: ice floor in the arena (needs the ice-sand friction)'
+  operator_input: {}
+  note: Arena mode extends the battle generator (ball_battle).
+- id: L67
+  date: 2026-11-30
+  world: arena
+  generator: battle
+  variant: ball_battle
+  params:
+    section: centre-magnet
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  - nova
+  format: last_standing
+  story: {}
+  copy:
+    angle: a centre magnet drags every marble inward while the walls close
+    title: 'Magnet arena marble race: pulled inward'
+    hook: The middle pulls
+    desc: A centre magnet drags every marble inward while the walls close. Being pulled in might save you.
+    pin: Is the magnet a trap or a lifeline? Comment "trap" or "lifeline".
+    pin_type: either_or
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 arena: centre magnet in a shrinking arena'
+  operator_input: {}
+  note: Arena mode extends the battle generator (ball_battle).
+- id: L68
+  date: 2026-12-01
+  world: arena
+  generator: battle
+  variant: ball_battle
+  params:
+    section: sudden-death-duel
+  entrants:
+  - nova
+  - tide
+  format: last_standing
+  story: {}
+  copy:
+    angle: two marbles, one arena, no teammates
+    title: 'Nova vs Tide marble race: sudden death'
+    hook: One arena. No teammates.
+    desc: 'Two marbles, one arena, no teammates. Head-to-head so far: {h2h:nova:tide}.'
+    pin: Nova or Tide? Comment your pick before the walls move.
+    pin_type: either_or
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 arena: one-on-one sudden-death arena'
+  operator_input: {}
+  note: Arena mode extends the battle generator (ball_battle).
+- id: L69
+  date: 2026-12-02
+  world: arena
+  generator: battle
+  variant: ball_battle
+  params:
+    section: fan-arena-shape
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  - nova
+  format: last_standing
+  story: {}
+  copy:
+    angle: the arena shape came from the comments, built as described
+    title: 'Fan designed marble arena: your shape'
+    hook: You drew this arena
+    desc: The arena shape came from the comments, built as described.
+    pin: 'Built from the winning comment. Next vote: which world returns in December?'
+    pin_type: vote_track
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 arena: arena built to a fan-voted shape'
+  operator_input:
+    shape: null
+    credit: null
+  note: Arena mode extends the battle generator (ball_battle).
+- id: L70
+  date: 2026-12-03
+  world: arena
+  generator: battle
+  variant: ball_battle
+  params:
+    section: mega-arena
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  - nova
+  format: last_standing
+  final: true
+  story:
+    must:
+      any_event: trap_catch
+  copy:
+    angle: 'world seven final: the biggest arena yet, walls plus pushers plus trapdoors'
+    title: 'Shrinking arena final: last one standing'
+    hook: Walls, pushers, trapdoors
+    desc: 'The biggest arena yet: walls, pushers and trapdoors. A heavy newcomer debuts tomorrow.'
+    pin: Predict the last two marbles standing.
+    pin_type: predict_outcome
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 arena: mega arena: walls, pushers and trapdoors, ten bodies'
+  operator_input: {}
+  note: Plan says ten marbles; five personas have debuted, so ten bodies need guests or two per colour. Arena mode extends the battle generator (ball_battle).
+- id: L71
+  date: 2026-12-04
+  world: repel
+  generator: physics
+  variant: marble_race
+  params:
+    section: marble-repulsion
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  - nova
+  - ember
+  format: race
+  story:
+    must:
+      lead_changes: '>=1'
+  copy:
+    angle: a heavy orange marble joins and every marble now pushes every other apart
+    title: 'New marble debuts: every marble repels'
+    hook: Everyone pushes everyone
+    desc: A heavy orange marble joins. All marbles now push each other apart, and the heavy one pushes hardest. It ignores magnets; nobody knows its weakness yet.
+    pin: 'The heaviest marble ever built: advantage or anchor? Guess.'
+    pin_type: name_racer
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 repel: pairwise marble repulsion'
+  operator_input: {}
+  note: Ember debuts. Public copy does not name Ember alone.
+- id: L72
+  date: 2026-12-05
+  world: repel
+  generator: physics
+  variant: marble_race
+  params:
+    section: single-file-corridor
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  - nova
+  - ember
+  format: race
+  story:
+    must:
+      finishers: '>=4'
+  copy:
+    angle: the corridor is one marble wide and repulsion keeps a gap; start order is everything
+    title: 'Single file marble race: can anyone pass?'
+    hook: One marble wide
+    desc: The corridor is one marble wide, and repulsion keeps a gap. Start order is everything.
+    pin: Can anyone pass in a one-wide corridor? Name the passer or say nobody.
+    pin_type: predict_outcome
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 repel: one-marble-wide corridor with repulsion'
+  operator_input: {}
+  note: null
+- id: L73
+  date: 2026-12-06
+  world: repel
+  generator: physics
+  variant: marble_race
+  params:
+    section: repulsion-switch
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  - nova
+  - ember
+  format: race
+  story:
+    must:
+      lead_changes: '>=2'
+  copy:
+    angle: half the race is a tight pack, then repulsion switches on and the pack explodes
+    title: 'Marble race repulsion switch: pack explodes'
+    hook: Tight pack. Then boom.
+    desc: Half the race is a tight pack. Then repulsion switches on and the pack explodes.
+    pin: Who is in the middle when the switch flips? Pick the unlucky color.
+    pin_type: predict_trap
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 repel: repulsion switched on at halfway'
+  operator_input: {}
+  note: null
+- id: L74
+  date: 2026-12-07
+  world: repel
+  generator: physics
+  variant: marble_race
+  params:
+    section: heavy-blocker
+  entrants:
+  - ember
+  - blaze
+  - volt
+  - moss
+  format: race
+  story:
+    must:
+      lead_changes: '>=1'
+  copy:
+    angle: three light marbles try to get round one heavy one blocking the lane
+    title: 'Three vs one marble race: get past the tank'
+    hook: Three light, one heavy
+    desc: The heavy orange marble blocks the lane; three light marbles try to get around. Its bio says it's weak on ramps.
+    pin: 'Three light marbles or one heavy one: which side wins?'
+    pin_type: either_or
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 repel: repulsion with one heavy blocker in a lane'
+  operator_input: {}
+  note: 'Plan names no lineup: the three lightest regulars by traits (blaze, volt, moss) join Ember. Operator may swap.'
+- id: L75
+  date: 2026-12-08
+  world: repel
+  generator: physics
+  variant: marble_race
+  params:
+    stage: pinball
+    section: repulsion-bumpers
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  - nova
+  - ember
+  format: race
+  story:
+    must:
+      lead_changes: '>=2'
+  copy:
+    angle: the bumper stage from week one, now with every marble pushing every other
+    title: Pinball marble race with repulsion
+    hook: Bumpers plus rivals
+    desc: The bumper stage from week one, now with every marble pushing every other.
+    pin: 'Bumpers or rivals: which knocks more marbles off line? Pick one.'
+    pin_type: either_or
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 repel: pairwise repulsion on the pinball stage'
+  operator_input: {}
+  note: Base stage pinball (L08's) plus repulsion.
+- id: L76
+  date: 2026-12-09
+  world: repel
+  generator: physics
+  variant: marble_race
+  params:
+    section: marble-attraction
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  - nova
+  - ember
+  format: race
+  story:
+    must:
+      lead_changes: '>=1'
+  copy:
+    angle: 'attraction instead of repulsion: follow a rival to gain speed, lead and get dragged back'
+    title: 'Slipstream marble race: following pays'
+    hook: Follow to go faster
+    desc: 'Attraction instead of repulsion: sit behind a rival and gain speed; lead and you get dragged back.'
+    pin: Lead or follow? Comment "lead" or "follow".
+    pin_type: either_or
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 repel: pairwise attraction (slipstream)'
+  operator_input: {}
+  note: null
+- id: L77
+  date: 2026-12-10
+  world: repel
+  generator: battle
+  variant: ball_battle
+  params:
+    section: repulsion-arena
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  - nova
+  - ember
+  format: last_standing
+  story:
+    must:
+      any_event: launched
+  copy:
+    angle: shrinking walls plus marbles that shove each other
+    title: 'Repulsion arena: push or be pushed'
+    hook: Push or be pushed
+    desc: Shrinking walls plus marbles that shove each other. The heaviest marble's kind of arena.
+    pin: Is this the heaviest marble's race to lose? Yes or no.
+    pin_type: either_or
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 repel: repulsion inside the shrinking arena (needs WP7 arena)'
+  operator_input: {}
+  note: null
+- id: L78
+  date: 2026-12-11
+  world: repel
+  generator: physics
+  variant: marble_race
+  params:
+    section: merge-point
+  entrants:
+  - blaze
+  - nova
+  format: race
+  story:
+    must:
+      lead_changes: '>=1'
+  copy:
+    angle: two lanes merge into one; whoever arrives second gets pushed off
+    title: 'Blaze vs Nova marble race: the merge point'
+    hook: Two lanes, one gap
+    desc: 'Two lanes merge into one; whoever arrives second gets pushed off. Head-to-head so far: {h2h:blaze:nova}.'
+    pin: Who gets pushed off at the merge, Blaze or Nova?
+    pin_type: predict_outcome
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 repel: two lanes merging into one with repulsion'
+  operator_input: {}
+  note: Raced as a two-marble duel, one per lane.
+- id: L79
+  date: 2026-12-12
+  world: repel
+  generator: physics
+  variant: marble_race
+  params:
+    section: repulsion-gauntlet
+  entrants: []
+  format: elimination
+  story:
+    must:
+      lead_changes: '>=1'
+  copy:
+    angle: the marbles without a Grand Final seat race for the last ones
+    title: 'Grand Final qualifier: the last seats'
+    hook: Last seats. No second chances.
+    desc: The marbles without a Grand Final seat race for the last ones. A repulsion gauntlet, no second chances.
+    pin: Name the marbles that get in.
+    pin_type: predict_outcome
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 repel: repulsion gauntlet, elimination format'
+  operator_input:
+    entrants: null
+  note: 'entrants: marbles without a seat at plan time. With a six-marble cast the plan''s ''six without a seat, two seats left'' cannot all hold; operator decides.'
+- id: L80
+  date: 2026-12-13
+  world: repel
+  generator: physics
+  variant: marble_race
+  params:
+    section: repel-final
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  - nova
+  - ember
+  format: race
+  final: true
+  story:
+    must:
+      lead_changes: '>=2'
+  copy:
+    angle: 'world eight final: every marble repels, the heaviest hardest, on a track with three ramps'
+    title: 'Repel race final: the heavy one against all'
+    hook: Three ramps. One tank.
+    desc: Every marble repels, the heaviest repels hardest, and the track has three ramps, its weak spot.
+    pin: 'The heavy marble on ramps: does it finally lose? Pick a color.'
+    pin_type: pick_color
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 repel: full repulsion track with three ramps'
+  operator_input: {}
+  note: null
+- id: L81
+  date: 2026-12-14
+  world: colour-gates
+  generator: physics
+  variant: marble_race
+  params:
+    section: random-colour-gate
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  - nova
+  - ember
+  format: race
+  story:
+    must:
+      lead_changes: '>=1'
+  copy:
+    angle: a gate lights one colour and opens only for that marble; seeding week begins
+    title: 'Color gate marble race: the door picks'
+    hook: The door picks one
+    desc: 'A gate lights up one color and opens only for that marble. Everyone else waits. Seeding week: results decide bracket position.'
+    pin: Which color does the gate choose? Pure guess, pick one.
+    pin_type: pick_color
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 colour-gates: gate that opens for one random colour (per-entrant collision filter)'
+  operator_input: {}
+  note: null
+- id: L82
+  date: 2026-12-15
+  world: colour-gates
+  generator: physics
+  variant: marble_race
+  params:
+    section: three-colour-gates
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  - nova
+  - ember
+  format: race
+  story:
+    must:
+      lead_changes: '>=2'
+  copy:
+    angle: three gates, three colours; the winner loses the least time waiting
+    title: Three color gates marble race
+    hook: Nobody gets all three
+    desc: 'Three gates, three different colors. The winner is whoever loses the least time waiting. Standings: Blaze {standing:blaze}, Tide {standing:tide}, Volt {standing:volt}, Moss {standing:moss}, Nova {standing:nova}, Ember {standing:ember}.'
+    pin: Which marble gets no gate in its color? Name it.
+    pin_type: predict_outcome
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 colour-gates: three colour gates in sequence'
+  operator_input: {}
+  note: null
+- id: L83
+  date: 2026-12-16
+  world: colour-gates
+  generator: physics
+  variant: marble_race
+  params:
+    section: leader-lockout-gate
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  - nova
+  - ember
+  format: race
+  story:
+    must:
+      lead_changes: '>=1'
+  copy:
+    angle: the gate reads the leader and closes for that colour only
+    title: 'Leader lockout marble race: the gate shuts'
+    hook: First place gets locked out
+    desc: The gate reads the leader and closes for that color only. Second place becomes first. The leader trap, version three.
+    pin: Who is second when the gate shuts? Pick.
+    pin_type: predict_outcome
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 colour-gates: gate that closes for the leader''s colour'
+  operator_input: {}
+  note: null
+- id: L84
+  date: 2026-12-17
+  world: colour-gates
+  generator: physics
+  variant: marble_race
+  params:
+    section: alliance-gate
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  - nova
+  - ember
+  format: race
+  story:
+    must:
+      lead_changes: '>=2'
+  copy:
+    angle: 'the gate picks two colours: temporary allies, one finish line'
+    title: 'Alliance marble race: two colors pass'
+    hook: Two pass, the rest wait
+    desc: The gate picks two colors. Temporary allies, one finish line.
+    pin: Which two colors would you pair? Comment two.
+    pin_type: vote_track
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 colour-gates: gate that opens for two random colours'
+  operator_input: {}
+  note: null
+- id: L85
+  date: 2026-12-18
+  world: colour-gates
+  generator: physics
+  variant: marble_race
+  params:
+    section: cycling-colour-gate
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  - nova
+  - ember
+  format: race
+  story:
+    must:
+      lead_changes: '>=1'
+  copy:
+    angle: the gate cycles through every colour; arrive on yours and you fly through
+    title: 'Cycling gate marble race: hit your color'
+    hook: Arrive on your color
+    desc: The gate cycles through every color. Arrive on yours and you fly through.
+    pin: Who arrives exactly on their color? Name the marble.
+    pin_type: predict_outcome
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 colour-gates: gate cycling through every colour'
+  operator_input: {}
+  note: null
+- id: L86
+  date: 2026-12-19
+  world: colour-gates
+  generator: physics
+  variant: marble_race
+  params:
+    stage: trapdoor
+    section: colour-trapdoor-gate
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  - nova
+  - ember
+  format: elimination
+  story:
+    must:
+      any_event: trap_catch
+  copy:
+    angle: 'the gate doesn''t block, it drops: the wrong colour falls through'
+    title: 'Color gate trapdoor race: wrong color drops'
+    hook: Wrong color, straight down
+    desc: The gate doesn't block, it drops. Wrong color falls through.
+    pin: How many marbles fall? Guess a number.
+    pin_type: predict_outcome
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 colour-gates: colour gate that drops the wrong colours through a trapdoor, elimination format'
+  operator_input: {}
+  note: Plan says eight marbles; the cast has six. Base stage trapdoor exists but fails QA today (lead changes 1.4).
+- id: L87
+  date: 2026-12-20
+  world: colour-gates
+  generator: physics
+  variant: marble_race
+  params:
+    section: snow-colour-gates
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  - nova
+  - ember
+  format: race
+  story:
+    must:
+      lead_changes: '>=1'
+  copy:
+    angle: 'the Grand Final track gets a snow coat: gates on ice and a first look at the venue'
+    title: 'Snow marble race: color gates on ice'
+    hook: 'First look: the final venue'
+    desc: The Grand Final track gets a snow coat. Gates on ice and a first look at the final venue. The Grand Final is on Christmas Day.
+    pin: First look at the Grand Final track. What obstacle is missing? Suggest one.
+    pin_type: vote_track
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 colour-gates: colour gates on an ice floor (needs ice-sand friction)'
+  operator_input: {}
+  note: Christmas theme (window 12-01..12-26) exists.
+- id: L88
+  date: 2026-12-21
+  world: colour-gates
+  generator: physics
+  variant: marble_race
+  params:
+    section: gate-breaker
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  - nova
+  - ember
+  format: race
+  story:
+    must:
+      lead_changes: '>=2'
+  copy:
+    angle: 'the heaviest marble can''t wait: if the gate isn''t open it breaks through and takes a penalty'
+    title: The marble that can't stop vs the gate
+    hook: Too heavy to wait
+    desc: The heaviest marble can't wait. If the gate isn't open when it arrives, it breaks through and takes a penalty.
+    pin: Does the gate break? Comment "break" or "wait".
+    pin_type: either_or
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 colour-gates: breakable colour gate with a penalty rule for heavy marbles'
+  operator_input: {}
+  note: The penalty needs a scoring rule (scoring.toml) as well as the gate.
+- id: L89
+  date: 2026-12-22
+  world: colour-gates
+  generator: physics
+  variant: marble_race
+  params:
+    section: seeding-cycling-gate
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  - nova
+  - ember
+  format: race
+  story:
+    must:
+      lead_changes: '>=1'
+  copy:
+    angle: every finalist together for the first time; the result sets the bracket
+    title: 'Grand Final seeding race: every finalist'
+    hook: One race sets the bracket
+    desc: All the finalists together for the first time. The result sets the bracket, and the top seed picks its semifinal opponent.
+    pin: Who takes the top seed, and who do they choose to face? Two answers.
+    pin_type: predict_outcome
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 colour-gates: cycling gate on the seeding track'
+  operator_input: {}
+  note: 'Plan: eight finalists, points x2. The cast has six scoring entrants, so all six race; double points are not mapped (final: false per the season''s final list).'
+- id: L90
+  date: 2026-12-23
+  world: colour-gates
+  generator: physics
+  variant: marble_race
+  params:
+    section: all-gates-snow
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  - nova
+  - ember
+  format: race
+  final: true
+  story:
+    must:
+      lead_changes: '>=2'
+  copy:
+    angle: 'world nine final: every gate type on the snow track; the bracket goes out in the pinned comment'
+    title: 'Color gate final on snow: every gate type'
+    hook: Every gate at once
+    desc: Random gates, reverse gates, cycling gates and trapdoor gates. The last tune-up before Christmas; the bracket is in the pinned comment.
+    pin: The bracket is out in the seed list above. Predict all four semifinalists.
+    pin_type: rank
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 colour-gates: composite final: random, reverse, cycling and trapdoor gates on snow'
+  operator_input:
+    seed_list: null
+  note: 'seed_list: from standings after L89, posted by the operator with the pin.'
+- id: L91
+  date: 2026-12-24
+  world: grand-final
+  generator: physics
+  variant: marble_race
+  params:
+    stage: zigzag
+  entrants: []
+  format: race
+  story:
+    must:
+      lead_changes: '>=1'
+  copy:
+    angle: 'the bracket opens on the original first-week track, snow-covered: full circle'
+    title: 'Grand Final quarterfinal: seed one vs eight'
+    hook: Top seed, bottom seed
+    desc: The bracket opens on the original first-week track, snow-covered. Full circle. The loser is out of the season.
+    pin: Christmas Eve quarterfinal. Does the top seed hold, or is this the upset?
+    pin_type: predict_outcome
+  rematch_of: null
+  status: needs_input
+  blocked_on: null
+  operator_input:
+    seeds: null
+  note: World 1 track -> zigzag (L01's stage) under the Christmas theme. Seed 1 vs seed 8. Seeds come from standings at plan time; do not hard-code names. A six-marble cast cannot fill the plan's eight seeds, so the operator decides byes or guests.
+- id: L92
+  date: 2026-12-25
+  world: grand-final
+  generator: physics
+  variant: marble_race
+  params:
+    section: haunted-maze
+  entrants: []
+  format: elimination
+  story:
+    must:
+      finishers: '>=1'
+  copy:
+    angle: the Halloween maze returns for one race, lit for Christmas
+    title: 'Christmas Day marble race: the haunted maze'
+    hook: The maze is back
+    desc: The Halloween maze returns for one race, lit for Christmas. Seeds four and five. Merry Christmas from Gravity Lab.
+    pin: Christmas race. Pick your quarterfinalist and share your favorite race of the year below.
+    pin_type: pick_color
+  rematch_of: L37
+  status: blocked
+  blocked_on: 'WP7 halloween-maze: maze with dead ends (reused from World 4)'
+  operator_input:
+    seeds: null
+  note: Anchored to Dec 25. Declared rematch venue of L37. Seed 4 vs seed 5. Seeds come from standings at plan time; do not hard-code names. A six-marble cast cannot fill the plan's eight seeds, so the operator decides byes or guests.
+- id: L93
+  date: 2026-12-26
+  world: grand-final
+  generator: physics
+  variant: marble_race
+  params:
+    section: dice-quarterfinal
+  entrants: []
+  format: race
+  story:
+    must:
+      lead_changes: '>=1'
+  copy:
+    angle: the dice track picks the path and doesn't care about seeding
+    title: 'Dice quarterfinal: seed two vs seed seven'
+    hook: The die ignores seeding
+    desc: The dice track picks the path; the die doesn't care about seeding. Two semifinal spots are filled after tonight.
+    pin: Does the die save the lower seed? Comment "save" or "sink".
+    pin_type: either_or
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 dice: dice gates (reused from World 6)'
+  operator_input:
+    seeds: null
+  note: Seed 2 vs seed 7. Seeds come from standings at plan time; do not hard-code names. A six-marble cast cannot fill the plan's eight seeds, so the operator decides byes or guests.
+- id: L94
+  date: 2026-12-27
+  world: grand-final
+  generator: battle
+  variant: ball_battle
+  params:
+    section: arena-quarterfinal
+  entrants: []
+  format: last_standing
+  story: {}
+  copy:
+    angle: 'last quarterfinal: shrinking arena, no finish line'
+    title: 'Arena quarterfinal: sudden death'
+    hook: Last one standing advances
+    desc: 'The last quarterfinal: shrinking arena, no finish line. The last marble standing goes to the semis.'
+    pin: Arena sudden death. Who's standing when the walls stop?
+    pin_type: predict_outcome
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 arena: shrinking arena (reused from World 7)'
+  operator_input:
+    seeds: null
+  note: Seed 3 vs seed 6. Seeds come from standings at plan time; do not hard-code names. A six-marble cast cannot fill the plan's eight seeds, so the operator decides byes or guests.
+- id: L95
+  date: 2026-12-28
+  world: grand-final
+  generator: physics
+  variant: marble_race
+  params:
+    section: gauntlet-magnets-ice-gates
+  entrants: []
+  format: race
+  story:
+    must:
+      lead_changes: '>=2'
+  copy:
+    angle: three worlds in one track; the winner goes to the New Year's Eve final
+    title: 'Grand Final semifinal: magnets, ice, gates'
+    hook: Three worlds, one track
+    desc: Three worlds in one track. The winner goes to the New Year's Eve final.
+    pin: 'Semifinal one. Which world''s mechanic decides it: magnet, ice or gate?'
+    pin_type: either_or
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 grand-final: composite gauntlet: magnets, ice, colour gates'
+  operator_input:
+    seeds: null
+  note: Winners of L91 and L92. Seeds come from standings at plan time; do not hard-code names. A six-marble cast cannot fill the plan's eight seeds, so the operator decides byes or guests.
+- id: L96
+  date: 2026-12-29
+  world: grand-final
+  generator: physics
+  variant: marble_race
+  params:
+    section: gauntlet-trapdoors-repulsion-dice
+  entrants: []
+  format: race
+  story:
+    must:
+      any_event: trap_catch
+  copy:
+    angle: 'the other half of the bracket: trapdoors, repulsion and dice gates'
+    title: 'Second semifinal: trapdoors, repulsion, dice'
+    hook: The other half of the bracket
+    desc: 'The other half of the bracket: trapdoors, repulsion and dice gates. The final matchup is set after this race.'
+    pin: Who reaches the final, and who did you want to see there instead?
+    pin_type: predict_outcome
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 grand-final: composite gauntlet: trapdoors, repulsion, dice gates'
+  operator_input:
+    seeds: null
+  note: Winners of L93 and L94. Seeds come from standings at plan time; do not hard-code names. A six-marble cast cannot fill the plan's eight seeds, so the operator decides byes or guests.
+- id: L97
+  date: 2026-12-30
+  world: grand-final
+  generator: physics
+  variant: marble_race
+  params:
+    section: fan-track-bronze
+  entrants: []
+  format: race
+  story:
+    must:
+      lead_changes: '>=1'
+  copy:
+    angle: the two semifinal losers race on the track the comments chose
+    title: 'Third place marble race: bronze on the line'
+    hook: Bronze is on the line
+    desc: The two semifinal losers race on the track the comments chose.
+    pin: Bronze race. Should third place matter? Yes or no, and pick your marble.
+    pin_type: either_or
+  rematch_of: null
+  status: needs_input
+  blocked_on: null
+  operator_input:
+    seeds: null
+    stage: null
+  note: Losers of L95 and L96. Operator sets params.stage to the fan-chosen passing stage (drop section). Seeds come from standings at plan time; do not hard-code names. A six-marble cast cannot fill the plan's eight seeds, so the operator decides byes or guests.
+- id: L98
+  date: 2026-12-31
+  world: grand-final
+  generator: physics
+  variant: marble_race
+  params:
+    section: grand-final-composite
+    rounds: 3
+  entrants: []
+  format: race
+  final: true
+  story:
+    must:
+      rounds: '>=3'
+      lead_changes: '>=2'
+  copy:
+    angle: 'Grand Final on New Year''s Eve: every mechanic from every world, three rounds, two marbles'
+    title: 'Marble race Grand Final: every world'
+    hook: Every world. One champion.
+    desc: Every mechanic from every world, three rounds, two marbles, one Season Zero champion. New Year's Eve.
+    pin: The final. Pick your champion. The first correct prediction gets named in the Season One opener.
+    pin_type: pick_color
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 grand-final: composite of every world''s sections, three rounds'
+  operator_input:
+    seeds: null
+  note: 'Anchored to Dec 31. Three laps -> rounds: 3. Winners of L95 and L96.'
+- id: L99
+  date: 2027-01-01
+  world: grand-final
+  generator: physics
+  variant: marble_race
+  params:
+    section: champion-lap
+  entrants: []
+  format: race
+  story: {}
+  copy:
+    angle: a solo victory lap through every world with the full season standings on screen
+    title: 'Champion''s lap: the trophy run'
+    hook: One marble. Every world.
+    desc: A solo victory lap through every world, with the full season standings on screen. Every result of the season is in the description below.
+    pin: Season Zero is done. What was the best race of the year? Reply with the level.
+    pin_type: vote_track
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 grand-final: solo lap through every world with a season standings overlay'
+  operator_input:
+    champion: null
+  note: 'champion: the L98 winner. Not a race; format race with one entrant.'
+- id: L100
+  date: 2027-01-02
+  world: grand-final
+  generator: physics
+  variant: marble_race
+  params:
+    section: season-one-teaser
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  - nova
+  - ember
+  format: race
+  story: {}
+  copy:
+    angle: a first look at the next season's track under construction and a new marble's silhouette
+    title: 'Season One teaser: new track, new marble'
+    hook: Something new is coming
+    desc: A first look at the Season One track under construction, and the silhouette of a new marble. Season One starts on Monday.
+    pin: Name the new marble. The top-voted name becomes canon when Season One starts.
+    pin_type: name_racer
+  rematch_of: null
+  status: blocked
+  blocked_on: 'WP7 grand-final: teaser scene: track under construction and a new marble''s silhouette (not a race)'
+  operator_input: {}
+  note: 'Not a race: needs a non-race scene. The six regulars appear.'

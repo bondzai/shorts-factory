@@ -9,7 +9,13 @@ __pycache__/
 client_secret*.json
 token.json
 .pytest_cache/
-channels/
+# A channel's folder holds its OAuth token and the Analyst-edited rules.md,
+# which stay on the machine. What a season needs is tracked: the cast, the
+# scoring and the season files (docs/08).
+/channels/*/*
+!/channels/*/cast.toml
+!/channels/*/scoring.toml
+!/channels/*/season/
 
 # Agent worktrees live here; they are checkouts, not content.
 .claude/worktrees/

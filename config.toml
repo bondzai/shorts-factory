@@ -65,6 +65,23 @@ on = ["run.failed", "task.finished", "clip.qc", "clip.published", "clip.failed",
 # soon as the muxed clip exists — clip.mp4 already contains both.
 rejected_days = 3
 published_days = 30
+# Traces (trace.npz/json) of approved and published clips: what long-form
+# videos are redrawn from. -1 keeps them forever; rejected traces follow
+# rejected_days.
+trace_days = -1
+
+[series]
+# docs/08-series-layer.md. A channel with no season/ folder ignores all this.
+# Seeds tried per level before it fails as story_unsatisfiable.
+max_story_attempts = 200
+# Of the seeds that pass `must`, how many to score on `prefer` before choosing.
+prefer_pool = 5
+# Whether a season may require who wins, ranks or falls. Off: searching seeds
+# until a named marble loses is choosing the result (docs/08 rule 2.4).
+allow_identity_constraints = false
+# Copy for level clips: "local" asks the copy brain and falls back to the
+# template; "template" never asks.
+copy_source = "local"
 
 [qc]
 min_seconds = 10
@@ -128,6 +145,8 @@ models = ["qwen2.5vl:7b", "qwen2.5:7b", "llama3.1:8b"]
 # generator the template does not write.
 idea = "ollama/qwen2.5vl:7b"
 metadata = "ollama/qwen2.5vl:7b"
+# Season copy (title, pin, description line, hook): text only, so a text model.
+copy = "ollama/qwen2.5:7b"
 qc = "ollama/qwen2.5vl:7b"
 analyst = "ollama/qwen2.5vl:7b"
 

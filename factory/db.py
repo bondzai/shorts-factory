@@ -120,10 +120,29 @@ def migrate(conn: sqlite3.Connection) -> list[str]:
         ("hook_text", "TEXT"),
         ("comment_prompt", "TEXT"),
         ("title_history_json", "TEXT NOT NULL DEFAULT '[]'"),
+        ("trace_path", "TEXT"),  # series: trace.json beside the render
+        ("level_id", "TEXT"),  # series: the season level this clip is
     ):
         if column not in _columns(conn, "clips"):
             conn.execute(f"ALTER TABLE clips ADD COLUMN {column} {ddl}")
             done.append(f"clips.{column} added")
+
+    # The series layer (docs/08): a season file registered, its levels and the
+    # clip each became, and one result per approved level clip.
+    conn.execute("""CREATE TABLE IF NOT EXISTS seasons (
+    channel_id TEXT NOT NULL, id TEXT NOT NULL, title TEXT, file TEXT,
+    PRIMARY KEY (channel_id, id))""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS levels (
+    channel_id TEXT NOT NULL, season_id TEXT NOT NULL, id TEXT NOT NULL, date TEXT,
+    clip_id TEXT, task_id INTEGER, status TEXT NOT NULL DEFAULT 'planned', reason TEXT,
+    PRIMARY KEY (channel_id, season_id, id))""")
+    if "reason" not in _columns(conn, "levels"):  # why a level failed (story_unsatisfiable: ...)
+        conn.execute("ALTER TABLE levels ADD COLUMN reason TEXT")
+        done.append("levels.reason added")
+    conn.execute("""CREATE TABLE IF NOT EXISTS results (
+    clip_id TEXT PRIMARY KEY, channel_id TEXT NOT NULL, season_id TEXT NOT NULL,
+    level_id TEXT NOT NULL, outcome_json TEXT NOT NULL, points_json TEXT NOT NULL,
+    approved_at TEXT NOT NULL)""")
 
     if "proposals_json" not in _columns(conn, "digests"):
         conn.execute("ALTER TABLE digests ADD COLUMN proposals_json TEXT NOT NULL DEFAULT '[]'")
@@ -207,7 +226,7 @@ _ALLOWED_COLUMNS = {
     "hashtags_json", "qc_json", "reject_reason", "platform", "remote_id",
     "params_json", "hook_text", "comment_prompt", "title_history_json", "deleted_at",
     "published_at", "views", "avg_view_pct", "swipe_away_pct", "likes",
-    "metrics_at", "purged_at",
+    "metrics_at", "purged_at", "trace_path", "level_id",
 }
 
 

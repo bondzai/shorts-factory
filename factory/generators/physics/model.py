@@ -157,14 +157,15 @@ class Ball:
     radius: float
     color: tuple[int, int, int]
     name: str
+    traits: dict = field(default_factory=dict)  # a cast entrant's (see build.TRAITS)
 
 
-def make_ball(space: pymunk.Space, pos, radius, color, name, friction=0.22) -> Ball:
+def make_ball(space: pymunk.Space, pos, radius, color, name, friction=0.22, mass_mult=1.0) -> Ball:
     # Friction is deliberately low. Chipmunk multiplies the two coefficients, and
     # anything near realistic lets a marble come to rest perched on the rounded
     # end cap of a ramp — four of them then stack behind it and the clip is dead
     # in the water at four seconds. Low friction means they slide off instead.
-    mass = 1.0 + radius / 40.0
+    mass = (1.0 + radius / 40.0) * mass_mult
     body = pymunk.Body(mass, pymunk.moment_for_circle(mass, 0, radius))
     body.position = pos
     shape = pymunk.Circle(body, radius)

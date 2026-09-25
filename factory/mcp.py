@@ -264,7 +264,9 @@ def build_server():
                 clip_id, frames, facts = pipeline.create_and_render(
                     conn, channel, variant=use["variant"], generator=use["generator"] or "physics",
                     seed=use["seed"], hook=hook,
-                    params={k: v for k, v in (("stage", use.get("stage")), ("background", use.get("background"))) if v} or None,
+                    # A season task also carries cast, story and level ids; they
+                    # ride along from the held task untouched.
+                    params=task_queue.clip_params(use) or None,
                 )
                 task_id = db.attach_clip_to_claimed_task(
                     conn, channel_id, clip_id, HELD.get(channel_id))
@@ -592,6 +594,135 @@ def build_server():
 
         with db.connect() as conn:
             return [tasks.as_dict(r) for r in db.tasks(conn, channel, status)]
+
+    # --- seasons (docs/08): read and build only ------------------------------
+
+    @server.tool(
+        description=(
+            "Check a channel's season file against its cast and the series rules "
+            "(schema, debut order, identity predicates, anti-repetition, dates, "
+            "copy-hint placeholders). Returns problems, blocked levels and levels "
+            "waiting for operator input."
+        )
+    )
+    def season_check(channel: str | None = None, season: str | None = None) -> dict[str, Any]:
+        from . import seasons
+
+        with db.connect() as conn:
+            ch = channels.resolve(conn, channel)
+            out = seasons.check(conn, ch, season)
+        logs.event("mcp.call", actor="mcp", tool="season_check", channel=ch.id)
+        return {
+            "season": out["season"], "levels": out["levels"],
+            "errors": [p.as_dict() for p in out["problems"] if p.severity == "error"],
+            "warnings": [p.as_dict() for p in out["problems"] if p.severity == "warning"],
+            "blocked": [{"level": i, "blocked_on": why} for i, why in out["blocked"]],
+            "needs_input": [{"level": i, "missing": m} for i, m in out["needs_input"]],
+        }
+
+    @server.tool(
+        description=(
+            "Queue make-clip tasks for season levels, e.g. levels=\"L01..L03\" or "
+            "\"L03,L05\". Refuses blocked levels, levels waiting for operator "
+            "input, levels with season-check errors and levels already planned "
+            "(replan=true queues those again). Nothing is rendered here; the "
+            "tasks are worked like any other. Same rules as `factory season plan`."
+        )
+    )
+    def season_plan(levels: str, channel: str | None = None, season: str | None = None,
+                    replan: bool = False) -> list[dict[str, Any]]:
+        from . import seasons
+
+        with db.connect() as conn:
+            ch = channels.resolve(conn, channel)
+            try:
+                out = seasons.plan(conn, ch, levels, season_id=season, replan=replan, by="mcp")
+            except (ValueError, KeyError, FileNotFoundError) as exc:
+                raise ToolError(str(exc)) from None
+        logs.event("mcp.call", actor="mcp", tool="season_plan", channel=ch.id, levels=levels)
+        return out
+
+    @server.tool(
+        description=(
+            "The season table: points, wins and races per entrant, from approved "
+            "and published level clips. after=\"L20\" gives the table as it stood "
+            "once L20 was counted."
+        )
+    )
+    def get_standings(channel: str | None = None, season: str | None = None,
+                      after: str | None = None) -> dict[str, Any]:
+        from . import seasons
+
+        with db.connect() as conn:
+            ch = channels.resolve(conn, channel)
+            try:
+                return seasons.standings_view(conn, ch, season, after=after)
+            except (ValueError, KeyError, FileNotFoundError) as exc:
+                raise ToolError(str(exc)) from None
+
+    @server.tool(
+        description=(
+            "One season level: its definition from the season file, what became "
+            "of it (task, clip, status, failure reason, story attempts, copy "
+            "source, points) and the standings before it."
+        )
+    )
+    def get_level(level: str, channel: str | None = None, season: str | None = None) -> dict[str, Any]:
+        from . import seasons
+
+        with db.connect() as conn:
+            ch = channels.resolve(conn, channel)
+            try:
+                return seasons.get_level(conn, ch, level, season)
+            except (ValueError, KeyError, FileNotFoundError) as exc:
+                raise ToolError(str(exc)) from None
+
+    @server.tool(
+        description=(
+            "For a season level clip: what you may use to write its title, hook "
+            "(opening caption), pinned comment and first description line — the "
+            "race without its result, the standings before it, the plan's hints, "
+            "the cast, recent copy — plus the placeholders each field allows and "
+            "the rules submit_copy enforces. Write numbers only as placeholders."
+        )
+    )
+    def propose_copy(clip_id: str) -> dict[str, Any]:
+        from .agents import copy as copy_agent
+        from .series import copywriter
+
+        with db.connect() as conn:
+            row = db.get(conn, clip_id)
+            if row is None:
+                raise ToolError(f"no clip {clip_id}")
+            try:
+                s = copywriter.gather(conn, clip_id)
+                fb, _ = copywriter.fallback(s)
+            except ValueError as exc:
+                raise ToolError(str(exc)) from None
+            rules = channels.get(conn, row["channel_id"]).rules()
+        logs.event("mcp.call", actor="mcp", tool="propose_copy", clip=clip_id)
+        return {"clip": clip_id, "inputs": copywriter.inputs(s, rules),
+                "rules": copy_agent.SYSTEM, "fallback": fb}
+
+    @server.tool(
+        description=(
+            "Store copy for a season level clip, through the same validator the "
+            "copy brain is held to. All four fields must pass or nothing is "
+            "applied and the reasons come back. An empty hook keeps the render's "
+            "caption; a hook is recorded, never burned here."
+        )
+    )
+    def submit_copy(clip_id: str, title: str, hook: str, pin: str, desc_line1: str) -> dict[str, Any]:
+        from .series import copywriter
+
+        with db.connect() as conn:
+            try:
+                out = copywriter.submit(conn, clip_id, {"title": title, "hook": hook, "pin": pin,
+                                                        "desc_line1": desc_line1}, by="agent")
+            except ValueError as exc:
+                raise ToolError(str(exc)) from None
+        logs.event("mcp.call", actor="mcp", tool="submit_copy", clip=clip_id, applied=out["applied"])
+        return out
 
     @server.tool(description="Recent pipeline events, newest first.")
     def recent_logs(

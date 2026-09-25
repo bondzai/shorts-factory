@@ -13,6 +13,7 @@ import sqlite3
 from .. import db, logs
 from ..agents import qc
 from ..channels import Channel
+from ..series import standings
 from ..models import (
     APPROVED,
     AWAITING_APPROVAL,
@@ -95,7 +96,9 @@ def approve(conn: sqlite3.Connection, clip_id: str) -> None:
     row = db.get(conn, clip_id)
     if row is None or row["status"] != AWAITING_APPROVAL:
         raise ValueError(f"{clip_id} is not awaiting approval")
+    standings.guard(conn, clip_id)  # one counted clip per season level
     db.update(conn, clip_id, status=APPROVED)
+    standings.sync(conn, clip_id)
     logs.event("clip.approved", channel=row["channel_id"], clip=clip_id, title=row["title"])
 
 
@@ -114,6 +117,7 @@ def bin_clips(conn: sqlite3.Connection, clip_ids: list[str]) -> list[str]:
         if row["deleted_at"]:
             continue
         db.update(conn, clip_id, deleted_at=db.now())
+        standings.sync(conn, clip_id)
         logs.event("clip.binned", channel=row["channel_id"], clip=clip_id, was=row["status"])
         done.append(clip_id)
     return done
@@ -127,7 +131,10 @@ def unbin_clips(conn: sqlite3.Connection, clip_ids: list[str]) -> list[str]:
             raise ValueError(f"no clip {clip_id}")
         if not row["deleted_at"]:
             continue
+        if row["status"] in standings.COUNTED:
+            standings.guard(conn, clip_id)
         db.update(conn, clip_id, deleted_at=None)
+        standings.sync(conn, clip_id)
         logs.event("clip.unbinned", channel=row["channel_id"], clip=clip_id, status=row["status"])
         done.append(clip_id)
     return done
@@ -152,6 +159,7 @@ def destroy_clips(conn: sqlite3.Connection, clip_ids: list[str]) -> list[str]:
             shutil.rmtree(db.video_file(row).parent, ignore_errors=True)
         conn.execute("DELETE FROM clips WHERE id = ?", (clip_id,))
         conn.commit()
+        standings.drop(conn, clip_id)
         logs.event("clip.destroyed", channel=row["channel_id"], clip=clip_id, was=row["status"],
                    title=row["title"])
         done.append(clip_id)
@@ -173,6 +181,7 @@ def restore(conn: sqlite3.Connection, clip_id: str) -> None:
     if row["reject_reason"] and row["reject_reason"].startswith("too similar"):
         raise ValueError(f"{clip_id} failed a measured gate ({row['reject_reason'].split(';')[0]}); that does not change by looking again")
     db.update(conn, clip_id, status=AWAITING_APPROVAL, reject_reason=None)
+    standings.sync(conn, clip_id)  # waiting again: not counted until approved
     logs.event("clip.restored", channel=row["channel_id"], clip=clip_id, was=row["reject_reason"])
 
 
@@ -181,6 +190,7 @@ def reject(conn: sqlite3.Connection, clip_id: str, reason: str) -> None:
     if row is None:
         raise ValueError(f"no clip {clip_id}")
     db.update(conn, clip_id, status=QC_REJECTED, reject_reason=f"human: {reason}")
+    standings.sync(conn, clip_id)
     logs.event(
         "clip.rejected", level="warn", channel=row["channel_id"], clip=clip_id,
         reason=reason,

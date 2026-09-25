@@ -10,11 +10,16 @@ import json
 import math
 import random
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 from ... import audio, settings
 from ... import render as encoder
+from ...series import story
+from ...series.outcome import Outcome
 from ..base import GeneratedClip
+from . import outcome as physics_outcome
+from . import replay
+from .build import TRAITS
 from .model import CLOSE_RACE_S, FINAL_CAPTION, Style, seconds
 from .registry import LIVE_STAGES, STAGES
 from .render import frames
@@ -64,15 +69,9 @@ def screen_order(round_: dict) -> list[str]:
     return [b.name for _, b in sorted(zip(first, round_["balls"]), key=lambda t: t[0][0])]
 
 
-def generate(*, seed: int, variant: str, params: dict[str, Any], work_dir: Path) -> GeneratedClip:
-    if variant not in VARIANTS:
-        raise ValueError(f"physics: unknown variant {variant!r}")
-    cfg = settings.load().render
-    out_w, out_h = int(cfg["width"]), int(cfg["height"])
-    scale = float(cfg["render_scale"])
-    sim_w, sim_h = int(out_w * scale), int(out_h * scale)
-    fps = int(cfg["fps"])
-
+def race_rounds(seed: int, variant: str, params: dict[str, Any], cfg: dict,
+                sim_w: int, sim_h: int, fps: int) -> list[dict]:
+    """Every round of one clip, simulated and not drawn."""
     rounds_wanted = int(params.get("rounds", cfg.get("rounds", 1))) if variant == "marble_race" else 1
     rounds = [run_round(seed, variant, params, cfg, sim_w, sim_h, fps)]
     if rounds_wanted >= 2:
@@ -84,6 +83,86 @@ def generate(*, seed: int, variant: str, params: dict[str, Any], work_dir: Path)
         final_stage = params.get("final_stage") or random.Random(seed ^ 0x5F3759DF).choice(other)
         rounds.append(run_round(seed + 104729, variant, {**params, "stage": final_stage},
                                   cfg, sim_w, sim_h, fps, lineup=lineup))
+    return rounds
+
+
+def race_outcome(rounds: list[dict], fps: int, sim_w: int) -> Outcome:
+    return physics_outcome.build(rounds, fps, sim_w, running=unfinished(rounds[-1], fps)[0])
+
+
+# The story check's seeds: attempt k simulates seed + k * STORY_STRIDE, so
+# attempt 0 is the task's own seed. Each attempt's clip also uses
+# s + a * 7919 (stall retries, a < MAX_ATTEMPTS) and s + 104729 + a * 7919
+# (the final's). Those offsets are all under 140,000 in size and the stride is
+# over a million, so no attempt can re-run another attempt's simulation.
+STORY_STRIDE = 1_000_003
+
+
+class StoryUnsatisfiable(RuntimeError):
+    """No seed in the budget gave a race that meets the level's `must`."""
+
+
+def story_seed(seed: int, attempt: int) -> int:
+    return seed + attempt * STORY_STRIDE
+
+
+def choose_story(seed: int, variant: str, params: dict[str, Any], cfg: dict,
+                 sim_w: int, sim_h: int, fps: int) -> tuple[list[dict], Outcome, int, int]:
+    """Simulate seeds until the story's `must` holds; return the best of the
+    first `prefer_pool` passing races by `prefer` (earliest on a tie), its
+    outcome, its seed, and how many seeds were simulated. Nothing is drawn:
+    the caller renders only what this returns."""
+    spec = params["story"] or {}
+    must, prefer = spec.get("must") or {}, spec.get("prefer") or {}
+    problems = story.validate(must) + story.validate(prefer)
+    if problems:
+        raise ValueError("story: " + "; ".join(problems))
+    series = settings.load().raw.get("series", {})
+    budget = int(params.get("max_story_attempts") or series.get("max_story_attempts", 200))
+    pool = int(params.get("prefer_pool") or series.get("prefer_pool", 5))
+    passing: list[tuple[float, int, int, list[dict], Outcome]] = []
+    stalled = 0
+    attempts = 0
+    for k in range(budget):
+        attempts = k + 1
+        s = story_seed(seed, k)
+        try:
+            rounds = race_rounds(s, variant, params, cfg, sim_w, sim_h, fps)
+        except RuntimeError:
+            stalled += 1  # a seed that stalls on every retry is a story attempt spent
+            continue
+        outcome = race_outcome(rounds, fps, sim_w)
+        if not story.failures(outcome, must):
+            passing.append((story.score(outcome, prefer), -k, s, rounds, outcome))
+            if len(passing) >= pool:
+                break
+    if not passing:
+        raise StoryUnsatisfiable(
+            f"story_unsatisfiable: must {must} not met by any of {attempts} attempts from seed {seed}"
+            + (f" ({stalled} stalled)" if stalled else ""))
+    _, _, s, rounds, outcome = max(passing, key=lambda p: (p[0], p[1]))
+    return rounds, outcome, s, attempts
+
+
+def generate(*, seed: int, variant: str, params: dict[str, Any], work_dir: Path) -> GeneratedClip:
+    if variant not in VARIANTS:
+        raise ValueError(f"physics: unknown variant {variant!r}")
+    cfg = settings.load().render
+    out_w, out_h = int(cfg["width"]), int(cfg["height"])
+    scale = float(cfg["render_scale"])
+    sim_w, sim_h = int(out_w * scale), int(out_h * scale)
+    fps = int(cfg["fps"])
+
+    outcome: Outcome | None = None
+    rendered_seed, story_attempts = seed, 0
+    if params.get("story"):
+        if variant != "marble_race":
+            raise ValueError(f"physics: a story needs a race, and {variant} is not one")
+        rounds, outcome, rendered_seed, story_attempts = choose_story(seed, variant, params, cfg, sim_w, sim_h, fps)
+    else:
+        rounds = race_rounds(seed, variant, params, cfg, sim_w, sim_h, fps)
+        if variant == "marble_race":
+            outcome = race_outcome(rounds, fps, sim_w)
 
     clip_dir = work_dir
     clip_dir.mkdir(parents=True, exist_ok=True)
@@ -95,6 +174,10 @@ def generate(*, seed: int, variant: str, params: dict[str, Any], work_dir: Path)
     overlays = [overlay(variant, sim_w, sim_h, fps, text=hook_text)]
     if len(rounds) > 1:
         overlays.append(overlay(variant, sim_w, sim_h, fps, text=FINAL_CAPTION))
+    trace_path = replay.write(
+        clip_dir, variant=variant, seed=rendered_seed, fps=fps, sim_w=sim_w, sim_h=sim_h, rounds=rounds,
+        captions=[o[0] if o else None for o in overlays], ask=closing_ask(sim_w, sim_h, fps) is not None,
+        outcome=outcome)
 
     impacts: list[audio.Impact] = []
     offset = 0.0
@@ -191,7 +274,15 @@ def generate(*, seed: int, variant: str, params: dict[str, Any], work_dir: Path)
             "runner_up": last["runner_up"],
             "margin_s": last["margin_s"],
             "hook_text": hook_text,
+            "outcome": outcome.model_dump(mode="json") if outcome is not None else None,
+            # Seeds the story check simulated (0: the level had no story), and
+            # the one it rendered; without a story that is `seed`.
+            "story_attempts": story_attempts,
+            "story_seed": rendered_seed,
+            **({"cast": [e["id"] for e in params["cast"]]} if params.get("cast") else {}),
         },
+        outcome=outcome,
+        trace_path=trace_path,
     )
 
 
@@ -211,5 +302,15 @@ class PhysicsSandbox:
         "through a funnel. No prior knowledge needed, holds attention to the end."
     )
 
+    # Cast traits this generator acts on (docs/08, "Cast"); others are ignored.
+    supported_traits = TRAITS
+
     def generate(self, *, seed: int, variant: str, params: dict[str, Any], work_dir: Path) -> GeneratedClip:
         return generate(seed=seed, variant=variant, params=params, work_dir=work_dir)
+
+    def redraw(self, trace_dir: Path) -> Iterator[bytes]:
+        """The frames the render encoded, at sim size, from a trace alone."""
+        return replay.redraw(trace_dir)
+
+    def redraw_frame(self, trace_dir: Path, round_index: int, frame: int) -> bytes:
+        return replay.redraw_frame(trace_dir, round_index, frame)

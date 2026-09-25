@@ -22,7 +22,10 @@ KINDS: dict[str, dict[str, Any]] = {
     "make-clip": {
         "meaning": "render one clip, look at it, title it, QC it",
         "playbook": "make-clip",
-        "params": {"generator": "physics", "variant": "marble_race", "stage": None, "background": None, "seed": None},
+        "params": {"generator": "physics", "variant": "marble_race", "stage": None, "background": None, "seed": None,
+                   # series layer (docs/08): set by `season plan`, read by the generator
+                   "section": None, "rounds": None, "cast": None, "story": None, "max_story_attempts": None,
+                   "prefer_pool": None, "level_id": None, "season_id": None, "format": None},
         "builtin": True,
     },
     "plan-week": {
@@ -44,6 +47,23 @@ KINDS: dict[str, dict[str, Any]] = {
         "builtin": False,
     },
 }
+
+
+#: make-clip parameters that travel onto the clip (and so reach the generator);
+#: generator, variant and seed are columns of their own.
+CLIP_PARAM_KEYS = tuple(k for k in KINDS["make-clip"]["params"] if k not in ("generator", "variant", "seed"))
+
+
+def clip_params(params: dict[str, Any]) -> dict[str, Any]:
+    return {k: params[k] for k in CLIP_PARAM_KEYS if params.get(k) not in (None, "")}
+
+
+def _same(have: Any, want: Any) -> bool:
+    """Equal as a task parameter: lists and dicts by content, scalars as text
+    (an agent's "7301" is the task's 7301)."""
+    if isinstance(have, (dict, list)) or isinstance(want, (dict, list)):
+        return json.dumps(have, sort_keys=True, default=str) == json.dumps(want, sort_keys=True, default=str)
+    return str(have) == str(want)
 
 
 def enqueue(
@@ -99,7 +119,7 @@ def held_params(
         have = given.get(key)
         if have is None or have == "":
             merged[key] = value
-        elif str(have) != str(value):
+        elif not _same(have, value):
             raise ValueError(
                 f"task #{task['id']} asks for {key}={value!r}; you passed {have!r}. Use the "
                 f"task's parameters exactly — if they cannot render, finish the task with "
@@ -197,7 +217,7 @@ def run_builtin(conn: sqlite3.Connection, row: sqlite3.Row) -> dict[str, Any]:
         clip_id = db.insert_clip(
             conn, channel_id=row["channel_id"], generator=params.get("generator", "physics"),
             variant=params.get("variant", "marble_race"), seed=int(seed),
-            params={k: params[k] for k in ("stage", "background") if params.get(k)},
+            params=clip_params(params),
             hook="", plan_why=f"task #{row['id']}",
         )
         outcome = pipeline.build(conn, clip_id)
