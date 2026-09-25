@@ -15,7 +15,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
-from . import analytics, channels, db, generators, settings
+from . import analytics, channels, db, feedback, generators, settings
 
 
 def prompts_dir() -> Path:
@@ -205,8 +205,11 @@ def render(name: str, channel_id: str | None = None) -> str:
         # Three things ride on every playbook: the channel's market brief (in
         # git, one file per market), the skills (in git, craft rules for every
         # channel) and the operator's directions (in the database, edited on
-        # the page). All are appended, never formatted.
-        extra = market_text(conn, values["channel"]) + skill_text() + directions_text(conn, values["channel"])
+        # the page). All are appended, never formatted. Last, the lessons the
+        # operator adopted from the numbers (Feedback screen; only adopted
+        # ones — a hunch still being tested is not an instruction).
+        extra = (market_text(conn, values["channel"]) + skill_text() + directions_text(conn, values["channel"])
+                 + feedback.adopted_text(conn, values["channel"]))
     try:
         return text.format(**values) + extra
     except KeyError as exc:

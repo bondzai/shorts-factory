@@ -22,7 +22,7 @@ from fastapi.staticfiles import StaticFiles
 from .. import notify, settings, telegram
 from .. import workers as worker_service
 from .common import STATIC
-from .routers import (activity, channels, clips, config, docs, jobs, season, tasks, team,
+from .routers import (activity, channels, clips, config, docs, feedback, jobs, season, tasks, team,
                       workers, youtube)
 
 app = FastAPI(title="shorts-factory", docs_url=None, redoc_url=None)
@@ -178,7 +178,7 @@ def serve(host: str = "127.0.0.1", port: int = 8765) -> None:
     uvicorn.run(app, host=host, port=port, log_level="warning")
 
 
-for module in (channels, clips, tasks, jobs, config, docs, activity, team, workers, youtube, season):
+for module in (channels, clips, tasks, jobs, config, docs, activity, team, workers, youtube, season, feedback):
     app.include_router(module.router)
 
 app.mount("/static", StaticFiles(directory=STATIC), name="static")

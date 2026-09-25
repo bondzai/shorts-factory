@@ -23,7 +23,7 @@ import json
 import os
 from typing import Any
 
-from . import analytics, channels, db, generators, llm, logs, pipeline
+from . import analytics, channels, db, feedback, generators, llm, logs, pipeline
 from .agents import analyst
 from .models import AWAITING_APPROVAL
 
@@ -618,6 +618,75 @@ def build_server():
             )
         logs.event("mcp.call", actor="mcp", tool="set_metrics", clip=clip_id, views=views)
         return {"clip": clip_id, "status": "recorded"}
+
+    # Lessons from the numbers (factory/feedback.py). An agent may read them
+    # and propose one; only the operator adopts a lesson, because an adopted
+    # lesson is appended to every playbook and shown to the copy brain.
+    # Deleting stays on the console and the CLI.
+    @server.tool(
+        description=(
+            "List the channel's lessons from the numbers: what the metrics showed, the "
+            "evidence, linked clips (with their numbers frozen when linked), what to change, "
+            "and status (open | testing | adopted | dropped). Newest first. Filter by status, "
+            "area (title | hook | caption | stage | length | pacing | skills | other) or clip."
+        )
+    )
+    def list_feedback(channel: str | None = None, status: str | None = None, area: str | None = None,
+                      clip: str | None = None, limit: int = 50) -> dict[str, Any]:
+        with db.connect() as conn:
+            ch = channels.resolve(conn, channel)
+            try:
+                items, total = feedback.list_(conn, ch.id, status=status, area=area, clip=clip)
+            except ValueError as exc:
+                raise ToolError(str(exc)) from None
+        return {"channel": ch.id, "total": total, "items": items[:max(1, min(limit, 200))]}
+
+    @server.tool(
+        description=(
+            "Propose a lesson from the numbers. It is recorded as open, source agent: the "
+            "operator decides whether to test or adopt it. `observation` is what the numbers "
+            "showed (required); `evidence` the metric and values, e.g. 'swipe-away 62% on L03 vs "
+            "48% channel median'; `clip_ids` the clips it came from; `action` what to change or test."
+        )
+    )
+    def add_feedback(observation: str, area: str = "other", evidence: str = "",
+                     clip_ids: list[str] | None = None, action: str = "",
+                     channel: str | None = None, agent: str = "agent") -> dict[str, Any]:
+        with db.connect() as conn:
+            ch = channels.resolve(conn, channel)
+            try:
+                out = feedback.create(conn, ch.id, observation=observation, area=area, evidence=evidence,
+                                      clip_ids=clip_ids, action=action, status="open", source="agent",
+                                      created_by=agent_name(agent))
+            except ValueError as exc:
+                raise ToolError(str(exc)) from None
+        logs.event("mcp.call", actor="mcp", tool="add_feedback", channel=ch.id, id=out["id"])
+        return out
+
+    @server.tool(
+        description=(
+            "Edit a lesson's observation, evidence, action or result, or move it between open "
+            "and testing (or drop it). Adopting a lesson is the operator's decision and is refused here."
+        )
+    )
+    def update_feedback(feedback_id: int, observation: str | None = None, evidence: str | None = None,
+                        action: str | None = None, result: str | None = None,
+                        status: str | None = None) -> dict[str, Any]:
+        if status is not None and status.strip().lower() == "adopted":
+            raise ToolError("an agent may propose a lesson but not adopt it; the operator adopts on the Feedback screen")
+        with db.connect() as conn:
+            current = feedback.get(conn, feedback_id)
+            if current is None:
+                raise ToolError(f"no lesson {feedback_id}")
+            if status is not None and current["status"] == "adopted":
+                raise ToolError("this lesson is adopted; only the operator changes its status")
+            try:
+                out = feedback.update(conn, feedback_id, observation=observation, evidence=evidence,
+                                      action=action, result=result, status=status)
+            except ValueError as exc:
+                raise ToolError(str(exc)) from None
+        logs.event("mcp.call", actor="mcp", tool="update_feedback", channel=out["channel_id"], id=feedback_id)
+        return out
 
     @server.tool(description="Read a channel's rules file.")
     def read_rules(channel: str | None = None) -> dict[str, str]:

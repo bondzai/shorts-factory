@@ -1,4 +1,4 @@
-// The shell: four places, a header with the channel, the command bar and the
+// The shell: five places, a header with the channel, the command bar and the
 // one job running, and the screen the URL names. Team is home: the briefing,
 // your decisions and the office. Everything else is one click or one command.
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -13,6 +13,7 @@ import { CommandBar } from "./ui/CommandBar";
 import { Team } from "./screens/Team";
 import { Season } from "./screens/Season";
 import { Clips } from "./screens/Clips";
+import { Feedback } from "./screens/Feedback";
 import { ClipDrawer } from "./ui/ClipDrawer";
 import { Settings, AddChannel } from "./screens/Settings";
 import type { Channel, Snap } from "./lib/types";
@@ -21,6 +22,7 @@ const VIEWS = [
   { id: "team", name: "Team", meaning: "your decisions, the office" },
   { id: "season", name: "Season", meaning: "levels and the table" },
   { id: "clips", name: "Clips", meaning: "every clip, and the bin" },
+  { id: "feedback", name: "Feedback", meaning: "what the numbers taught" },
   { id: "settings", name: "Settings", meaning: "channel, brains, docs" },
 ];
 
@@ -94,12 +96,14 @@ export default function App() {
           bar={snap && channelId ? <CommandBar snap={snap} channelId={channelId} refresh={reload} navigate={navigate} onOpen={setOpenClip} /> : null} />
         <Toasts />
         <main className="content" id="content">
-          {openClip && <ClipDrawer id={openClip} close={() => setOpenClip(null)} refresh={reload} sound={sound} />}
+          {openClip && <ClipDrawer id={openClip} close={() => setOpenClip(null)} refresh={reload} sound={sound}
+            onLesson={(clip) => { setOpenClip(null); navigate("feedback", { new: "1", clip }); }} />}
           {error && snap && <ErrorNote message={`Lost touch with the server: ${error}. Showing what was last loaded.`} retry={reload} />}
           {!snap ? (error ? <ErrorNote message={`Cannot reach the server: ${error}. Is \`factory serve\` running?`} retry={reload} /> : <p className="empty">Loading…</p>)
             : view === "team" ? <Team snap={snap} {...screenProps} sound={sound} setSound={setSound} />
             : view === "season" ? <Season {...screenProps} />
             : view === "clips" ? <Clips snap={snap} {...screenProps} />
+            : view === "feedback" ? <Feedback channelId={channelId!} route={route} navigate={navigate} />
             : <Settings snap={snap} channelId={channelId!} refresh={reload} route={route} navigate={navigate} theme={<ThemeSwitch theme={theme} setTheme={setTheme} />} />}
         </main>
       </div>

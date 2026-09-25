@@ -7,7 +7,7 @@ import { act } from "../lib/toast";
 import { Badge, Drawer } from ".";
 import type { ClipDetail } from "../lib/types";
 
-export function ClipDrawer({ id, close, refresh, sound }: { id: string; close: () => void; refresh: () => Promise<void>; sound: boolean }) {
+export function ClipDrawer({ id, close, refresh, sound, onLesson }: { id: string; close: () => void; refresh: () => Promise<void>; sound: boolean; onLesson?: (clipId: string) => void }) {
   const [c, setC] = useState<ClipDetail | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const load = useCallback(() => api<ClipDetail>(`/api/clip/${id}`).then(setC).catch((e) => setErr((e as Error).message)), [id]);
@@ -58,7 +58,8 @@ export function ClipDrawer({ id, close, refresh, sound }: { id: string; close: (
             {c.file.path && <><dt>file</dt><dd>{c.file.path}{c.file.exists ? "" : " (gone)"}</dd></>}
           </dl>
           {qc.verdict && <><h3>QC</h3><dl className="facts"><dt>verdict</dt><dd>{qc.verdict} · hook {qc.hook_strength}/5 · policy {qc.policy_risk}{qc.looks_templated ? " · looks templated" : ""}</dd>{(qc.reasons || []).map((r, i) => <span key={i} style={{ display: "contents" }}><dt /><dd className="hint">{r}</dd></span>)}</dl></>}
-          {(c.published_at || c.views != null) && <><h3>On the platform</h3><dl className="facts"><dt>published</dt><dd>{when(c.published_at)}</dd><dt>metrics</dt><dd>{c.views == null ? "none entered yet" : `${num(c.views)} views · ${pct(c.avg_view_pct)} viewed · ${pct(c.swipe_away_pct)} swiped · ${num(c.likes)} likes (${when(c.metrics_at)})`}</dd></dl></>}
+          {(c.published_at || c.views != null) && <><h3>On the platform</h3><dl className="facts"><dt>published</dt><dd>{when(c.published_at)}</dd><dt>metrics</dt><dd>{c.views == null ? "none entered yet" : `${num(c.views)} views · ${pct(c.avg_view_pct)} viewed · ${pct(c.swipe_away_pct)} swiped · ${num(c.likes)} likes (${when(c.metrics_at)})`}</dd></dl>
+            {c.status === "published" && onLesson && <div className="row wrap"><button className="sm" onClick={() => onLesson(c.id)}>Add a lesson from this clip</button><span className="hint">what did its numbers teach? Adopted lessons reach every playbook.</span></div>}</>}
           {c.title_history?.length > 0 && <><h3>Earlier titles</h3>{c.title_history.map((h, i) => <div key={i} className="hint">“{h.title}” until {when(h.until)} by {h.by} — {h.views == null ? "no metrics then" : `${num(h.views)} views, ${pct(h.avg_view_pct)} viewed, ${pct(h.swipe_away_pct)} swiped`}{h.why ? ` · ${h.why}` : ""}</div>)}</>}
         </div>
       )}

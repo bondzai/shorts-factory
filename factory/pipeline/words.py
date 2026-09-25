@@ -11,7 +11,7 @@ import json
 import re
 import sqlite3
 
-from .. import channels, db, logs, playbooks, settings
+from .. import channels, db, feedback, logs, playbooks, settings
 from .. import publish as drivers
 from ..models import (
     APPROVED,
@@ -248,6 +248,7 @@ def title_ideas(conn: sqlite3.Connection, clip_id: str, *, captions: bool = Fals
     ideas, cost = title_agent.suggest(
         facts=facts, recent_titles=recent, directions=playbooks.directions_text(conn, row["channel_id"]),
         emoji_allowed=emoji_ok, want_captions=captions and row["status"] != PUBLISHED,
+        lessons=feedback.adopted_text(conn, row["channel_id"], feedback.COPY_AREAS).strip(),
     )
     taken = {shape(t) for t in recent} | {shape(row["title"] or "")}
     kept, dropped = [], []

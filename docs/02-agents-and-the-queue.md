@@ -85,6 +85,33 @@ The instructions an agent gets live in `prompts/*.md`, in git. They contain
 rules, what it made recently, how those clips performed, the current gates. A
 prompt pasted from last week would already be wrong; one rendered now is not.
 
+## The feedback loop: what the numbers taught
+
+Numbers alone do not change how the next clip is made. A lesson does. The loop:
+
+1. **Enter metrics.** Read YouTube Studio and type a published clip's views,
+   % viewed, swipe-away and likes (Clips → *Enter metrics*, or `set_metrics`
+   over MCP).
+2. **Record a lesson.** On **Feedback** (or *Add a lesson from this clip* in a
+   published clip's drawer): what the numbers showed, the area (title, hook,
+   caption, stage, length, pacing, skills, other), the evidence ("swipe-away
+   62% on L03 vs 48% channel median"), the clips it came from and what to
+   change. Linked clips' numbers are copied into the lesson when linked, so
+   the evidence stays put when Studio is read again next week.
+3. **Test.** Set it to *testing* while the change runs on the next clips.
+   Nothing reaches the brains yet.
+4. **Adopt or drop.** Write what happened in *result*. *Adopted* is the
+   switch: *dropped* keeps the record and reaches nobody.
+5. **It reaches the brains.** Every adopted lesson is appended to every
+   rendered playbook, after your Directions, under "What the numbers taught
+   this channel". Adopted title, hook and caption lessons also go to the copy
+   brain (`adopted_lessons` in its inputs) and to *Suggest titles*.
+
+An agent over MCP may read lessons (`list_feedback`), propose one
+(`add_feedback`: always *open*, source *agent*) and edit its words
+(`update_feedback`); it cannot adopt one or delete one. From the shell:
+`factory feedback list|add|edit|rm`.
+
 ## Starting an agent from the console
 
 **Team → Workers** runs the agent for you, so a queue never waits for a

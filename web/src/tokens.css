@@ -420,3 +420,25 @@ nav.side { border-right-color: var(--line2); background: var(--bg); }
 .desk-group { font-size: var(--f2); font-weight: 600; margin: var(--s4) 0 var(--s2); display: flex; align-items: baseline; gap: var(--s2); flex-wrap: wrap; }
 .desk-group:first-child { margin-top: 0; }
 .desk-group .hint { font-weight: 400; }
+
+/* Feedback: a lesson's form in the drawer, stacked (the drawer is narrow),
+   and the linked / findable clips with their numbers inline. */
+.lesson-obs { color: var(--ink-strong); }
+.lesson-field { display: flex; flex-direction: column; gap: var(--s1); }
+.lesson-field > label, .lesson-field > .label { color: var(--ink); font-size: var(--f2); font-weight: 500; }
+.lesson-field textarea { min-height: 0; resize: vertical; width: 100%; }
+.lesson-field select, .lesson-field input[type="search"] { width: 100%; }
+.lesson-actions { position: sticky; bottom: calc(-1 * var(--s6)); background: var(--bg); padding: var(--s3) 0; border-top: 1px solid var(--line2); }
+button.seg { min-height: 36px; }
+button.seg[aria-pressed="true"] { border-color: var(--accent-line); background: var(--accent-soft); color: var(--accent); }
+.clip-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line2); border-radius: var(--r); }
+.clip-list li { display: flex; align-items: center; gap: var(--s2); padding: var(--s2) var(--s3); border-top: 1px solid var(--line2); min-width: 0; }
+.clip-list li:first-child { border-top: 0; }
+.clip-list.pick { background: var(--panel); }
+.nums { font-variant-numeric: tabular-nums; }
+@media (pointer: coarse) { .clip-list li button, .lesson-actions button { min-height: 44px; } }
+@media (max-width: 820px) { .drawer { padding: var(--s3) var(--s4) var(--s6); } }
+.clip-list li { flex-wrap: wrap; }
+.clip-list li > .grow { flex: 1 1 220px; }
+.clip-title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+@media (max-width: 820px) { .narrow-only.row { display: flex; } }
