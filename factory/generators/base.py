@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+
+if TYPE_CHECKING:
+    from ..series.outcome import Outcome
 
 
 @dataclass
@@ -15,6 +18,10 @@ class GeneratedClip:
     # Metadata agent writes the title from this, so it must be true.
     description: str
     facts: dict[str, Any] = field(default_factory=dict)
+    # A competition's result for the series layer; None when it is not one.
+    outcome: Outcome | None = None
+    # trace.json beside the clip: enough to redraw any frame (series/trace.py).
+    trace_path: Path | None = None
 
 
 @runtime_checkable
