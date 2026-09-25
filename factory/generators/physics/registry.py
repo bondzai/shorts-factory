@@ -16,6 +16,7 @@ from .worlds import polarity
 from .worlds import dice
 from .worlds import ice_sand  # World 5: registers its sections before they are composed below
 from .worlds import trapdoor as w2  # World 2's sections register with the kit on import
+from .worlds import colour_gates as w9  # World 9: its gate sections register on import
 
 @dataclass(frozen=True)
 class Stage:
@@ -255,6 +256,36 @@ STAGE_SPECS: list[Stage] = [
           "trapdoors", "seven trapdoor panels in four bands",
           lambda s, g: stagekit.describe_parts((("trap2", 1.0), ("trap1", 1.0), ("trap2", 1.0), ("trap2", 1.0))),
           gate=True, parts=(("trap2", 1.0), ("trap1", 1.0), ("trap2", 1.0), ("trap2", 1.0))),
+    # World 9, Color Roulette Gates (L81-L90; worlds/colour_gates.py). Trial
+    # stages, each raced by the level that names it; docs/06 "World 9".
+    composed("colourgate", [("pegs", 1.0), ("colourgate", 1.2), ("pegs", 1.0)], gravity=-30.0,
+             noun="the colour gate", blurb="pegs, a colour gate, then pegs", gate=True),
+    composed("threegates", [("colourgate", 1.2), ("pegs", 0.4), ("colourgate", 1.2), ("pegs", 0.4),
+                            ("colourgate", 1.2), ("pegs", 0.4)], gravity=-30.0, noun="colour gates",
+             blurb="three colour gates, pegs under each"),
+    composed("lockout", [("ramps", 0.9), ("colourgate", 1.2), ("pegs", 1.0)], gravity=-30.0,
+             noun="the reverse gate", blurb="ramps, a colour gate, then pegs", gate=True),
+    composed("rhythm", [("pegs", 0.8), ("colourgate", 1.2), ("chutes", 1.2)], gravity=-30.0,
+             noun="the cycling gate", blurb="pegs, a colour gate, then split-and-rejoin chutes"),
+    # World 2's trapfall, starting lower (top 0.84 h, as its grid_build
+    # does): eight marbles with a heavy one among them start in two rows,
+    # and trapfall's stack reaches the second. No finish throat, so the
+    # funnel keeps a band tall enough for its 0.48 slope.
+    Stage("colourtrap", stagekit.compose([("pegs", 0.6), ("funnel", 1.0), ("trap1", 1.3), ("pegs", 0.8)],
+                                         top_frac=0.84), -30.0,
+          "the trapdoor gate", "pegs, a funnel, a trapdoor that lights a colour, then pegs",
+          lambda s, g: stagekit.describe_parts((("pegs", 0.6), ("funnel", 1.0), ("trap1", 1.3), ("pegs", 0.8))),
+          parts=(("pegs", 0.6), ("funnel", 1.0), ("trap1", 1.3), ("pegs", 0.8))),
+    composed("snowtrack", [("ice_ramps", 0.8), ("icegate", 1.5), ("pegs", 0.5), ("icegate", 1.5),
+                           ("ice_ramps", 0.7)], gravity=-65.0, noun="the snow track",
+             blurb="ice ramps, a colour gate on ice, pegs, another gate on ice, ice ramps"),
+    composed("breakgate", [("pegs", 0.8), ("boxgate", 2.0), ("pegs", 0.8)], gravity=-30.0,
+             noun="the gate", blurb="pegs, a colour gate with a penalty box under it, then pegs"),
+    composed("seeding", [("bumpers", 0.9), ("colourgate", 1.2), ("pegs", 1.0)], gravity=-30.0,
+             noun="the cycling gate", blurb="bumpers, a colour gate, then pegs", gate=True),
+    composed("snowfinal", [("icegate", 1.4), ("pegs", 0.5), ("icegate", 1.4), ("trap1", 1.0),
+                           ("icegate", 1.4)], gravity=-90.0, noun="every gate",
+             blurb="colour gates on ice, pegs and a trapdoor gate between them"),
     # COMPOSED-STAGES-END
 ]
 
@@ -341,6 +372,26 @@ MECHANIC_SPECS: list[Mechanic] = [
              blurb="the timer trapdoor, with its countdown on screen"),
     Mechanic("five-trapdoors", w2.five_trapdoors, stage="trapwalk", blurb="five trapdoors on their own cycles"),
     Mechanic("trap-gauntlet", w2.trap_gauntlet, stage="pitfall", blurb="seven trapdoors opening in a wave"),
+    # World 9, Color Roulette Gates (worlds/colour_gates.py; docs/06 "World 9").
+    Mechanic("random-colour-gate", w9.random_colour_gate, stage="colourgate",
+             blurb="the gate lights one seeded colour; the rest wait"),
+    Mechanic("three-colour-gates", w9.three_colour_gates, stage="threegates",
+             blurb="three gates, three different seeded colours"),
+    Mechanic("leader-lockout-gate", w9.leader_lockout_gate, stage="lockout",
+             blurb="the gate shuts for the leader's colour as the field reaches it"),
+    Mechanic("alliance-gate", w9.alliance_gate, stage="colourgate", blurb="two seeded colours pass; the rest wait"),
+    Mechanic("cycling-colour-gate", w9.cycling_colour_gate, stage="rhythm",
+             blurb="the gate lights every colour in turn, one a second"),
+    Mechanic("colour-trapdoor-gate", w9.colour_trapdoor, stage="colourtrap",
+             blurb="each time the trapdoor opens it lights one colour; the rest drop"),
+    Mechanic("snow-colour-gates", w9.snow_colour_gates, stage="snowtrack",
+             blurb="a random-colour gate and a cycling gate on ice"),
+    Mechanic("gate-breaker", w9.gate_breaker, stage="breakgate",
+             blurb="a cycling gate that breaks under enough momentum; the breaker serves a penalty"),
+    Mechanic("seeding-cycling-gate", w9.cycling_colour_gate, stage="seeding",
+             blurb="one cycling colour gate on the seeding track"),
+    Mechanic("all-gates-snow", w9.all_gates_snow, stage="snowfinal",
+             blurb="random, reverse, cycling and trapdoor gates on ice"),
     # MECHANICS-END
 ]
 MECHANICS: dict[str, Mechanic] = {m.id: m for m in MECHANIC_SPECS}

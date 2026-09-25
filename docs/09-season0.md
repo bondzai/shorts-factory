@@ -32,7 +32,7 @@ disagree, and two of its rules decided most of the conversion:
 | dice | L51–L60 | 9 | 0 | 1 | Nov 11 (built; docs/06 "World 6") |
 | arena | L61–L70 | 0 | 10 | 0 | Nov 21 |
 | repel | L71–L80 | 0 | 10 | 0 | Dec 1 |
-| colour-gates | L81–L90 | 0 | 10 | 0 | Dec 11 |
+| colour-gates | L81–L90 | 9 | 0 | 1 | done: World 9 stages pass docs/06 (L90 waits on the seed list) |
 | grand-final | L91–L100 | 0 | 8 | 2 | Dec 22 (L92 needs the World 4 maze) |
 | **total** | | **24** | **72** | **4** | |
 

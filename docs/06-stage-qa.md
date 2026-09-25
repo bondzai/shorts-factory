@@ -228,3 +228,80 @@ trap's pit. The relay keeps each team's second marble in a pen until its
 teammate reaches the gate; a slow first leg left those waiting marbles in the
 parked count (8 of 43, all in pens). A sloped lid is never a floor, and a
 marble stuck while a pen waits for it is still counted as parked itself.
+## World 9: Color Roulette Gates (L81–L90)
+
+Written by hand, not by `--report`: each row is a *level*, raced with its own
+params (`stage`, `section`, `format`) and its own field — the six personas
+(Blaze, Tide, Volt, Moss, Nova, Ember), and for L86 those six plus the two
+guests Acorn and Juniper — 48 seeds from 700 through the render's retry loop
+(`stage_qa.run(stage, seeds, params=..., cast=...)`), measured 2026-09-25.
+Every stage is trial (weight 0). The sections and mechanics are in
+`factory/generators/physics/worlds/colour_gates.py`.
+
+**Balance** is each entrant's share of the wins. With 5–8 racing the gate is
+no entrant under 5% or over 50% (4 regulars: 10–45%); guests are shown and not
+judged (`stage_qa.balance`). **Waits** is how long a marble spends from
+reaching a gate's bar to being through it, over every gate passage, measured
+with the race left to run 30 s past the winner (no runner-up cut), which is
+also the deadlock check: **stuck** counts marbles left on a shut bar at the
+end of that tail, and **give-ups** the gates that opened by the last resort
+(`GIVE_UP_S`, a marble on the bar 15 s).
+
+| level | stage · section | g | finished | first try | runner-up | parked | median s | leads | balance B/T/V/M/N/E (+A/J) | waits med · p95 · max s | stuck · give-ups | verdict |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| L81 | `colourgate` · `random-colour-gate` | -30 | 48/48 | 48/48 | 100% | 9/179 | 16.1 | 4.3 | 8/21/17/12/21/21% | 2.5 · 5.0 · 7.0 | 0 · 0 | pass |
+| L82 | `threegates` · `three-colour-gates` | -30 | 48/48 | 48/48 | 100% | 13/177 | 16.6 | 5.0 | 15/17/23/17/8/21% | 2.7 · 5.9 · 10.0 | 0 · 0 | pass |
+| L83 | `lockout` · `leader-lockout-gate` | -30 | 48/48 | 39/48 | 100% | 16/182 | 12.0 | 2.8 | 15/23/17/19/17/10% | 0.8 · 6.9 · 12.9 | 0 · 0 | pass |
+| L84 | `colourgate` · `alliance-gate` | -30 | 48/48 | 48/48 | 98% | 6/180 | 16.5 | 4.3 | 15/17/21/12/25/10% | 2.3 · 4.8 · 13.1 | 0 · 0 | pass |
+| L85 | `rhythm` · `cycling-colour-gate` | -30 | 48/48 | 47/48 | 96% | 12/190 | 15.2 | 3.2 | 15/21/10/21/15/19% | 4.8 · 11.2 · 19.9 | 0 · 0 | pass |
+| L86 | `colourtrap` · `colour-trapdoor-gate`, elimination | -30 | 48/48 | 34/48 | 92% | 3/159 | 12.4 | 3.3 | 15/8/15/15/8/19% (+19/2%) | — | 0 · — | pass |
+| L87 | `snowtrack` · `snow-colour-gates` | -65 | 48/48 | 48/48 | 94% | 17/190 | 16.8 | 3.7 | 17/23/12/19/12/17% | 2.2 · 9.8 · 19.9 | 0 · 1 | pass |
+| L88 | `breakgate` · `gate-breaker` | -30 | 48/48 | 48/48 | 92% | 5/178 | 16.4 | 3.5 | 19/12/27/23/12/6% | 4.4 · 8.8 · 14.0 | 0 · 0 | pass |
+| L89 | `seeding` · `seeding-cycling-gate` | -30 | 48/48 | 48/48 | 88% | 7/191 | 16.5 | 2.7 | 15/17/12/10/21/25% | 4.8 · 11.2 · 21.2 | 0 · 2 | pass |
+| L90 | `snowfinal` · `all-gates-snow` | -90 | 48/48 | 47/48 | 92% | 4/99 | 13.9 | 5.1 | 10/15/15/21/17/23% | 2.5 · 6.0 · 17.7 | 0 · 1 | pass |
+
+L86 against the elimination gates: 2.6 eliminations a race, 46/48 races take
+someone out, every race decided, the last two 1.9 s apart at the median: pass.
+Juniper, a guest, won 1 of 48 on these seeds; on seeds 800–847 the same level
+gave every entrant 6–21% (Juniper 10%). L90 is a race, but its trapdoor gate
+takes about 2.1 of the six out a race (they place last).
+
+The mechanism, per level: the gate lit a colour in 48/48 races (L81), the
+reverse gate locked the leader's colour in 48/48 (L83, and L90's second
+gate); the breaking gate (L88) went in 10 of 48 races, all ten under Ember.
+In the 30 s uncut tail 8 marbles of 2,880 (L82 2, L83 1, L87 2, L90 3) never
+got home; none of them was on a shut bar: each was wedged in the stage
+(under an arm's hollow against a peg, or in World 5's ice ramps). Inside the
+shipped clip that is what the parked column already counts.
+
+What the numbers changed on the way:
+
+- **The bar is wide and level** (0.40 w, two marbles and more): a locked-out
+  leader sitting on it leaves room for the others to drop past it, every
+  colour of a cycling gate has room to rest on it for its turn, and stage QA
+  counts a marble resting on a shut level door as held, not parked.
+- **The bar never shuts through a marble.** A marble that may pass and is
+  touching the bar stays passing until it is clear (`_crossing`), whatever
+  the rule says next frame — the lesson World 2's lids taught.
+- **A lit gate's wait starts at the bar, not the funnel.** Counted from the
+  first marble into the funnel, the wait was over before the field reached
+  the bar (L81 seed 701: the gate opened with nobody waiting).
+- **The arms start under the band's top, and the bar sits on its foot.** An
+  arm reaching the band's top made a cradle with the last row of pegs above
+  it (L89 seed 747: a marble sat there 30 s); a bar high in a tall band left
+  the next band's pegs close under an arm's tip. Lips hung from the bar's ends
+  to close the hollow under the arms were tried and made the bar a chute that
+  jammed: 99 marbles never home in the uncut tails of L82 and L90 alone; they are gone.
+- **The trapdoor gate** (L86) needed a start lower than trapfall's: eight
+  marbles with a heavy one start in two rows. Open 45% of its cycle it took
+  3 a race and Nova won 0 of 48; at 40%, 2.6 a race.
+- **The breaking gate**: mass × downward speed at the bar, the same rule for
+  everyone. At 120 every marble broke it about as often; at 200 Ember broke
+  it in 10 of the 20 races where it went; at 260, in 10 of 10. A bar low in
+  its band left no room for the penalty box, so L88's gate (`boxgate`) keeps
+  1.9 marble rooms under its bar.
+- **The final** ran 21 s at -50 with an ice-ramp band that the gates squeezed
+  flat (the field parked on it); pegs replace it and it runs at -90.
+
+Reproduce a row: `stage_qa.run("colourgate", range(700, 748), params={"section":
+"random-colour-gate"}, cast=<the six from cast.toml>)`.

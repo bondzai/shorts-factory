@@ -17,7 +17,7 @@ from __future__ import annotations
 import math
 import random
 
-from ..mechanics import _in_poly, blackout, clock_at, door_state, wall_offset
+from ..mechanics import _in_poly, blackout, clock_at, door_lights, door_state, wall_offset
 
 SURFACE_COLOURS = {
     "ice": (178, 220, 244),
@@ -196,6 +196,56 @@ def props(mech: dict, frame: int):
     return out
 
 
+# --- colour gates (World 9) -------------------------------------------------------------
+#
+# A door with a `look` is a colour gate. Shut, its bar is drawn in the
+# colours of the marbles that may pass ("pass": one piece per colour, on a
+# pale rim so a green gate reads on a green backdrop), or pale with the
+# lamps crossed out ("block": those may not). Open to everyone it is the
+# faint line every open door is. Its lamps sit where the level put them,
+# clear of the marbles queued on the bar. A door without a look is drawn
+# exactly as before.
+GATE_LAMP_R = 9.0
+GATE_RIM = (246, 246, 240)
+LAMP_X = (30, 30, 36)
+
+
+def gate_parts(style, mech: dict, d: dict, frame: int, colours: dict):
+    """(pieces, lamps) for a colour gate: pieces are
+    (p0, p1, colour, width); lamps (x, y, r, colour, crossed). Physics
+    coordinates (y up); `_gate_screen` turns them over."""
+    closed, _ = door_state(mech, d, frame)
+    lit = [colours[n] for n in door_lights(mech, d, frame) if n in colours]
+    a, b = d["a"], d["b"]
+    t = style.thickness
+    base = tuple(d["color"]) if d.get("color") else mix(style.structure, (255, 255, 255), 0.35)
+    pieces = []
+    if not closed:
+        pieces.append((a, b, mix(style.background, base, 0.35), 2))
+    elif d.get("look") == "pass" and lit:
+        pieces.append((a, b, GATE_RIM, t + 4))
+        n = len(lit)
+        for k, c in enumerate(lit):
+            p0 = (a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n)
+            p1 = (a[0] + (b[0] - a[0]) * (k + 1) / n, a[1] + (b[1] - a[1]) * (k + 1) / n)
+            pieces.append((p0, p1, c, t))
+    else:
+        pieces.append((a, b, base, t))
+    lamps = []
+    crossed = d.get("look") == "block" and closed
+    for x, y in (d.get("lamps") or ()) if closed else ():
+        for k, c in enumerate(lit):
+            lamps.append((x + (k - (len(lit) - 1) / 2) * (GATE_LAMP_R * 2 + 5), y, GATE_LAMP_R, c, crossed))
+    return pieces, lamps
+
+
+def _gate_screen(style, mech, d, frame, colours, sim_h):
+    pieces, lamps = gate_parts(style, mech, d, frame, colours)
+    pieces = [((p0[0], sim_h - p0[1]), (p1[0], sim_h - p1[1]), c, wd) for p0, p1, c, wd in pieces]
+    lamps = [(x, sim_h - y, r, c, crossed) for x, y, r, c, crossed in lamps]
+    return pieces, lamps
+
+
 # --- PIL -----------------------------------------------------------------------------
 
 def pil_under(draw, style, mech: dict, frame: int, t: float, sim_h: float) -> None:
@@ -243,6 +293,17 @@ def pil_over(draw, style, mech: dict, frame: int, sim_h: float, colours: dict) -
                 draw.line([(x - 4, sim_h - y - 5), (x + 2, sim_h - y), (x - 2, sim_h - y + 5)],
                           fill=style.background, width=2)
     for d in mech.get("doors") or ():
+        if d.get("look"):
+            pieces, lamps = _gate_screen(style, mech, d, frame, colours, sim_h)
+            for p0, p1, c, wd in pieces:
+                draw.line([p0, p1], fill=c, width=int(wd))
+            for x, y, r, c, crossed in lamps:
+                draw.ellipse([x - r - 2, y - r - 2, x + r + 2, y + r + 2], fill=GATE_RIM)
+                draw.ellipse([x - r, y - r, x + r, y + r], fill=c)
+                if crossed:
+                    draw.line([(x - r, y - r), (x + r, y + r)], fill=LAMP_X, width=3)
+                    draw.line([(x - r, y + r), (x + r, y - r)], fill=LAMP_X, width=3)
+            continue
         closed, passes = door_state(mech, d, frame)
         a, b = d["a"], d["b"]
         colour = tuple(d["color"]) if d.get("color") else mix(st, (255, 255, 255), 0.15)
@@ -342,6 +403,18 @@ def pg_over(surface, style, mech: dict, frame: int, sim_h: float, colours: dict)
                 pygame.draw.lines(surface, style.background, False,
                                   [(x - 4, sim_h - y - 5), (x + 2, sim_h - y), (x - 2, sim_h - y + 5)], 2)
     for d in mech.get("doors") or ():
+        if d.get("look"):
+            pieces, lamps = _gate_screen(style, mech, d, frame, colours, sim_h)
+            for p0, p1, c, wd in pieces:
+                fx.capped_line(surface, p0, p1, wd, c)
+            for x, y, r, c, crossed in lamps:
+                fx.soft(surface, x, y, r * 1.8, (*c, 80))
+                fx.disc(surface, x, y, r + 2, GATE_RIM)
+                fx.disc(surface, x, y, r, c)
+                if crossed:
+                    pygame.draw.line(surface, LAMP_X, (x - r, y - r), (x + r, y + r), 3)
+                    pygame.draw.line(surface, LAMP_X, (x - r, y + r), (x + r, y - r), 3)
+            continue
         closed, passes = door_state(mech, d, frame)
         a, b = d["a"], d["b"]
         colour = tuple(d["color"]) if d.get("color") else mix(st, (255, 255, 255), 0.15)
