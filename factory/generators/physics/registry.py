@@ -14,6 +14,7 @@ from .. import stagekit
 from . import stages
 from .worlds import polarity
 from .worlds import dice
+from .worlds import ice_sand  # World 5: registers its sections before they are composed below
 
 @dataclass(frozen=True)
 class Stage:
@@ -195,6 +196,26 @@ STAGE_SPECS: list[Stage] = [
              noun="ramps", blurb="three bands of zigzag ramps, each with a surface a die rolls"),
     composed("dicefinal", [("runway", 0.8), ("dicegate", 2.0), ("pegs", 0.6)], gravity=-60.0, noun="dice gate",
              blurb="a start ramp behind a gate, a dice gate into three lanes, then pegs"),
+    # World 5, Ice vs Sand (L41-L50; worlds/ice_sand.py). Trial: they race when a
+    # level names them. Gravity measured by stage QA over 48 seeds (docs/06).
+    composed("icesand", [("ice_ramps", 1.0), ("pegs", 0.7), ("sand_ramps", 1.3)], gravity=-85.0,
+             noun="the ice and the sand", blurb="ramps of ice, a band of pegs, then ramps under sand"),
+    composed("stripes", [("striped_ramps", 1.0), ("striped_ramps", 1.0)], gravity=-200.0, noun="the stripes",
+             blurb="ramps striped ice and sand"),
+    composed("skijump", [("ice_launch", 2.4), ("sand_ramps", 1.0)], gravity=-300.0, noun="the ice jump",
+             blurb="an ice in-run and kicker that launch the marbles onto a sand slope, then sand ramps"),
+    composed("sandpit", [("ice_ramps", 1.0), ("sand_pit", 1.0), ("sand_ramps", 1.0)], gravity=-120.0,
+             noun="the sand pit", blurb="ice ramps, a soft sand pit at halfway, then sand ramps"),
+    composed("icefall", [("ice_ramps", 1.0), ("pegs", 0.8), ("ice_ramps", 1.0)], gravity=-50.0, noun="the ice",
+             blurb="ramps of ice, a band of pegs, ramps of ice; with mechanics.melt they go to slush"),
+    composed("thinice", [("thin_ice", 1.0), ("pegs", 0.6), ("thin_ice", 1.3)], gravity=-60.0, noun="the thin ice",
+             blurb="ice ramps with thin panels over cold water that crack under weight, pegs, then more"),
+    composed("dunes", [("dunes", 1.4), ("dunes", 0.6)], gravity=-140.0, noun="the dunes",
+             blurb="ramps of sand dunes, a gentle back and a steep face, over and over"),
+    composed("icebowl", [("ice_bowl", 1.2), ("sand_chute", 1.0)], gravity=-80.0, noun="the ice bowl",
+             blurb="an ice bowl with a gap in its floor, into a sand chute"),
+    composed("terrain", [("ice_ramps", 0.8), ("striped_ramps", 0.8), ("dunes", 0.8), ("sand_pit", 0.9)],
+             gravity=-230.0, noun="the terrain", blurb="ice ramps, striped ramps, dunes, then a soft sand pit"),
     # COMPOSED-STAGES-END
 ]
 
@@ -262,6 +283,8 @@ MECHANIC_SPECS: list[Mechanic] = [
     Mechanic("handicap-back-start", dice.handicap_back_start, stage="dicegrid",
              blurb="a rolled grid; the level's back marker starts last with no die"),
     Mechanic("dice-final", dice.dice_final, stage="dicefinal", blurb="rolled grid, rounds, path and surface"),
+    Mechanic("sideline-watcher", ice_sand.sideline_watcher, stage="terrain",
+             blurb="a purple marble watches from the sidelines at the end; drawn, never an entrant"),
     # MECHANICS-END
 ]
 MECHANICS: dict[str, Mechanic] = {m.id: m for m in MECHANIC_SPECS}

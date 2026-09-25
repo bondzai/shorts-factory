@@ -101,8 +101,10 @@ sparks in its colour where it went.
 | `rig.breakable(space, a, b, kind="thin_ice", hold=(0.8, 2.0), thickness=5)` | breaks after a **seeded** amount of load (contact-seconds x mass, from `hold`); cracks drawn at half; `broke` Event |
 
 Kinds (`mechanics.SURFACES`): `ice` (friction 0.02), `sand` (0.95, damping
-1.4), `mud`, `cobweb` (damping 3, no friction change), `thin_ice`. Zones are
-drawn with a texture: an ice sheen, a sand grain, cobweb threads.
+1.4), `mud`, `cobweb` (damping 3, no friction change), `thin_ice`, `slush`
+(0.35, damping 0.25: ice going soft, World 5's melt). Zones are drawn with a
+texture: an ice sheen, a sand (or slush) grain, cobweb threads; a slanted
+`poly` zone keeps only the marks inside it.
 
 ### Per-entrant filters and forces
 
@@ -124,6 +126,7 @@ A door gives each marble a collision bit, so a race holds at most 12
 | `rig.effect("blackout", clock=…)` | marbles and trails hidden and a dark veil while the clock is truthy; sound carries on |
 | `rig.effect("countdown", clock=…, at=(x, y))` | the clock's value drawn as a number |
 | `rig.effect("die", clock=… \| value=k, at=(x, y), size=px, layer="top" \| "under", tints={"1": rgb})` | a die face with pips; the clock's value is None (not drawn), a face, or `{"f": face, "s": "roll" \| "set" \| "lit" \| "dim"}` — tumbling while it rolls, ringed when lit, faded when dim. `worlds/dice.roll` registers one with its clocks |
+| `rig.effect("prop", clock=…, at=(x, y), radius=r, color=[r, g, b])` | a marble drawn there while the clock is truthy (always, with no clock): a picture with no body, never an entrant, never in the outcome — L50's purple watcher |
 
 Gate lights, surface textures and outward magnet chevrons need no effect
 call: they come with the door, the zone, the polarity clock.
