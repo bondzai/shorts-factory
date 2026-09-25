@@ -113,6 +113,7 @@ texture: an ice sheen, a sand (or slush) grain, cobweb threads; a slanted
 | `rig.door(space, a, b, closed=clock, passes=[ids] \| clock, color=rgb)` | solid while `closed` is truthy (always, if None) for everyone except `passes` — a list of entrant ids or a clock whose value is one. Drawn in `color` with a light per passing entrant's colour; faint while open |
 | `rig.door(..., lights=[ids] \| clock, look="pass" \| "block", lamps=[(x, y)])` | a colour gate (World 9): the lamps show `lights` instead of who passes; `look="pass"` draws the shut bar in the lamps' colours on a pale rim (those may pass), `"block"` draws it pale with the lamps crossed out (those may not); `lamps` puts them where the queue cannot hide them. Without a look a door is drawn as before, and its recording has no new keys |
 | `rig.pair_force(strength, reach=4.0, soft=1.0, trait="charge", when=clock)` | every pair pushes apart (> 0) or pulls together (< 0), `strength` x gravity at contact, zero at `reach` x the pair's radii (the magnet's softened law), per substep. Each marble's share is its cast trait (`charge`, default 1); `when` scales it; `force_immune` marbles skip it |
+| `rig.pair_force(strength, reach=4.0, soft=1.0, trait="charge", when=clock, skip_immune=True, newton=False)` | every pair pushes apart (> 0) or pulls together (< 0), `strength` x gravity at contact, zero at `reach` x the pair's radii (the magnet's softened law), per substep. Each marble's share is its cast trait (`charge`, default 1); `when` scales it; `force_immune` marbles skip it unless `skip_immune=False`; `newton=True` makes the pair's forces equal and opposite, so the heavier marble of a pair moves less (two equal marbles move as without it). World 8 uses both |
 | `rig.magnet_polarity(clock)` | every magnet's pull times the clock's value: 1 pulls, -1 pushes (chevrons drawn outward), 0 off. `force_immune` still skips. The value may be a list, one number per magnet in `style.magnets` order (World 3: the band flips while the arm pulls and the finish pushes) |
 | `rig.magnet_track(clock)` | magnets that move: the clock's value is a list, one `[x, y]` (or null: where it was built) per magnet. The field, both renderers and `launched` use it; carrying the core is the section's (a kinematic body). World 3's `arm` section |
 | `rig.moving_wall(space, a, b, offset=clock)` | a kinematic wall offset by the clock's `[dx, dy]`: closing walls, a pusher |
@@ -129,6 +130,7 @@ A door gives each marble a collision bit, so a race holds at most 12
 | `rig.effect("die", clock=… \| value=k, at=(x, y), size=px, layer="top" \| "under", tints={"1": rgb})` | a die face with pips; the clock's value is None (not drawn), a face, or `{"f": face, "s": "roll" \| "set" \| "lit" \| "dim"}` — tumbling while it rolls, ringed when lit, faded when dim. `worlds/dice.roll` registers one with its clocks |
 | `rig.effect("prop", clock=…, at=(x, y), radius=r, color=[r, g, b])` | a marble drawn there while the clock is truthy (always, with no clock): a picture with no body, never an entrant, never in the outcome — L50's purple watcher |
 | `rig.effect("prop", clock=…, track=True, look="pumpkin", radius=r, color=…)` | a prop drawn where its clock says: the clock's value is `[x, y]`, or None to hide it. How a world draws a body of its own that moves and is not a marble (World 4's pumpkins record their body's position this way); `look` picks a drawing, today only `pumpkin` |
+| `rig.effect("field", clock=…, reach=k, sign=1 \| -1)` | while the clock is truthy (always, with none), every pair of visible marbles closer than `k` x their summed radii is drawn with the pair force between them: facing arcs that brighten as they close (a push), a dotted tether (a pull). Drawn from the trace's positions, under the marbles — World 8's repulsion |
 
 Gate lights, surface textures and outward magnet chevrons need no effect
 call: they come with the door, the zone, the polarity clock.
@@ -340,3 +342,26 @@ trial stages (`haunted`, `pumpkinpatch`, `coffin`, `hauntedfinal`; docs/06
 
 `dead_end` is hidden from the copy brain with `trap_catch`
 (`Outcome.without_winner`): it says a marble went out and when.
+## What World 8 built (L71–L80)
+
+`factory/generators/physics/worlds/repel.py`: one pair force (`repel`) and
+the field drawn with it, on every level. The core gained two options on
+`pair_force` (`newton`, `skip_immune`, both off by default, so nothing built
+before moves) and the `field` effect (both renderers, through
+`render_mech.pil_field` / `pg_field`, called once a frame after the
+structure). Ember is immune to magnets and wind, not to the other marbles:
+World 8 passes `skip_immune=False`, and its `charge` (cast.toml) makes its
+pairs push hardest while its mass makes it give way least.
+
+Geometry a mechanic has to size from the marbles — a corridor one marble wide,
+a merge gap — is built by its section (`corridor`, `merge`) as always-shut
+doors for the kit's biggest marble, so the stage races without the mechanic,
+and built again by the mechanic for the marbles racing: only after they are
+placed are their radii known, and a door is the one wall that can be taken
+out and added then. The sections that are plain geometry (`twinlanes`,
+`edgepits`, `ramp`, `lane`) register with the kit on import, as World 2's do.
+Five trial stages (`singlefile`, `blockade`, `mergelane`, `pitfunnels`,
+`threeramps`); docs/06 "World 8" has their numbers, and one lesson for any
+world with a push: a marble in a throat holds the next one above it, so a
+push that reaches past a throat parks the queue behind it.
+

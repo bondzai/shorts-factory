@@ -20,6 +20,8 @@ from .worlds import colour_gates as w9  # World 9: its gate sections register on
 
 from .worlds import haunted as w4  # World 4's maze sections, likewise
 
+from .worlds import repel as w8  # World 8's sections register with the kit on import
+
 @dataclass(frozen=True)
 class Stage:
     """Everything the factory knows about one stage, in one place.
@@ -302,6 +304,20 @@ STAGE_SPECS: list[Stage] = [
     Stage("hauntedfinal", stagekit.compose(list(w4.FINAL), top_frac=0.95, bottom_frac=0.08), -90.0, "the maze",
           "the maze of forks, then a funnel onto a coffin trapdoor",
           lambda s, g: stagekit.describe_parts(w4.FINAL), parts=w4.FINAL),
+
+    # World 8, Repel Race (L71-L80; worlds/repel.py): every marble pushes every
+    # other apart. Trial stages, each raced by the level that names it; docs/06
+    # "World 8" has their numbers.
+    composed("singlefile", [("pegs", 1.0), ("corridor", 2.4)], gravity=-120.0, noun="the corridor",
+             blurb="pegs, then a hopper into a corridor one marble wide"),
+    composed("blockade", [("lane", 1.0), ("ramp", 0.8), ("pegs", 0.6), ("ramp", 0.8), ("ramp", 0.8)], gravity=-36.0, noun="the lane",
+             blurb="a lane two marbles wide, then three long ramps, pegs after the first"),
+    composed("mergelane", [("twinlanes", 3.0), ("merge", 1.3), ("pegs", 0.6)], gravity=-50.0, noun="the merge",
+             blurb="two lanes of pegs split by a wall, merging through a gap one marble wide, then pegs"),
+    composed("pitfunnels", [("pegs", 0.7), ("edgepits", 1.0), ("pegs", 0.7), ("edgepits", 1.0)], gravity=-30.0,
+             noun="the pits", blurb="pegs and two funnels, each with a pit at both edges"),
+    composed("threeramps", [("ramp", 1.0), ("pegs", 0.8), ("ramp", 1.0), ("pegs", 0.8), ("ramp", 1.0)],
+             gravity=-30.0, noun="ramps", blurb="three long ramps with pegs between them"),
     # COMPOSED-STAGES-END
 ]
 
@@ -421,6 +437,22 @@ MECHANIC_SPECS: list[Mechanic] = [
     Mechanic("haunted-maze-final", w4.haunted_final, stage="hauntedfinal",
              blurb="maze, fog, pumpkins, a web and a coffin trapdoor"),
     Mechanic("maze-time-trial", w4.maze_time_trial, stage="haunted", blurb="one marble in the maze against a par clock"),
+
+    # World 8, Repel Race (worlds/repel.py; docs/06 "World 8").
+    Mechanic("marble-repulsion", w8.marble_repulsion, stage="seesaw", blurb="every marble pushes every other apart"),
+    Mechanic("single-file-corridor", w8.single_file_corridor, stage="singlefile",
+             blurb="a corridor one marble wide; the push keeps a gap"),
+    Mechanic("repulsion-switch", w8.repulsion_switch, stage="tumble",
+             blurb="no push until halfway, then a jolt and the push"),
+    Mechanic("heavy-blocker", w8.heavy_blocker, stage="blockade",
+             blurb="the heaviest marble starts in the lane's mouth; everyone pushes"),
+    Mechanic("repulsion-bumpers", w8.repulsion_bumpers, stage="pinball", blurb="the push on the bumper stage"),
+    Mechanic("marble-attraction", w8.marble_attraction, stage="switchback",
+             blurb="every marble pulls every other: following gains, leading is dragged back"),
+    Mechanic("merge-point", w8.merge_point, stage="mergelane", blurb="two lanes merge into one; the push at the merge"),
+    Mechanic("repulsion-gauntlet", w8.repulsion_gauntlet, stage="pitfunnels",
+             blurb="the push over funnels with a pit at each edge"),
+    Mechanic("repel-final", w8.repel_final, stage="threeramps", blurb="the push on three long ramps"),
     # MECHANICS-END
 ]
 MECHANICS: dict[str, Mechanic] = {m.id: m for m in MECHANIC_SPECS}

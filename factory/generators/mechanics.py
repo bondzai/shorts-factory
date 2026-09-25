@@ -150,6 +150,8 @@ class _PairForce:
     soft: float
     trait: str
     when: str | None
+    skip_immune: bool = True
+    newton: bool = False
 
 
 class Rig:
@@ -379,13 +381,20 @@ class Rig:
         return seg
 
     def pair_force(self, strength: float, *, reach: float = 4.0, soft: float = 1.0,
-                   trait: str = "charge", when: str | None = None) -> None:
+                   trait: str = "charge", when: str | None = None, skip_immune: bool = True,
+                   newton: bool = False) -> None:
         """Every pair of marbles pushes apart (strength > 0) or pulls together
         (< 0), in multiples of the stage's gravity at contact, falling to zero
         at `reach` x the pair's summed radii (the magnet's softened law). Each
         marble's share is its cast trait `trait` (default 1). `when`: a clock
-        whose value (bool or number) scales it. force_immune marbles skip it."""
-        self.forces.append(_PairForce(float(strength), float(reach), float(soft), trait, when))
+        whose value (bool or number) scales it. force_immune marbles skip it
+        unless `skip_immune` is False (World 8: marble-to-marble repulsion is
+        not a field an immune marble ignores). `newton`: the pair's forces
+        are equal and opposite, so each marble's share of the push goes as
+        the other's mass over their mean (two equal marbles move as without
+        it; the heavier of a pair moves less)."""
+        self.forces.append(_PairForce(float(strength), float(reach), float(soft), trait, when,
+                                      bool(skip_immune), bool(newton)))
 
     def magnet_polarity(self, clock: str) -> None:
         """Every magnet's pull times this clock's value: 1 pulls, -1 pushes.
@@ -422,9 +431,14 @@ class Rig:
         clock's value is None (not drawn), a face number, or {"f": face,
         "s": "roll"|"set"|"lit"|"dim"}), "prop" (clock=..., at=(x, y), radius=,
         color=[r, g, b]: a marble drawn there while the clock is truthy — a
-        picture with no body, never an entrant). Both renderers draw them."""
-        if kind not in ("blackout", "countdown", "die", "prop"):
-            raise ValueError(f"no effect {kind!r}; have blackout, countdown, die, prop")
+        picture with no body, never an entrant), "field" (clock=..., reach=k,
+        sign=1 | -1: while the clock is truthy (always, with none) every pair
+        of marbles closer than k x their summed radii is drawn with the pair
+        force between them — facing arcs that brighten as they close when it
+        pushes, a dotted tether when it pulls; World 8). Both renderers draw
+        them."""
+        if kind not in ("blackout", "countdown", "die", "prop", "field"):
+            raise ValueError(f"no effect {kind!r}; have blackout, countdown, die, prop, field")
         if "at" in data:
             data["at"] = list(self._pt(data["at"]))
         self.effects.append({"kind": kind, **data})
@@ -636,12 +650,16 @@ class Rig:
                     peak = f.strength * scale * qi * qj * gravity_mag
                     # magnet_accel pulls toward (dx, dy); a positive strength repels.
                     dax, day = magnet_accel(pos[j].x - pos[i].x, pos[j].y - pos[i].y, soft, reach, -peak)
-                    if not immune[i]:
-                        ax[i] += dax
-                        ay[i] += day
-                    if not immune[j]:
-                        ax[j] -= dax
-                        ay[j] -= day
+                    ki = kj = 1.0
+                    if f.newton:
+                        mi, mj = self.balls[i].body.mass, self.balls[j].body.mass
+                        ki, kj = 2 * mj / (mi + mj), 2 * mi / (mi + mj)
+                    if not (immune[i] and f.skip_immune):
+                        ax[i] += dax * ki
+                        ay[i] += day * ki
+                    if not (immune[j] and f.skip_immune):
+                        ax[j] -= dax * kj
+                        ay[j] -= day * kj
         for i, b in enumerate(self.balls):
             if not self.alive[i]:
                 continue

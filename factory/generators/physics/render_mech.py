@@ -262,6 +262,95 @@ def pumpkin_marks(x: float, sy: float, r: float):
 
 PUMPKIN_STEM = (86, 130, 52)
 
+# --- pair forces (World 8) ------------------------------------------------------------
+#
+# A push between marbles nobody can see reads as marbles bouncing off air. The
+# "field" effect draws it from positions the trace already holds: every pair
+# closer than `reach` x their summed radii gets, while the force is on, a
+# pair of facing arcs (a ring squeezed between them, brighter the closer they
+# are) when it pushes, or a dotted tether when it pulls. Faint: it is a
+# reading aid, not an obstacle.
+FIELD_RING = 1.38  # arc radius, x the marble's
+
+
+def field_marks(mech: dict, frame: int, positions, radii, shown, background, colours, sim_h: float):
+    """(points, colour, width) polylines in screen space for every field effect
+    that is on at this frame."""
+    out = []
+    for e in mech.get("effects") or ():
+        if e["kind"] != "field":
+            continue
+        on = clock_at(mech, e.get("clock"), frame, e.get("clock") is None)
+        if not on:
+            continue
+        reach = float(e.get("reach", 2.4))
+        pull = float(e.get("sign", 1)) < 0
+        n = len(positions)
+        for i in range(n):
+            if not shown[i]:
+                continue
+            for j in range(i + 1, n):
+                if not shown[j]:
+                    continue
+                (xi, yi), (xj, yj) = positions[i], positions[j]
+                dx, dy = xj - xi, yj - yi
+                d = math.hypot(dx, dy)
+                span = reach * (radii[i] + radii[j])
+                if d <= 1e-6 or d >= span:
+                    continue
+                near = 1.0 - (d - radii[i] - radii[j]) / max(span - radii[i] - radii[j], 1e-6)
+                near = max(0.0, min(1.0, near))
+                ux, uy = dx / d, dy / d
+                if pull:
+                    # A dotted tether between the two edges.
+                    a = (xi + ux * radii[i] * 1.15, yi + uy * radii[i] * 1.15)
+                    b = (xj - ux * radii[j] * 1.15, yj - uy * radii[j] * 1.15)
+                    length = math.hypot(b[0] - a[0], b[1] - a[1])
+                    dots = max(1, int(length // 9))
+                    c = mix(background, mix(colours[i], colours[j], 0.5), 0.25 + 0.5 * near)
+                    for k in range(dots):
+                        t0, t1 = k / dots, (k + 0.5) / dots
+                        p0 = (a[0] + (b[0] - a[0]) * t0, sim_h - (a[1] + (b[1] - a[1]) * t0))
+                        p1 = (a[0] + (b[0] - a[0]) * t1, sim_h - (a[1] + (b[1] - a[1]) * t1))
+                        out.append(([p0, p1], c, 2))
+                    continue
+                # Facing arcs: each marble's ring on the side of the other.
+                half = 0.55 + 0.35 * near  # rad either side of the axis
+                for (cx, cy, r, sx, sy, col) in ((xi, yi, radii[i], ux, uy, colours[i]),
+                                                  (xj, yj, radii[j], -ux, -uy, colours[j])):
+                    base = math.atan2(sy, sx)
+                    ring = r * (FIELD_RING - 0.18 * near)
+                    pts = [(cx + math.cos(base + half * (k / 4 - 1)) * ring,
+                            sim_h - (cy + math.sin(base + half * (k / 4 - 1)) * ring)) for k in range(9)]
+                    out.append((pts, mix(background, col, 0.4 + 0.5 * near), 2 if near < 0.6 else 3))
+    return out
+
+
+def _field_inputs(style, mech: dict, frame: int, positions, balls):
+    from ..mechanics import hidden
+
+    shown = [not hidden(mech, b.name, frame) for b in balls]
+    return shown, [b.radius for b in balls], [tuple(b.color) for b in balls]
+
+
+def pil_field(draw, style, mech: dict, frame: int, positions, balls, sim_h: float) -> None:
+    """The pair force between close marbles, under the marbles."""
+    if not any(e["kind"] == "field" for e in mech.get("effects") or ()):
+        return
+    shown, radii, colours = _field_inputs(style, mech, frame, positions, balls)
+    for pts, colour, width in field_marks(mech, frame, positions, radii, shown, style.background, colours, sim_h):
+        draw.line(pts, fill=colour, width=width)
+
+
+def pg_field(surface, style, mech: dict, frame: int, positions, balls, sim_h: float) -> None:
+    import pygame
+
+    if not any(e["kind"] == "field" for e in mech.get("effects") or ()):
+        return
+    shown, radii, colours = _field_inputs(style, mech, frame, positions, balls)
+    for pts, colour, width in field_marks(mech, frame, positions, radii, shown, style.background, colours, sim_h):
+        pygame.draw.lines(surface, colour, False, pts, width)
+
 
 # --- PIL -----------------------------------------------------------------------------
 

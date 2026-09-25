@@ -2255,6 +2255,7 @@ levels:
   generator: physics
   variant: marble_race
   params:
+    rounds: 1
     section: marble-repulsion
   entrants:
   - blaze
@@ -2270,22 +2271,25 @@ levels:
   copy:
     angle: a heavy orange marble joins and every marble now pushes every other apart
     title: 'New marble debuts: every marble repels'
-    hook: Everyone pushes everyone
+    hook: Who survives the shoving?
     desc: A heavy orange marble joins. All marbles now push each other apart, and the heavy one pushes hardest. It ignores magnets; nobody knows its weakness yet.
     pin: 'The heaviest marble ever built: advantage or anchor? Guess.'
     pin_type: name_racer
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 repel: pairwise marble repulsion'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: Ember debuts. Public copy does not name Ember alone.
+  note: 'Ember debuts. Public copy does not name Ember alone. Built (docs/06 "World 8"): stage seesaw (rocking planks, pegs, funnel) and `marble-repulsion`, one pair force on every pair all race, drawn as facing arcs between close marbles. The pair''s forces are equal and opposite, so a lighter marble is shoved further; Ember''s share (cast trait charge 1.5) makes every pair it is in push hardest, and its mass is why it gives way least. Ember is immune to magnets and wind, not to the other marbles: the push acts on it too.'
 - id: L72
   date: 2026-12-05
   world: repel
   generator: physics
   variant: marble_race
   params:
+    rounds: 1
     section: single-file-corridor
+    mechanics:
+      strength: 0.8
   entrants:
   - blaze
   - tide
@@ -2296,25 +2300,26 @@ levels:
   format: race
   story:
     must:
-      finishers: '>=4'
+      margin_s: '>=0.5'
   copy:
-    angle: the corridor is one marble wide and repulsion keeps a gap; start order is everything
+    angle: the corridor is one marble wide and repulsion keeps a gap; the order going in is the order coming out
     title: 'Single file marble race: can anyone pass?'
-    hook: One marble wide
-    desc: The corridor is one marble wide, and repulsion keeps a gap. Start order is everything.
+    hook: Who gets in line first?
+    desc: The corridor is one marble wide, and repulsion keeps a gap. The order going in is the order coming out.
     pin: Can anyone pass in a one-wide corridor? Name the passer or say nobody.
     pin_type: predict_outcome
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 repel: one-marble-wide corridor with repulsion'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: null
+  note: 'Built as stage singlefile: a band of pegs, then a hopper into a corridor one marble wide across the frame (a leg of slope 0.22, and more where the band has room), sized each race from the biggest marble racing so no two can pass whatever the seed drew. The push is 0.8 of the world''s (mechanics.strength): at full strength the queue in the hopper waited too long. Measured over 48 seeds: the first into the corridor won 48 of 48 and the finish order was the entry order in 48 of 48. Must changed from "four finishers" to a margin: the clip cuts soon after the runner-up, so four never crossed in 20 seeds; single file keeps the runner-up back, which is the mechanism.'
 - id: L73
   date: 2026-12-06
   world: repel
   generator: physics
   variant: marble_race
   params:
+    rounds: 1
     section: repulsion-switch
   entrants:
   - blaze
@@ -2327,24 +2332,26 @@ levels:
   story:
     must:
       lead_changes: '>=2'
+      any_event: repulsion_on
   copy:
-    angle: half the race is a tight pack, then repulsion switches on and the pack explodes
+    angle: half the race is a tight pack held together by a pull, then repulsion switches on and the pack explodes
     title: 'Marble race repulsion switch: pack explodes'
-    hook: Tight pack. Then boom.
-    desc: Half the race is a tight pack. Then repulsion switches on and the pack explodes.
+    hook: Pick one before the blast
+    desc: For half the race a pull holds the pack together. Then repulsion switches on and the pack explodes.
     pin: Who is in the middle when the switch flips? Pick the unlucky color.
     pin_type: predict_trap
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 repel: repulsion switched on at halfway'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: null
+  note: 'Built as stage tumble (funnel, drums, pegs) and `repulsion-switch`. Until the leader is halfway down a weak pull (0.3 x gravity, drawn as dotted tethers) keeps the field together, because no stage keeps six marbles a tight pack on its own; at halfway it lets go and the push comes on with a jolt (6 x for 0.35 s), with a `repulsion_on` event. Measured over 48 seeds: the field''s mean distance between marbles goes from 136 px at the switch to 193 px one second later.'
 - id: L74
   date: 2026-12-07
   world: repel
   generator: physics
   variant: marble_race
   params:
+    rounds: 1
     section: heavy-blocker
   entrants:
   - ember
@@ -2356,23 +2363,24 @@ levels:
     must:
       lead_changes: '>=1'
   copy:
-    angle: three light marbles try to get round one heavy one blocking the lane
+    angle: three light marbles try to get round one heavy one blocking the lane, then three ramps
     title: 'Three vs one marble race: get past the tank'
-    hook: Three light, one heavy
+    hook: Tank or the three? Pick
     desc: The heavy orange marble blocks the lane; three light marbles try to get around. Its bio says it's weak on ramps.
     pin: 'Three light marbles or one heavy one: which side wins?'
     pin_type: either_or
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 repel: repulsion with one heavy blocker in a lane'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: 'Plan names no lineup: the three lightest regulars by traits (blaze, volt, moss) join Ember. Operator may swap.'
+  note: 'Plan names no lineup: the three lightest regulars by traits (blaze, volt, moss) join Ember. Operator may swap. Built as stage blockade: a funnel into a lane two marbles wide (only just), then three long ramps with pegs after the first, and the push. The level''s rule is that the heaviest marble (by mass, never a name) takes the start slot straight over the lane''s mouth; it was first into the lane in 42 of 48 races. Starting it inside the mouth instead made it win 58-75%, so the head start is a slot, not a gift. On the ramps it is slower than the rest (its extra grip, cast.toml friction: mean speed on a ramp 51 px/s against 56-62).'
 - id: L75
   date: 2026-12-08
   world: repel
   generator: physics
   variant: marble_race
   params:
+    rounds: 1
     stage: pinball
     section: repulsion-bumpers
   entrants:
@@ -2389,21 +2397,22 @@ levels:
   copy:
     angle: the bumper stage from week one, now with every marble pushing every other
     title: Pinball marble race with repulsion
-    hook: Bumpers plus rivals
+    hook: 'Pick one: bumpers or rivals'
     desc: The bumper stage from week one, now with every marble pushing every other.
     pin: 'Bumpers or rivals: which knocks more marbles off line? Pick one.'
     pin_type: either_or
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 repel: pairwise repulsion on the pinball stage'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: Base stage pinball (L08's) plus repulsion.
+  note: Base stage pinball (L08's) plus repulsion (`repulsion-bumpers`, the L71 push, drawn).
 - id: L76
   date: 2026-12-09
   world: repel
   generator: physics
   variant: marble_race
   params:
+    rounds: 1
     section: marble-attraction
   entrants:
   - blaze
@@ -2419,15 +2428,15 @@ levels:
   copy:
     angle: 'attraction instead of repulsion: follow a rival to gain speed, lead and get dragged back'
     title: 'Slipstream marble race: following pays'
-    hook: Follow to go faster
+    hook: Lead or follow? Pick one
     desc: 'Attraction instead of repulsion: sit behind a rival and gain speed; lead and you get dragged back.'
     pin: Lead or follow? Comment "lead" or "follow".
     pin_type: either_or
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 repel: pairwise attraction (slipstream)'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: null
+  note: 'Built as stage switchback (ramps, conveyor belts, ramps) and `marble-attraction`: the same pair force with its sign turned, every pair pulling together (1.2 x gravity at the peak), drawn as dotted tethers. A pull between two marbles one above the other speeds the follower toward the leader and holds the leader back, which is the slipstream the copy describes; it is a pull, not air.'
 - id: L77
   date: 2026-12-10
   world: repel
@@ -2449,21 +2458,22 @@ levels:
   copy:
     angle: shrinking walls plus marbles that shove each other
     title: 'Repulsion arena: push or be pushed'
-    hook: Push or be pushed
+    hook: Who survives the squeeze?
     desc: Shrinking walls plus marbles that shove each other. The heaviest marble's kind of arena.
     pin: Is this the heaviest marble's race to lose? Yes or no.
     pin_type: either_or
   rematch_of: null
   status: blocked
-  blocked_on: 'WP7 repel: repulsion inside the shrinking arena (needs WP7 arena)'
+  blocked_on: 'WP7 arena: shrinking arena (then repulsion)'
   operator_input: {}
-  note: null
+  note: 'The push itself exists (worlds/repel.py, `repel`); this level waits for World 7''s shrinking arena.'
 - id: L78
   date: 2026-12-11
   world: repel
   generator: physics
   variant: marble_race
   params:
+    rounds: 1
     section: merge-point
   entrants:
   - blaze
@@ -2473,48 +2483,57 @@ levels:
     must:
       lead_changes: '>=1'
   copy:
-    angle: two lanes merge into one; whoever arrives second gets pushed off
+    angle: two lanes merge into one; whoever arrives second gets pushed back
     title: 'Blaze vs Nova marble race: the merge point'
-    hook: Two lanes, one gap
-    desc: 'Two lanes merge into one; whoever arrives second gets pushed off. Head-to-head so far: {h2h:blaze:nova}.'
-    pin: Who gets pushed off at the merge, Blaze or Nova?
+    hook: Which lane takes the gap?
+    desc: 'Two lanes merge into one; whoever arrives second gets pushed back. Head-to-head so far: {h2h:blaze:nova}.'
+    pin: Who gets pushed back at the merge, Blaze or Nova?
     pin_type: predict_outcome
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 repel: two lanes merging into one with repulsion'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: Raced as a two-marble duel, one per lane.
+  note: 'Raced as a two-marble duel, one per lane. Built as stage mergelane: two lanes of pegs split by a wall, a funnel into a gap one marble wide (sized from the marbles racing), then pegs. The push is on only while both marbles are at the merge (the brief''s "repulsion at the merge"): on all race, the leader below the gap held the other over it for seconds. The first into the gap won 48 of 48; the push acted in 38. Copy says "pushed back", not "off": nothing leaves the track. QA: passes on theme marbles; the duel''s own run sits at 1.4 lead changes (docs/06 "World 8").'
 - id: L79
   date: 2026-12-12
   world: repel
   generator: physics
   variant: marble_race
   params:
+    rounds: 1
     section: repulsion-gauntlet
-  entrants: []
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
+  - nova
+  - ember
   format: elimination
   story:
     must:
       lead_changes: '>=1'
+      eliminations: '>=1'
   copy:
     angle: the marbles without a Grand Final seat race for the last ones
     title: 'Grand Final qualifier: the last seats'
-    hook: Last seats. No second chances.
+    hook: Who keeps a seat?
     desc: The marbles without a Grand Final seat race for the last ones. A repulsion gauntlet, no second chances.
     pin: Name the marbles that get in.
     pin_type: predict_outcome
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 repel: repulsion gauntlet, elimination format'
+  status: ready
+  blocked_on: null
   operator_input:
-    entrants: null
-  note: 'entrants: marbles without a seat at plan time. With a six-marble cast the plan''s ''six without a seat, two seats left'' cannot all hold; operator decides.'
+    entrants: stand-in - all six, no seats decided yet
+  note: 'STAND-IN VALUES set 2026-09-25, replace when the standings exist: entrants are all six until the marbles without a seat are known. entrants: marbles without a seat at plan time. With a six-marble cast the plan''s ''six without a seat, two seats left'' cannot all hold; operator decides. Built as stage pitfunnels: pegs and two funnels whose walls stop short of the frame''s walls, a pit at each edge; a marble in a pit is out (`pitted`), and the push shoves the outside marbles toward them. Measured over 48 seeds: 2.8 marbles out a race, someone out in 47 of 48.'
 - id: L80
   date: 2026-12-13
   world: repel
   generator: physics
   variant: marble_race
   params:
+    rounds: 1
     section: repel-final
   entrants:
   - blaze
@@ -2531,15 +2550,15 @@ levels:
   copy:
     angle: 'world eight final: every marble repels, the heaviest hardest, on a track with three ramps'
     title: 'Repel race final: the heavy one against all'
-    hook: Three ramps. One tank.
+    hook: Pick one for the ramps
     desc: Every marble repels, the heaviest repels hardest, and the track has three ramps, its weak spot.
     pin: 'The heavy marble on ramps: does it finally lose? Pick a color.'
     pin_type: pick_color
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 repel: full repulsion track with three ramps'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: null
+  note: 'Built as stage threeramps: three long single ramps (slope 0.32-0.38) with pegs between, and the L71 push. Ember''s ramp weakness is its grip (cast.toml friction 0.45: it rolls where the others slide), a small handicap: over 48 seeds it spent 2.40 s a race on the ramps against 2.24-2.49 for the others, and won 19%.'
 - id: L81
   date: 2026-12-14
   world: colour-gates

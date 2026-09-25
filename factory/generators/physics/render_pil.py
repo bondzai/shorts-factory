@@ -136,6 +136,8 @@ def frames_pil(states, balls, segments, sim_w, sim_h, overlay=None, style=None,
             render_mech.pil_over(draw, style, mech, frame_index, sim_h, colours)
         if style.decoration != "none":
             decorate(draw, style, frame_index, sim_w, sim_h)
+        if mech:
+            render_mech.pil_field(draw, style, mech, frame_index, positions, balls, sim_h)
         for ball, (x, y) in zip(balls, positions):
             if mech and hidden(mech, ball.name, frame_index):
                 continue
