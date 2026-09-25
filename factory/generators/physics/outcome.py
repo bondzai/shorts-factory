@@ -11,6 +11,7 @@ import math
 
 from ...series.outcome import Event, Outcome, Placement
 from .. import stagekit
+from ..mechanics import magnets_at
 from .registry import STAGE_GRAVITY
 
 # The lead is sampled every LEAD_SAMPLE frames over the race — up to the
@@ -65,17 +66,25 @@ def launches(states, style, fps: int) -> list[tuple[int, int]]:
     if not style.magnets:
         return []
     need = LAUNCH_G_S * abs(STAGE_GRAVITY.get(style.stage, 0.0))
+    mech = getattr(style, "mech", None) or {}
+    # Moving magnets (`Rig.magnet_track`) are measured where they were.
+    where = ((lambda f: magnets_at(style, mech, f)) if mech.get("magnet_track")
+             else (lambda f, _m=style.magnets: _m))
     out = []
     for i in range(len(states[0]) if states else 0):
         speeds = [0.0] + [math.dist(states[f][i], states[f - 1][i]) * fps for f in range(1, len(states))]
         armed = True
         for f in range(1, len(states)):
             x, y = states[f][i]
-            inside = any(math.hypot(x - m[0], y - m[1]) <= m[4] for m in style.magnets)
+            inside = any(math.hypot(x - m[0], y - m[1]) <= m[4] for m in where(f))
             if not inside:
                 armed = True
                 continue
-            if armed and f >= LAUNCH_WINDOW and speeds[f] - min(speeds[f - LAUNCH_WINDOW:f]) >= need:
+            # `> LAUNCH_WINDOW`: the window must not reach speeds[0], which is
+            # a placeholder 0, not a speed. With `>=` every marble that starts
+            # the clip inside a field was "launched" at frame 8 (World 3's
+            # clump and final stages; no field reached the start row before).
+            if armed and f > LAUNCH_WINDOW and speeds[f] - min(speeds[f - LAUNCH_WINDOW:f]) >= need:
                 out.append((f, i))
                 armed = False
     return out

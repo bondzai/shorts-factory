@@ -10,7 +10,7 @@ import math
 import random
 
 from .. import fx
-from ..mechanics import clock_at, hidden
+from ..mechanics import hidden, magnets_at
 from . import render_mech
 from .model import ROCK_AMPLITUDE, Style, trap_angle
 from .registry import STAGES
@@ -161,8 +161,7 @@ def frames_pygame(states, balls, segments, sim_w, sim_h, overlay=None, style=Non
                 back_a = (mx - ux * 3 + nx * 4, Y(my - uy * 3 + ny * 4))
                 back_b = (mx - ux * 3 - nx * 4, Y(my - uy * 3 - ny * 4))
                 pygame.draw.polygon(surface, fx.lighten(style.structure, 110), [tip, back_a, back_b])
-        polarity = (clock_at(mech, mech.get("magnet_clock"), frame_index, 1) or 0) if mech else 1
-        for mx, my, core, _soft, reach, _pull in style.magnets:
+        for mx, my, core, _soft, reach, _pull, polarity in magnets_at(style, mech, frame_index):
             # Same magnet as the PIL renderer, with the kit's usual moving-part
             # treatment: the field breathes so a viewer reads it as live before
             # a marble reaches it, the way a spinner's glow says how fast it

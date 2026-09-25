@@ -654,6 +654,11 @@ levels:
   params:
     stage: lodestone
     section: magnet-flip
+    mechanics:
+      flip_at: 0.45
+    round_params:
+    - {}
+    - stage: same
   entrants:
   - blaze
   - tide
@@ -667,25 +672,27 @@ levels:
       lead_changes: '>=1'
       margin_s: <=0.8
   copy:
-    angle: the magnet flips halfway; somebody gets launched
+    angle: the magnets pull until the leader is nearly halfway down, then flip and push; whoever is nearest a magnet at the flip gets launched
     title: 'Marble race polarity swap: pull, then push'
-    hook: Halfway, the magnet flips
-    desc: The magnet attracts for the first half, then repels. Whoever is closest at the flip gets launched.
+    hook: Who gets launched?
+    desc: The magnets attract until the leader is almost halfway down, then flip and repel. Whoever is closest at the flip gets launched.
     pin: 'Getting launched: good or bad? Predict it before the flip.'
     pin_type: predict_outcome
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 polarity-swap: magnet flip_at (attract, then repel)'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: null
+  note: 'magnet-flip on lodestone (docs/06 World 3). The flip comes when the leader is 0.45 of the way down, where lodestone''s magnets are, not at exactly half: at 0.5 the leader is already past them and the flip launched someone in 15 of 48 races, at 0.45 in 33. The flip is a short hard push (the jolt that launches) and then a push too weak to hold a marble up. Round two is lodestone again, a fresh layout, same flip.'
 - id: L23
   date: 2026-10-17
   world: polarity-swap
   generator: physics
   variant: marble_race
   params:
-    stage: lodestone
-    section: two-wall-tug
+    stage: crossfire
+    round_params:
+    - {}
+    - stage: same
   entrants:
   - blaze
   - tide
@@ -698,15 +705,15 @@ levels:
   copy:
     angle: magnets on both walls fight over every marble and the racing line bends
     title: 'Pick a color: two magnets, tug of war'
-    hook: Both walls pull
+    hook: Which wall pulls yours?
     desc: Magnets on both walls fight over every marble. The racing line bends.
     pin: Which wall wins the tug of war, left or right?
     pin_type: either_or
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 polarity-swap: magnets on both walls (tug of war)'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: null
+  note: 'Trial stage crossfire, not lodestone: pegs, one magnet on each wall at the same height with fields wide enough to meet in the middle, pegs. The level names no section; the tug is the stage. Round two is crossfire again, a fresh layout.'
 - id: L24
   date: 2026-10-18
   world: polarity-swap
@@ -715,6 +722,11 @@ levels:
   params:
     stage: lodestone
     section: reverse-finish-magnet
+    mechanics:
+      finish_push: 50
+    round_params:
+    - {}
+    - stage: same
   entrants:
   - blaze
   - tide
@@ -729,23 +741,26 @@ levels:
   copy:
     angle: a repelling magnet behind the finish pushes marbles back; momentum decides
     title: Marble race reverse magnet at the finish
-    hook: The finish pushes back
+    hook: Who pushes through?
     desc: A repelling magnet behind the finish line pushes marbles away from it. Momentum decides.
     pin: Does raw speed beat the reverse magnet? Say yes or no.
     pin_type: either_or
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 polarity-swap: repelling magnet behind the finish line'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: null
+  note: 'reverse-finish-magnet on lodestone: a magnet under the line in the middle of the frame pushes up; lodestone''s own magnets still pull. It turns a falling marble back in about half the races (22 of 48 in QA); a fast marble goes straight through. Round two is lodestone again with the same magnet.'
 - id: L25
   date: 2026-10-19
   world: polarity-swap
   generator: physics
   variant: marble_race
   params:
-    stage: lodestone
+    stage: carousel
     section: rotating-magnet-arm
+    round_params:
+    - {}
+    - stage: same
   entrants:
   - blaze
   - tide
@@ -758,23 +773,26 @@ levels:
   copy:
     angle: a spinning magnet arm sweeps the track on a steady beat; the wrong beat rides you backward
     title: 'Marble run rotating magnet: time your pass'
-    hook: Pass on the beat
+    hook: Who rides the arm?
     desc: A spinning magnet arm sweeps the track on a steady beat. Pass on the wrong beat and you ride the arm backward.
     pin: Who rides the arm backward? Name the unlucky marble.
     pin_type: predict_trap
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 polarity-swap: rotating magnet arm'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: null
+  note: 'Trial stage carousel, not lodestone: pegs, one bar turning about the middle of the frame with a magnet core on each tip, pegs. The tips'' fields move with the bar and pull twice the kit''s pull. Round two is carousel again, a fresh layout.'
 - id: L26
   date: 2026-10-20
   world: polarity-swap
   generator: physics
   variant: marble_race
   params:
-    stage: lodestone
+    stage: detour
     section: shielded-lane
+    round_params:
+    - {}
+    - stage: same
   entrants:
   - blaze
   - tide
@@ -787,24 +805,27 @@ levels:
   copy:
     angle: one lane is shielded but longer, the other short and lined with magnets
     title: 'Marble race: safe lane or magnet lane?'
-    hook: Long and safe, or short?
+    hook: Which lane is yours?
     desc: One lane is shielded but longer. The other is short and lined with magnets.
     pin: 'Safe lane or magnet lane: which would you take?'
     pin_type: either_or
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 polarity-swap: shielded lane vs magnet lane (lane split with a field-free side)'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: null
+  note: 'Trial stage detour, not lodestone: pegs, then a divider splits the frame into a shielded lane (a steep ledge sends it the long way across, no field reaches it) and a straight lane past magnets on its outer wall, then pegs. Which side is which is the seed''s; where a marble lands on the divider''s peak picks its lane. shielded-lane makes those magnets pull four times the kit''s pull, so the short cut costs something: in QA the shielded lane won 17 of 48 races. Round two is detour again, a fresh layout.'
 - id: L27
   date: 2026-10-21
   world: polarity-swap
   generator: physics
   variant: marble_race
   params:
-    stage: lodestone
-    section: magnet-swap
+    stage: sidewinder
     rounds: 2
+    round_params:
+    - {}
+    - layout: 0
+      mirror: true
   entrants:
   - blaze
   - tide
@@ -818,23 +839,26 @@ levels:
   copy:
     angle: two rounds, and the magnets change sides between them; nobody can memorise the line
     title: 'Two round marble race: the magnets move'
-    hook: Round two, new magnets
+    hook: Pick one for both rounds
     desc: Round one has the magnets on the left, round two on the right. Nobody can memorise the line.
     pin: Two rounds. Who leads after round one but loses the race?
     pin_type: predict_outcome
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 polarity-swap: magnet layout mirrored between rounds'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: 'Two laps -> rounds: 2. Lodestone reseeds its magnets for a second round but does not mirror them; the section also keeps this level distinct from L21.'
+  note: 'Two laps -> rounds: 2. Trial stage sidewinder puts every magnet down the left side; round two rebuilds round one''s layout (layout: 0) mirrored, so the same magnets are on the right. The level names no section.'
 - id: L28
   date: 2026-10-22
   world: polarity-swap
   generator: physics
   variant: marble_race
   params:
-    stage: lodestone
+    stage: honeypot
     section: magnet-clump
+    round_params:
+    - {}
+    - stage: same
   entrants:
   - blaze
   - tide
@@ -844,18 +868,19 @@ levels:
   story:
     must:
       lead_changes: '>=2'
+      any_event: clumped
   copy:
     angle: a strong magnet grabs every marble into one clump, then lets go
     title: 'Marble race magnet clump: all stuck at once'
-    hook: Stuck together. Then released.
+    hook: Who breaks free first?
     desc: A strong magnet grabs every marble into one clump, then lets go. The order out of the clump is anyone's.
     pin: Who comes out of the clump first? Pure guess, pick a color.
     pin_type: pick_color
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 polarity-swap: clump-and-release magnet (the current force law cannot hold a marble)'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: null
+  note: 'Trial stage honeypot, not lodestone: a funnel drops the field onto one big magnet, then pegs. The grip is eight times the kit''s pull plus a brake inside the magnet''s inner field (the force law alone cannot hold a marble); it lets go a second after the whole field is in the clump, or at nine seconds regardless, with a short push so nothing is left balanced on the core. story.must asks for clumped, the event for the whole field in the clump, because the copy says every marble.'
 - id: L29
   date: 2026-10-23
   world: polarity-swap
@@ -890,27 +915,36 @@ levels:
   generator: physics
   variant: marble_race
   params:
-    stage: lodestone
+    stage: maelstrom
     section: all-magnets
-  entrants: []
+    mechanics:
+      kick: 25
+    round_params:
+    - {}
+    - stage: same
+  entrants:
+  - blaze
+  - tide
+  - volt
+  - moss
   format: race
   final: true
   story:
     must:
       any_event: launched
   copy:
-    angle: 'world three final: every magnet type at once, three marbles, one champion'
+    angle: 'world three final: every magnet type at once, the finalists, one champion'
     title: 'Magnet marble tournament final: every magnet'
-    hook: Every magnet at once
-    desc: Attract, repel, a rotating arm and a reverse finish. Three marbles, one champion.
+    hook: Every magnet. Pick one.
+    desc: Attract, repel, a rotating arm and a reverse finish. The finalists race for one champion.
     pin: Final call. Who takes World Three? Full bracket Sunday with slow-motion replays.
     pin_type: pick_color
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 polarity-swap: composite final: attract, flip, rotating arm, reverse finish'
+  status: ready
+  blocked_on: null
   operator_input:
-    finalists: null
-  note: 'finalists: the L29 winner plus the top two on points at plan time (the plan gave the World 2 champion a bye; seats are operator-tracked).'
+    finalists: stand-in - the four regulars until L29 and the standings decide
+  note: 'STAND-IN VALUES set 2026-09-25, replace when the real finalists exist: entrants are the four regulars, and the copy says "the finalists" rather than a count. finalists: the L29 winner plus the top two on points at plan time (the plan gave the World 2 champion a bye; seats are operator-tracked). Trial stage maelstrom with all-magnets, not lodestone: pegs, a band of magnets that pull and then flip to push when the leader is halfway down, a rotating magnet arm, and a magnet under the finish line that pushes back. The flip''s jolt is 25 x the pull here (L22: 45): at 45 it threw stragglers into the ceiling.'
 - id: L31
   date: 2026-10-25
   world: halloween-maze

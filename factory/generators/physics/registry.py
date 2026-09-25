@@ -12,6 +12,7 @@ from typing import Any
 
 from .. import stagekit
 from . import stages
+from .worlds import polarity
 
 @dataclass(frozen=True)
 class Stage:
@@ -154,6 +155,27 @@ STAGE_SPECS: list[Stage] = [
     composed("trapdoor", [("pegs", 0.8), ("trap", 1.6), ("bumpers", 0.8)], gravity=-30.0, noun="the trapdoor",
               blurb="pegs, a trapdoor pit that holds a marble and lets it go, then bumpers",
               gate=True),
+    # World 3, polarity swap (docs/10, physics/worlds/polarity.py; the
+    # measurements are in docs/06, "World 3"). Trial: each races when a level
+    # names it. Two stacks were changed by what QA found. honeypot opens with
+    # a funnel, not pegs: behind pegs the field arrived over eight seconds
+    # and the grip had the whole field on 2 races in 24; the funnel's throat
+    # drops everyone into it (44 in 48), and it runs at -36 because the hold
+    # adds a second or so. maelstrom puts the arm last and pegs first: with
+    # the band's magnets at the top, the flip at halfway kicked the stragglers
+    # still sitting there into the ceiling (15 of 90 parked; now 7 of 103).
+    composed("crossfire", [("pegs", 1.0), ("tug", 1.3), ("pegs", 1.0)], gravity=-30.0, noun="magnets",
+              blurb="pegs, a magnet on each wall pulling against the other, then pegs", gate=True),
+    composed("sidewinder", [("pegs", 0.7), ("side-magnets", 2.0), ("pegs", 0.7)], gravity=-30.0, noun="magnets",
+              blurb="pegs, magnets down one side of the frame, then pegs", gate=True),
+    composed("detour", [("pegs", 0.4), ("detour", 2.8), ("pegs", 0.5)], gravity=-30.0, noun="lanes",
+              blurb="pegs, a split into a long shielded lane and a short magnet lane, then pegs", gate=True),
+    composed("carousel", [("pegs", 0.6), ("arm", 2.4), ("pegs", 0.6)], gravity=-30.0, noun="the magnet arm",
+              blurb="pegs, a rotating arm with a magnet on each tip, then pegs", gate=True),
+    composed("honeypot", [("funnel", 0.9), ("clump", 1.8), ("pegs", 0.8)], gravity=-36.0, noun="the big magnet",
+              blurb="a funnel dropping the field onto one big magnet, then pegs", gate=True),
+    composed("maelstrom", [("pegs", 0.5), ("magnets", 1.1), ("arm", 2.0)], gravity=-30.0, noun="magnets",
+              blurb="pegs, a band of magnets, then a rotating magnet arm", gate=True),
     # COMPOSED-STAGES-END
 ]
 
@@ -198,6 +220,17 @@ class Mechanic:
 # world's WP7 lands one.
 MECHANIC_SPECS: list[Mechanic] = [
     # MECHANICS-BEGIN
+    # World 3, polarity swap.
+    Mechanic("magnet-flip", polarity.magnet_flip, stage="lodestone", blurb="the magnets pull, then push from halfway"),
+    Mechanic("reverse-finish-magnet", polarity.reverse_finish, stage="lodestone",
+             blurb="a magnet under the finish line pushes back"),
+    Mechanic("rotating-magnet-arm", polarity.rotating_arm, stage="carousel", blurb="the arm's tip magnets pull hard"),
+    Mechanic("shielded-lane", polarity.shielded_lane, stage="detour",
+             blurb="the magnet lane's magnets pull hard enough to cost the short cut"),
+    Mechanic("magnet-clump", polarity.magnet_clump, stage="honeypot",
+             blurb="the big magnet grips the whole field, then lets go"),
+    Mechanic("all-magnets", polarity.all_magnets, stage="maelstrom",
+             blurb="band magnets flip, the arm pulls, the finish pushes back"),
     # MECHANICS-END
 ]
 MECHANICS: dict[str, Mechanic] = {m.id: m for m in MECHANIC_SPECS}

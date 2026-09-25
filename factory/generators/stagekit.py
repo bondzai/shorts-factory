@@ -848,3 +848,215 @@ def describe_parts(parts) -> str:
     words = [SECTION_WORDS[name] for name, _ in parts]
     return "a stage of " + ", then ".join(words)
 
+
+# --- World 3, polarity swap: magnets that do more than pull ------------------------------
+#
+# Every section below keeps the magnet's measured law (`magnet_accel`, peak
+# MAGNET_PULL) and changes where a field is, how far it reaches, or — through
+# the round's rig (generators/mechanics.py) — which way and how hard it acts
+# over time. What a magnet *does* over time is a level's mechanic
+# (physics/worlds/polarity.py); what is here is geometry. Each section notes
+# on the rig which magnets it made (`magnet_roles`), so a mechanic can flip
+# the band's magnets without flipping the arm's.
+
+def magnet_roles(style) -> dict[int, str]:
+    """Magnet index -> the role a World 3 section gave it (none: "band")."""
+    from .mechanics import rig_of
+    return rig_of(style).__dict__.setdefault("magnet_roles", {})
+
+
+def _add_magnet(space, style, x, y, core, soft, reach, role, *, solid=True) -> int:
+    if solid:
+        _magnet(space, x, y, core)
+    style.magnets.append((x, y, core, soft, reach, MAGNET_PULL))
+    k = len(style.magnets) - 1
+    magnet_roles(style)[k] = role
+    return k
+
+
+# Two walls' fields meet in the middle: each reaches past the centre line by
+# a little, so a marble down the middle is pulled both ways at once and one
+# off centre is pulled harder by the nearer wall. Where they overlap the sum
+# is capped at the one gravity the pull was measured safe at.
+TUG_REACH = 3.5
+
+
+def tug(space, w, top, bottom, rng, style):
+    """A tug of war: one magnet on each wall, level with each other, fields
+    wide enough to meet in the middle. The racing line bends toward
+    whichever wall a marble drifted to."""
+    room = marble_room(w)
+    core = w * rng.uniform(0.040, 0.046)
+    soft = core + w * MARBLE_R
+    reach = soft * TUG_REACH
+    y = (top + bottom) / 2 + rng.uniform(-0.1, 0.1) * (top - bottom)
+    lo = 7.0 + room + core
+    for x in (lo, w - lo):
+        _add_magnet(space, style, x, y, core, soft, reach, "tug")
+    return []
+
+
+def side_magnets(space, w, top, bottom, rng, style):
+    """Magnets down one side of the frame (the left; a mirrored round puts
+    them on the right). At least two rows, a reach or more apart,
+    alternating between the wall and most of a reach in from it, so the left
+    half is all field and the right half is none. Neighbouring fields
+    overlap a little; the sum is capped at the measured one gravity."""
+    height = top - bottom
+    room = marble_room(w)
+    core = w * rng.uniform(0.038, 0.044)
+    soft = core + w * MARBLE_R
+    reach = soft * MAGNET_REACH
+    lo = 7.0 + room + core
+    inner = min(lo + reach * 0.85, w / 2 - core - room / 2)
+    rows = max(2, int(height // reach))
+    gap = height / rows
+    for i in range(rows):
+        x = lo if i % 2 == 0 else inner
+        _add_magnet(space, style, x, top - gap * (i + 0.5), core, soft, reach, "side")
+    return []
+
+
+def detour(space, w, top, bottom, rng, style):
+    """The track splits in two lanes. One is shielded — no field reaches it
+    — and longer, a ledge sending it across; the other is short, a straight
+    drop past magnets on its outer wall. Which side is which is the seed's.
+
+    The magnets sit a marble's room off the outer wall and their reach stops
+    short of the divider, so the shielded lane is field-free by geometry, not
+    by a rule the force law would have to know about."""
+    mid = w / 2
+    t = style.thickness / 2
+    room = marble_room(w)
+    # A peak on top of the divider: nothing balances on an apex.
+    peak = 34.0
+    segments = [((mid - peak, top - peak), (mid, top)), ((mid, top), (mid + peak, top - peak)),
+                ((mid, top), (mid, bottom))]
+    for a, b in segments:
+        _wall(space, a, b, thickness=t)
+    magnet_side = -1 if rng.random() < 0.5 else 1  # -1: magnets in the left lane
+    # The shielded lane: ledges from alternate walls (one, in the band the
+    # detour stage gives it), each past the lane's middle so a marble off one
+    # tip lands on the next, leaving more than a marble's room to the
+    # opposite wall. Steep, 0.70, because the long way has to be a real
+    # choice: at 0.40, two ledges, the shielded lane won 0 races in 48 and
+    # at 0.60 6; at 0.70 (with the magnet lane pulling 4x, polarity.py) it
+    # wins 17 of 48 with 92 of 192 marbles through it.
+    outer = 7.0 if magnet_side > 0 else w - 7.0
+    lane = abs(mid - outer)
+    span = min(lane * 0.6, lane - room * 1.3)
+    slope = 0.70
+    drop = span * slope
+    pitch = drop + room * 0.8  # a ledge clears the next one's tip by a marble and a half
+    count = max(1, int((top - peak - room * 0.6 - bottom) // pitch))
+    y = top - peak - room * 0.6
+    for i in range(count):
+        start = outer if i % 2 == 0 else mid
+        toward = 1 if start < (outer + mid) / 2 else -1
+        a = (start + toward * 3.0, y)
+        b = (start + toward * (3.0 + span), y - drop)
+        _wall(space, a, b, thickness=t)
+        segments.append((a, b))
+        y -= pitch
+    # The magnet lane: cores a marble's room off the outer wall, rows a reach
+    # and a quarter apart; the reach ends short of the divider.
+    core = w * rng.uniform(0.038, 0.044)
+    soft = core + w * MARBLE_R
+    x = 7.0 + room + core if magnet_side < 0 else w - 7.0 - room - core
+    reach = min(soft * MAGNET_REACH, abs(mid - x) - t - 6.0)
+    rows = max(2, int((top - bottom) // (reach * 1.25)))
+    gap = (top - bottom) / rows
+    for i in range(rows):
+        _add_magnet(space, style, x, top - gap * (i + 0.5), core, soft, reach, "lane")
+    return segments
+
+
+# The arm's fields are shorter than a fixed magnet's: they sweep, and at the
+# full MAGNET_REACH the tips reached into the peg bands above and below the
+# arm and held marbles against the pegs there (stage QA: 13 of 88 parked).
+ARM_REACH = 2.3
+
+
+def arm(space, w, top, bottom, rng, style):
+    """A rotating magnet arm: one long bar turning about the middle of the
+    band with a magnet's core on each tip, so the field sweeps the track.
+    A marble the tip meets on its way up rides it backward.
+
+    The bar is a kinematic body like a spinner's, and it is drawn as one.
+    The fields move with its tips (`Rig.magnet_track`), read off the body
+    every frame, so the drawing, the force and `launched` agree. The tips
+    clear both walls by a marble's room at every angle."""
+    from .mechanics import rig_of
+    from .. import settings
+
+    rig = rig_of(style)
+    height = top - bottom
+    room = marble_room(w)
+    core = w * rng.uniform(0.036, 0.040)
+    cx, cy = w / 2, (top + bottom) / 2
+    half = max(40.0, min(w / 2 - 7.0 - room - core, height / 2 - core))
+    omega = rng.choice([-1, 1]) * rng.uniform(0.55, 0.75)
+    phase = rng.uniform(0.0, 2 * math.pi)
+    body = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
+    body.position = (cx, cy)
+    body.angle = phase
+    body.angular_velocity = omega
+    bar = pymunk.Segment(body, (-half, 0), (half, 0), style.thickness / 2)
+    bar.elasticity, bar.friction = BAR_BOUNCE, 0.30
+    space.add(body, bar)
+    for side in (-1, 1):
+        tip = pymunk.Circle(body, core, offset=(side * half, 0))
+        tip.elasticity, tip.friction = 0.50, 0.12
+        space.add(tip)
+    # The renderers draw a spinner at phase + omega * t on the clip's clock,
+    # which starts `skip_start_s` into the simulation; the bar is drawn where
+    # the body is by starting its drawn phase that far on.
+    skip_s = float(rig.params.get("skip_start_s", settings.load().render.get("skip_start_s", 0)))
+    style.spinners.append((cx, cy, half, omega, phase + omega * skip_s))
+    soft = core + w * MARBLE_R
+    reach = soft * ARM_REACH
+    moving = rig.__dict__.setdefault("moving_magnets", [])
+    for side in (-1, 1):
+        x, y = body.local_to_world((side * half, 0))
+        k = _add_magnet(space, style, x, y, core, soft, reach, "arm", solid=False)
+        moving.append((k, body, side * half))
+    if rig.magnet_tracker is None:
+        def where(frame, _style=style, _moving=moving):
+            out = [None] * len(_style.magnets)
+            for k, b, off in _moving:
+                px, py = b.local_to_world((off, 0))
+                out[k] = [round(px, 2), round(py, 2)]
+            return out
+        rig.clock("magnet_track", where)
+        rig.magnet_track("magnet_track")
+    return []
+
+
+# A clump magnet's field reaches most of the way across the frame, so a
+# grip catches marbles wherever they come down. How strong it is, and when,
+# is the level's (`magnet-clump`): left alone it pulls like any other.
+CLUMP_REACH = 0.40  # of the width
+
+
+def clump(space, w, top, bottom, rng, style):
+    """One big magnet in the middle of the band, with a field that reaches
+    most of the way to both walls: what a level's grip (`magnet-clump`)
+    makes strong enough to hold the whole field in one clump."""
+    core = w * rng.uniform(0.046, 0.052)
+    soft = core + w * MARBLE_R
+    reach = w * CLUMP_REACH
+    x = w / 2 + rng.uniform(-0.03, 0.03) * w
+    y = (top + bottom) / 2
+    _add_magnet(space, style, x, y, core, soft, reach, "clump")
+    return []
+
+
+SECTIONS.update({"tug": tug, "side-magnets": side_magnets, "detour": detour, "arm": arm, "clump": clump})
+SECTION_WORDS.update({
+    "tug": "a magnet on each wall pulling against the other",
+    "side-magnets": "magnets down one side",
+    "detour": "a split into a shielded lane and a magnet lane",
+    "arm": "a rotating magnet arm",
+    "clump": "one big magnet that can grab the whole field",
+})
+
