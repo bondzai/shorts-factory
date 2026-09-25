@@ -53,6 +53,7 @@ class Setting:
     outcome: Outcome | None = None
     table: list[dict[str, Any]] | None = None  # None: standings unavailable
     recent_hooks: list[str] = field(default_factory=list)
+    asked: dict[str, Any] = field(default_factory=dict)  # the task's brief and hints, when it had them
 
 
 @dataclass
@@ -186,6 +187,7 @@ def gather(conn: sqlite3.Connection, clip_id: str, facts: dict[str, Any] | None 
         clip_id=clip_id, channel_id=channel_id, level_id=level_id, season_id=season_id,
         seed=int(row["seed"] or 0), facts=facts, ctx=ctx, season=season, level=level, cast=cst,
         outcome=outcome, table=table, recent_hooks=[r["hook_text"] for r in recent if r["hook_text"]],
+        asked={k: v for k, v in json.loads(row["params_json"] or "{}").items() if k in ("brief", "hints")},
     )
 
 
@@ -202,6 +204,8 @@ def scrub(facts: dict[str, Any]) -> dict[str, Any]:
 
 def inputs(s: Setting, rules: str) -> dict[str, Any]:
     hints = s.level.copy_.model_dump(exclude_none=True) if s.level else {}
+    # Words the operator gave for this clip (a batch row) win over the plan's.
+    hints.update(s.asked.get("hints") or {})
     bios = {}
     if s.cast:
         for eid, _ in s.ctx.entrants:
@@ -223,6 +227,7 @@ def inputs(s: Setting, rules: str) -> dict[str, Any]:
         "entrants_in_screen_order": [{"id": eid, "name": n, "bio": bios.get(eid, "")} for eid, n in s.ctx.entrants],
         "standings_before_this_race": s.table,
         "plan_hints": hints,
+        "operator_brief": s.asked.get("brief"),
         "channel_rules": rules,
         "recent": {"titles": s.ctx.recent_titles, "hooks": s.recent_hooks, "pins": s.ctx.recent_pins},
         "placeholders": copy_check.PLACEHOLDERS,

@@ -133,23 +133,33 @@ def plan(
         if reason is not None:
             out.append({"level": level_id, "queued": False, "task_id": None, "reason": reason})
             continue
-        old = level_row(conn, channel.id, season.id, level_id)
-        if old is not None and old["task_id"]:
-            # A replan supersedes a task nobody has started.
-            conn.execute("UPDATE tasks SET status = 'cancelled', finished_at = ? WHERE id = ? "
-                         "AND status = 'queued'", (db.now(), old["task_id"]))
-        task_id = db.enqueue_task(conn, channel.id, "make-clip", params, by=by)
-        conn.execute(
-            """INSERT OR REPLACE INTO levels (channel_id, season_id, id, date, clip_id, task_id, status, reason)
-               VALUES (?, ?, ?, ?, NULL, ?, ?, NULL)""",
-            (channel.id, season.id, level_id, level.date.isoformat(), task_id, PLANNED),
-        )
-        conn.commit()
-        logs.event("task.queued", channel=channel.id, kind="make-clip", count=1, by=by,
-                   params={k: v for k, v in params.items() if k != "cast"}, level=level_id,
-                   season=season.id)
+        task_id = queue_level(conn, channel, season, level, params, by=by)
         out.append({"level": level_id, "queued": True, "task_id": task_id, "reason": None})
     return out
+
+
+def queue_level(conn: sqlite3.Connection, channel, season: Season, level: Level, params: dict[str, Any],
+                *, by: str = "human", priority: int = 0, batch_id: str | None = None,
+                ref: str | None = None) -> int:
+    """Write one level's make-clip task and its levels row. The caller has
+    already decided the level may be planned (`refusal`, `task_params`)."""
+    old = level_row(conn, channel.id, season.id, level.id)
+    if old is not None and old["task_id"]:
+        # A replan supersedes a task nobody has started.
+        conn.execute("UPDATE tasks SET status = 'cancelled', finished_at = ? WHERE id = ? "
+                     "AND status = 'queued'", (db.now(), old["task_id"]))
+    task_id = db.enqueue_task(conn, channel.id, "make-clip", params, by=by, priority=priority,
+                              batch_id=batch_id, ref=ref)
+    conn.execute(
+        """INSERT OR REPLACE INTO levels (channel_id, season_id, id, date, clip_id, task_id, status, reason)
+           VALUES (?, ?, ?, ?, NULL, ?, ?, NULL)""",
+        (channel.id, season.id, level.id, level.date.isoformat(), task_id, PLANNED),
+    )
+    conn.commit()
+    logs.event("task.queued", channel=channel.id, kind="make-clip", count=1, by=by,
+               params={k: v for k, v in params.items() if k != "cast"}, level=level.id,
+               season=season.id, **({"batch": batch_id} if batch_id else {}))
+    return task_id
 
 
 def _level_ids(params: dict[str, Any]) -> tuple[str, str] | None:

@@ -87,6 +87,11 @@ def _clip_summary(row) -> dict[str, Any]:
 HELD: dict[str, int] = {}
 
 
+# An agent's batch is smaller and never outranks what the operator queued.
+MCP_BATCH_ROWS = 50
+MCP_BATCH_PRIORITY = 5
+
+
 def agent_name(given: str) -> str:
     """One short lowercase word per agent. Sessions of the same tool used to
     call themselves five different things ("Claude (Opus 5) queue worker",
@@ -450,6 +455,80 @@ def build_server():
         return [json.dumps(summary, indent=1, default=str)] + [
             Image(data=f, format="png").to_image_content() for f in frames
         ]
+
+    @server.tool(
+        description=(
+            "What can be ordered on a channel, for turning an operator's brief "
+            "(a list, a plan, a file they gave you) into jobs for enqueue_batch: "
+            "the modules and stages, the cast, the season's levels that are ready "
+            "and why the others are blocked, the job schema and the limits. Read "
+            "the bulk-brief playbook first."
+        )
+    )
+    def batch_options(channel: str | None = None) -> dict[str, Any]:
+        from . import batch as bulk, seasons
+        from .generators import physics
+        from .series import cast as cast_mod, season as season_mod
+
+        with db.connect() as conn:
+            ch = channels.resolve(conn, channel)
+            modules = generators.available(ch.variants)
+            out: dict[str, Any] = {
+                "channel": ch.id,
+                "modules": [{"generator": g, "variants": v, "about": generators.get(g).blurb}
+                            for g, v in modules.items()],
+                "stages": [{"id": s, "about": physics.STAGE_BLURB.get(s), "live": s in physics.LIVE_STAGES}
+                           for s in sorted(physics.STAGE_BY_ID)],
+                "job_schema": bulk.JobSpec.model_json_schema(),
+                "limits": {"rows": MCP_BATCH_ROWS, "priority": MCP_BATCH_PRIORITY, "dry_run_default": True},
+            }
+            cast = cast_mod.load(ch.id)
+            if cast:
+                out["cast"] = [{"id": e.id, "name": e.name, "bio": e.bio, "debut": e.debut, "scores": e.scores}
+                               for e in cast.entrants]
+            if season_mod.seasons(ch.id):
+                view = seasons.status(conn, ch)
+                levels = view.get("levels", [])
+                out["season"] = {
+                    "id": view.get("season"),
+                    "ready": [{"level": lv["id"], "date": lv.get("date"), "world": lv.get("world"),
+                               "note": lv.get("note")} for lv in levels if lv.get("status") == "ready"][:40],
+                    "blocked": [{"level": lv["id"], "waits_for": lv.get("blocked_on")}
+                                for lv in levels if lv.get("status") == "blocked"][:20],
+                    "needs_input": [{"level": lv["id"], "fill": lv.get("missing_input")}
+                                    for lv in levels if lv.get("status") == "needs_input"],
+                    "counts": view.get("counts"),
+                }
+        return out
+
+    @server.tool(
+        description=(
+            "Queue many make-clip jobs at once. Each job is either a season level "
+            "({level: 'L05'} or a range 'L02..L05') or an ad-hoc clip ({generator, "
+            "variant, stage, count, ...}); either may carry `brief` (what the "
+            "operator wants, in words) and `hints` ({title, hook, pin, desc}) for "
+            "whoever makes it. Dry run by default: call once to see the receipt, "
+            "show it to the operator, then again with dry_run=false. All rows or "
+            "none unless partial=true. Give every row a `ref` so a retry cannot "
+            "queue it twice."
+        )
+    )
+    def enqueue_batch(jobs: list[dict[str, Any]], agent: str = "agent", channel: str | None = None,
+                      dry_run: bool = True, partial: bool = False, batch_ref: str | None = None) -> dict[str, Any]:
+        from . import batch as bulk
+
+        with db.connect() as conn:
+            try:
+                ch = channels.resolve(conn, channel)
+                ctx = bulk.context(conn, ch, max_priority=MCP_BATCH_PRIORITY)
+                receipt = bulk.service(max_rows=MCP_BATCH_ROWS).submit(
+                    ctx, bulk.ListSource(jobs, name=f"mcp:{agent_name(agent)}"), by=agent_name(agent),
+                    dry_run=dry_run, partial=partial, ref=batch_ref)
+            except ValueError as exc:
+                raise ToolError(str(exc)) from None
+        logs.event("mcp.call", actor="mcp", tool="enqueue_batch", rows=len(jobs), dry_run=dry_run,
+                   accepted=receipt.accepted, refused=receipt.refused)
+        return receipt.as_dict()
 
     @server.tool(description="Everything known about one clip.")
     def get_clip(clip_id: str) -> dict[str, Any]:

@@ -78,6 +78,8 @@ def cmd_tasks(args) -> int:
             removed = db.delete_tasks(conn, [int(x) for x in str(args.value).split(",")])
             print(f"deleted {len(removed)} task(s): {removed}")
             return 0
+        if args.action == "import":
+            return _import(conn, ch, args)
         if args.action == "clear":
             print(f"cleared {db.clear_finished_tasks(conn, ch.id)} finished task(s) on {ch.id}")
             return 0
@@ -86,6 +88,26 @@ def cmd_tasks(args) -> int:
         ids = tasks.enqueue(conn, ch.id, args.value, params, count=args.count, priority=args.priority)
         print(f"queued {len(ids)} × {args.value} on {ch.id}: #{ids[0]}" + (f"–#{ids[-1]}" if len(ids) > 1 else ""))
     return 0
+
+
+def _import(conn, ch, args) -> int:
+    from pathlib import Path
+
+    from .. import batch
+
+    if not args.value:
+        raise ValueError("tasks import needs a file: factory tasks import jobs.csv")
+    receipt = batch.service().submit(batch.context(conn, ch), batch.source_for(Path(args.value)),
+                                     by="human", dry_run=args.dry_run, partial=args.partial)
+    for r in receipt.rows:
+        what = r.level or r.ref or ""
+        done = (f"task #{', #'.join(map(str, r.task_ids))}" if r.task_ids else
+                ("ok" if r.reason is None else "refused"))
+        print(f"row {r.row:<4} {what:14} {done:12} {r.reason or ''}")
+    print(f"\n{receipt.accepted} accepted, {receipt.refused} refused"
+          + (f" · batch {receipt.batch_id}" if receipt.batch_id else "")
+          + (f"\n{receipt.note}" if receipt.note else ""))
+    return 1 if receipt.refused and not receipt.batch_id else 0
 
 
 def cmd_work(args) -> int:
@@ -185,9 +207,13 @@ def add(sub) -> None:
     p.add_argument("--limit", type=int, default=20)
     p.set_defaults(func=cmd_build)
 
-    p = sub.add_parser("tasks", help="the queue agents pull from: add, list, cancel", description="the queue agents pull from: add, list, cancel")
-    p.add_argument("action", choices=["add", "list", "cancel", "delete", "clear"])
-    p.add_argument("value", nargs="?", help="kind to add, id(s) to cancel/delete (comma-separated), or nothing for clear")
+    p = sub.add_parser("tasks", help="the queue agents pull from: add, import, list, cancel",
+                       description="the queue agents pull from: add, import, list, cancel")
+    p.add_argument("action", choices=["add", "import", "list", "cancel", "delete", "clear"])
+    p.add_argument("value", nargs="?", help="kind to add, a file to import (.csv .json .jsonl .yaml), "
+                   "id(s) to cancel/delete (comma-separated), or nothing for clear")
+    p.add_argument("--dry-run", action="store_true", help="with import: check every row, queue nothing")
+    p.add_argument("--partial", action="store_true", help="with import: queue the rows that pass even if some do not")
     p.add_argument("--variant"); p.add_argument("--generator"); p.add_argument("--seed", type=int)
     p.add_argument("--stage", "--course", dest="stage", help="zigzag, pegboard, bumpers, funnels, gauntlet or cascade"); p.add_argument("--background", help="hex colour")
     p.add_argument("--count", type=int, default=1); p.add_argument("--priority", type=int, default=0)

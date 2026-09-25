@@ -143,3 +143,43 @@ Only the paired chat is answered. The bot long-polls Telegram from inside
 `factory serve`, so nothing on this machine is exposed and it works from a
 container as well as a laptop. `factory notify` posts a test to every sink
 that is configured; Settings → Alerts shows the same and has a button.
+
+## Bulk work
+
+Many jobs at once, from a file or from an agent, checked together before any
+of them is queued (`factory/batch/`).
+
+    factory tasks import jobs.csv --dry-run     # check every row, queue nothing
+    factory tasks import jobs.csv               # all rows or none
+    factory tasks import jobs.csv --partial     # queue the rows that pass
+
+A row is either an ad-hoc clip or a season level:
+
+```csv
+ref,generator,variant,stage,count,level,brief,hint_title
+wk40-a,physics,marble_race,zigzag,2,,a loose zigzag with a close finish,
+wk40-b,battle,ball_battle,,1,,,
+wk40-c,,,,,L02..L04,,
+```
+
+`.json` (a list, or `{"jobs": [...]}`), `.jsonl` and `.yaml` hold the same
+fields. A level row takes its stage, cast and story from the season file and
+is refused for the same reasons `season plan` refuses it; a range expands to
+one row per level. `ref` is the row's own key: importing the same file twice
+queues nothing the second time. `brief` (what you want, in words) and `hints`
+(`hint_title`, `hint_hook`, `hint_pin`, `hint_desc` in a CSV) travel with the
+task to whoever makes the clip, and the copy brain starts from them — still
+held to the channel's rules.
+
+**From an agent.** Hand an agent a brief — a content plan, a list, a
+paragraph — and ask it to queue it. Over MCP it calls `batch_options` (what
+can be made: modules, stages, cast, the season's ready and blocked levels, the
+job schema), maps the brief to rows (the `bulk-brief` playbook says how), and
+calls `enqueue_batch` — a dry run by default, so it shows you the receipt
+before anything is queued. An agent's batch holds at most 50 rows and never
+sets a priority above 5.
+
+**Adding a rule or a format** is adding a class: a validator with
+`check(spec, ctx) -> [reasons]` in `batch/validators.py`, or a source with
+`read() -> rows` in `batch/sources.py` and one line in `SOURCES`. The service
+never changes.

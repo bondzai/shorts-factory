@@ -109,6 +109,17 @@ def migrate(conn: sqlite3.Connection) -> list[str]:
                updated_at TEXT NOT NULL, PRIMARY KEY (section, key))"""
     )
 
+    # Bulk work (factory/batch): which import a task came from, and the row's
+    # own key so the same file imported twice does not queue it twice.
+    for column in ("batch_id", "ref"):
+        if column not in _columns(conn, "tasks"):
+            conn.execute(f"ALTER TABLE tasks ADD COLUMN {column} TEXT")
+            done.append(f"tasks.{column} added")
+    conn.execute("""CREATE TABLE IF NOT EXISTS batches (
+    id TEXT PRIMARY KEY, channel_id TEXT NOT NULL, source TEXT NOT NULL, created_by TEXT,
+    created_at TEXT NOT NULL, rows INTEGER NOT NULL, accepted INTEGER NOT NULL,
+    refused INTEGER NOT NULL, ref TEXT)""")
+
     if "purged_at" not in _columns(conn, "clips"):
         conn.execute("ALTER TABLE clips ADD COLUMN purged_at TEXT")
         done.append("clips.purged_at added")
@@ -429,12 +440,13 @@ TASK_QUEUED, TASK_CLAIMED, TASK_DONE, TASK_FAILED, TASK_CANCELLED = (
 
 def enqueue_task(
     conn: sqlite3.Connection, channel_id: str, kind: str, params: dict[str, Any],
-    *, by: str = "human", priority: int = 0,
+    *, by: str = "human", priority: int = 0, batch_id: str | None = None, ref: str | None = None,
 ) -> int:
     cur = conn.execute(
-        """INSERT INTO tasks (channel_id, kind, params_json, status, priority, created_at, created_by)
-           VALUES (?, ?, ?, 'queued', ?, ?, ?)""",
-        (channel_id, kind, json.dumps(params), priority, now(), by),
+        """INSERT INTO tasks (channel_id, kind, params_json, status, priority, created_at, created_by,
+                              batch_id, ref)
+           VALUES (?, ?, ?, 'queued', ?, ?, ?, ?, ?)""",
+        (channel_id, kind, json.dumps(params), priority, now(), by, batch_id, ref),
     )
     conn.commit()
     return int(cur.lastrowid)

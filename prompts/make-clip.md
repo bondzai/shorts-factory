@@ -7,6 +7,11 @@ similarity — read them.
 
 ## The loop
 
+0. If the task carries `brief` or `hints`, that is what the operator asked for:
+   let the brief steer what you look for and write, and start the title, hook
+   and pinned comment from the hints — then hold them to the rules below. A
+   hint that names the winner or a number the race did not produce is dropped,
+   not followed.
 1. `render_clip` with a generator, a variant and a seed. It returns a JSON
    summary, four sampled frames, and `recent_on_this_channel`.
 2. **Look at the frames before writing anything.** Describe what you actually

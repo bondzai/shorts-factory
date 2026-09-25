@@ -25,7 +25,9 @@ KINDS: dict[str, dict[str, Any]] = {
         "params": {"generator": "physics", "variant": "marble_race", "stage": None, "background": None, "seed": None,
                    # series layer (docs/08): set by `season plan`, read by the generator
                    "section": None, "rounds": None, "cast": None, "story": None, "max_story_attempts": None,
-                   "prefer_pool": None, "level_id": None, "season_id": None, "format": None},
+                   "prefer_pool": None, "level_id": None, "season_id": None, "format": None,
+                   # what the operator asked for, in words: read by whoever makes the clip
+                   "brief": None, "hints": None},
         "builtin": True,
     },
     "plan-week": {
@@ -69,6 +71,7 @@ def _same(have: Any, want: Any) -> bool:
 def enqueue(
     conn: sqlite3.Connection, channel_id: str, kind: str, params: dict[str, Any] | None = None,
     *, count: int = 1, by: str = "human", priority: int = 0,
+    batch_id: str | None = None, ref: str | None = None,
 ) -> list[int]:
     if kind not in KINDS:
         raise ValueError(f"no task kind {kind!r}; have {sorted(KINDS)}")
@@ -92,7 +95,8 @@ def enqueue(
             raise ValueError(f"no stage {params['stage']!r}; have {sorted(physics.STAGES)}")
         if params.get("background"):
             physics.parse_hex(params["background"])  # raises with the reason
-    ids = [db.enqueue_task(conn, channel_id, kind, params, by=by, priority=priority) for _ in range(count)]
+    ids = [db.enqueue_task(conn, channel_id, kind, params, by=by, priority=priority, batch_id=batch_id, ref=ref)
+           for _ in range(count)]
     logs.event("task.queued", channel=channel_id, kind=kind, count=count, params=params, by=by)
     return ids
 
