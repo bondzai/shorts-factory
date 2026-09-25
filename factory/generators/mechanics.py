@@ -435,12 +435,18 @@ class Rig:
         sign=1 | -1: while the clock is truthy (always, with none) every pair
         of marbles closer than k x their summed radii is drawn with the pair
         force between them — facing arcs that brighten as they close when it
-        pushes, a dotted tether when it pulls; World 8). Both renderers draw
-        them."""
-        if kind not in ("blackout", "countdown", "die", "prop", "field"):
-            raise ValueError(f"no effect {kind!r}; have blackout, countdown, die, prop, field")
-        if "at" in data:
-            data["at"] = list(self._pt(data["at"]))
+        pushes, a dotted tether when it pulls; World 8), "board" (rows=[{name,
+        points, color}], at=(x, y), title=...: a table drawn over the race for
+        the whole round — L99's season standings, filled in at plan time, never
+        by the render), "sketch" (clock=..., a=(x, y), b=(x, y): a dashed
+        blueprint line from a to b while the clock is falsy — L100's track
+        before it is built). A prop may take look="silhouette": a dark marble
+        with a rim of light (L100). Both renderers draw them."""
+        if kind not in ("blackout", "countdown", "die", "prop", "field", "board", "sketch"):
+            raise ValueError(f"no effect {kind!r}; have blackout, countdown, die, prop, field, board, sketch")
+        for key in ("at", "a", "b"):
+            if key in data:
+                data[key] = list(self._pt(data[key]))
         self.effects.append({"kind": kind, **data})
 
     def no_finish_line(self) -> None:
@@ -479,8 +485,9 @@ class Rig:
             if d.lamps:
                 d.lamps = [[w - x, y] for x, y in d.lamps]
         for e in self.effects:
-            if "at" in e:
-                e["at"] = [w - e["at"][0], e["at"][1]]
+            for key in ("at", "a", "b"):
+                if key in e:
+                    e[key] = [w - e[key][0], e[key][1]]
         if self.walls:
             raise ValueError("a moving wall cannot be mirrored; register it after the mirror")
         self.mirrored = True

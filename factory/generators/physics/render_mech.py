@@ -203,6 +203,90 @@ def props(mech: dict, frame: int, look: str | None = None):
     return out
 
 
+# --- the board and the silhouette (World 10) ---------------------------------------------
+#
+# A board is a table the level brought with it (L99: the season standings as
+# planning read them), drawn for the whole round in a dark panel centred on
+# its `at`. Two columns once it has more than three rows, so six fit in the
+# strip under the finish line. Drawn by PIL for both renderers — one picture,
+# cached — so the pygame and PIL frames carry the same table.
+SILHOUETTE_RIM = (196, 202, 218)
+SKETCH = (120, 180, 245)  # blueprint blue
+SKETCH_DASH = (18.0, 10.0)
+
+
+def sketches(mech: dict, frame: int, sim_h: float):
+    """Dashes ((x0, y0), (x1, y1)) in image coordinates for every sketch whose
+    clock is falsy now: a blueprint line not built yet."""
+    out = []
+    on, off = SKETCH_DASH
+    for e in mech.get("effects") or ():
+        if e["kind"] != "sketch" or clock_at(mech, e.get("clock"), frame):
+            continue
+        (ax, ay), (bx, by) = e["a"], e["b"]
+        length = math.hypot(bx - ax, by - ay)
+        if length <= 0:
+            continue
+        ux, uy = (bx - ax) / length, (by - ay) / length
+        s = 0.0
+        while s < length:
+            t = min(s + on, length)
+            out.append(((ax + ux * s, sim_h - (ay + uy * s)), (ax + ux * t, sim_h - (ay + uy * t))))
+            s += on + off
+    return out
+BOARD_TEXT = (245, 245, 245)
+_BOARD_CACHE: dict = {}
+
+
+def board_image(e: dict, sim_w: int, caption):
+    """The board as an RGBA PIL image."""
+    import json
+
+    from PIL import Image, ImageDraw
+
+    key = (json.dumps(e, sort_keys=True, default=str), sim_w, tuple(caption))
+    if key in _BOARD_CACHE:
+        return _BOARD_CACHE[key]
+    from ...brand import _font
+
+    rows = e.get("rows") or []
+    title = e.get("title")
+    font, small = _font(19), _font(14)
+    cols = 2 if len(rows) > 3 else 1
+    per = max(1, math.ceil(len(rows) / cols))
+    row_h, col_w = 25, int(sim_w * 0.45)
+    head = 19 if title else 0
+    size = (col_w * cols + 12, head + per * row_h + 10)
+    image = Image.new("RGBA", size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    draw.rounded_rectangle([0, 0, size[0] - 1, size[1] - 1], radius=10, fill=(8, 8, 12, 170))
+    if title:
+        draw.text((10, 3), title, font=small, fill=(*tuple(caption), 255))
+    for k, r in enumerate(rows):
+        c, j = divmod(k, per)
+        x, y = 8 + c * col_w, head + 4 + j * row_h
+        colour = tuple(r.get("color") or caption)
+        draw.ellipse([x + 2, y + 5, x + 15, y + 18], fill=(*colour, 255))
+        draw.text((x + 21, y), f"{k + 1}  {r['name']}", font=font, fill=(*BOARD_TEXT, 255))
+        points = str(r.get("points", ""))
+        draw.text((x + col_w - 14 - draw.textlength(points, font=font), y), points, font=font,
+                  fill=(*BOARD_TEXT, 255))
+    _BOARD_CACHE[key] = image
+    return image
+
+
+def boards(mech: dict, sim_w: int, sim_h: int, caption):
+    """(image, (left, top)) for each board, in image coordinates."""
+    out = []
+    for e in mech.get("effects") or ():
+        if e["kind"] != "board" or not e.get("rows"):
+            continue
+        img = board_image(e, sim_w, caption)
+        x, y = e.get("at") or (sim_w / 2, 55.0)
+        out.append((img, (int(round(x - img.width / 2)), int(round(sim_h - y - img.height / 2)))))
+    return out
+
+
 # --- colour gates (World 9) -------------------------------------------------------------
 #
 # A door with a `look` is a colour gate. Shut, its bar is drawn in the
@@ -381,6 +465,8 @@ def pil_under(draw, style, mech: dict, frame: int, t: float, sim_h: float) -> No
         a, b = s["a"], s["b"]
         draw.line([(a[0], sim_h - a[1]), (b[0], sim_h - b[1])],
                   fill=surface_colour(s["kind"], st), width=style.thickness)
+    for p0, p1 in sketches(mech, frame, sim_h):
+        draw.line([p0, p1], fill=SKETCH, width=4)
     pil_dice(draw, mech, frame, "under", sim_h)
 
 
@@ -439,6 +525,10 @@ def pil_over(draw, style, mech: dict, frame: int, sim_h: float, colours: dict) -
         draw.ellipse([x - r, iy - r, x + r, iy + r], fill=c)
         for rib in ribs:
             draw.line(rib, fill=mix(c, (0, 0, 0), 0.35), width=2)
+    for x, y, r, c in props(mech, frame, "silhouette"):
+        iy = sim_h - y
+        draw.ellipse([x - r - 3, iy - r - 3, x + r + 3, iy + r + 3], fill=SILHOUETTE_RIM)
+        draw.ellipse([x - r, iy - r, x + r, iy + r], fill=c)
 
 
 def pil_top(image, style, mech: dict, frame: int, sim_w: int, sim_h: int):
@@ -460,6 +550,8 @@ def pil_top(image, style, mech: dict, frame: int, sim_w: int, sim_h: int):
         for text, x, y in shown:
             width = draw.textlength(text, font=font)
             draw.text((x - width / 2, sim_h - y - sim_w * 0.05), text, font=font, fill=style.caption)
+    for img, at in boards(mech, sim_w, sim_h, style.caption):
+        image.paste(img, at, img)
     return image
 
 
@@ -495,6 +587,8 @@ def pg_under(surface, style, mech: dict, frame: int, t: float, sim_h: float) -> 
         a, b = s["a"], s["b"]
         fx.capped_line(surface, (a[0], sim_h - a[1]), (b[0], sim_h - b[1]), style.thickness,
                        surface_colour(s["kind"], st))
+    for p0, p1 in sketches(mech, frame, sim_h):
+        fx.capped_line(surface, p0, p1, 4, SKETCH)
     pg_dice(surface, mech, frame, "under", sim_h)
 
 
@@ -557,6 +651,9 @@ def pg_over(surface, style, mech: dict, frame: int, sim_h: float, colours: dict)
         fx.disc(surface, x, iy, r, c)
         for rib in ribs:
             pygame.draw.lines(surface, mix(c, (0, 0, 0), 0.35), False, rib, 2)
+    for x, y, r, c in props(mech, frame, "silhouette"):
+        fx.disc(surface, x, sim_h - y, r + 3, SILHOUETTE_RIM)
+        fx.disc(surface, x, sim_h - y, r, c)
 
 
 _TEXT_CACHE: dict = {}
@@ -578,3 +675,8 @@ def pg_top(surface, style, mech: dict, frame: int, sim_w: int, sim_h: int) -> No
             _TEXT_CACHE[key] = fx.text_surface(text, int(sim_w * 0.09), sim_w * 0.5, colour=style.caption)
         img = _TEXT_CACHE[key]
         surface.blit(img, (x - img.get_width() / 2, sim_h - y - img.get_height() / 2))
+    for img, at in boards(mech, sim_w, sim_h, style.caption):
+        key = ("board", id(img))
+        if key not in _TEXT_CACHE:
+            _TEXT_CACHE[key] = pygame.image.frombytes(img.tobytes(), img.size, "RGBA")
+        surface.blit(_TEXT_CACHE[key], at)

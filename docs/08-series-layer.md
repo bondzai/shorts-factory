@@ -201,6 +201,9 @@ overrides. Updated when a clip is **approved**, and recomputable from scratch
 table. Guests (`scores = false`) never score. Head-to-head is derived from
 results, never stored.
 
+A level with `scored: false` (L99's champion's lap after the final, L100's
+teaser) is never counted: approving its clip writes no result.
+
 Ranks are the generator's. A guest keeps its place in the result but earns
 nothing, so a regular behind a guest scores by its own rank. In `race` and
 `score`, a placement whose status is not `finished` scores 0. A level has one

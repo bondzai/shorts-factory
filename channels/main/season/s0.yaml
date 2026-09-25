@@ -2893,6 +2893,7 @@ levels:
   variant: marble_race
   params:
     stage: zigzag
+    rounds: 1
   entrants:
   - blaze
   - tide
@@ -2903,7 +2904,7 @@ levels:
   copy:
     angle: 'the bracket opens on the original first-week track, snow-covered: full circle'
     title: 'Grand Final quarterfinal: seed one vs eight'
-    hook: Top seed, bottom seed
+    hook: Back the top seed?
     desc: The bracket opens on the original first-week track, snow-covered. Full circle. The loser is out of the season.
     pin: Christmas Eve quarterfinal. Does the top seed hold, or is this the upset?
     pin_type: predict_outcome
@@ -2912,57 +2913,72 @@ levels:
   blocked_on: null
   operator_input:
     seeds: stand-in - blaze vs tide, no standings yet
-  note: STAND-IN VALUES set 2026-09-25, replace when the real vote or seeds exist. World 1 track -> zigzag (L01's stage) under the Christmas theme. Seed 1 vs seed 8. Seeds come from standings at plan time; do not hard-code names. A six-marble cast cannot fill the plan's eight seeds, so the operator decides byes or guests.
+  note: 'STAND-IN VALUES set 2026-09-25, replace when the real seeds exist: entrants are seeds one and eight from the standings at plan time. World 1 track -> zigzag (L01''s stage), live. Snow-covered is the Christmas theme (window 12-01..12-26, snow falling), which is active on this date: the theme follows the render date, not the level (as L87). Stage QA (docs/06, World 10): the blaze-tide duel passes every gate; pairs rotating through the six persona pass all but parked (1 of 7 unfinished). A six-marble cast cannot fill the plan''s eight seeds, so the operator decides byes or guests.'
 - id: L92
   date: 2026-12-25
   world: grand-final
   generator: physics
   variant: marble_race
   params:
-    section: haunted-maze
-  entrants: []
-  format: elimination
+    stage: hauntedfinal
+    section: haunted-maze-final
+    rounds: 1
+    mechanics:
+      open_share: 0.12
+      fork:
+      - 1.3
+      - 1.45
+  entrants:
+  - moss
+  - ember
+  format: race
   story:
     must:
       finishers: '>=1'
+      any_event: fog_down
   copy:
     angle: the Halloween maze returns for one race, lit for Christmas
     title: 'Christmas Day marble race: the haunted maze'
-    hook: The maze is back
+    hook: Pick your quarterfinalist
     desc: The Halloween maze returns for one race, lit for Christmas. Seeds four and five. Merry Christmas from Gravity Lab.
     pin: Christmas race. Pick your quarterfinalist and share your favorite race of the year below.
     pin_type: pick_color
   rematch_of: L37
-  status: blocked
-  blocked_on: 'WP7 halloween-maze: maze with dead ends (reused from World 4)'
+  status: ready
+  blocked_on: null
   operator_input:
-    seeds: null
-  note: Anchored to Dec 25. Declared rematch venue of L37. Seed 4 vs seed 5. Seeds come from standings at plan time; do not hard-code names. A six-marble cast cannot fill the plan's eight seeds, so the operator decides byes or guests.
+    seeds: stand-in - moss vs ember, no standings yet
+  note: 'STAND-IN VALUES set 2026-09-25, replace when the real seeds exist: entrants are seeds four and five from the standings at plan time. Anchored to Dec 25. The declared rematch venue of L37: its stage and mechanic exactly (hauntedfinal, haunted-maze-final: the maze, pumpkins, the fog over the middle, a web, the coffin opening 12% of its cycle, forks 1.30-1.45 rooms). Race, not elimination, for L37''s reason: with two marbles an elimination is decided by the first fall; the first across wins, and a marble a dead end or the coffin takes is out. Lit for Christmas is the Christmas theme by date (as L87). Stage QA (docs/06, World 10): moss-ember and rotating pairs pass; someone is out in 21 of 48, nobody home in 6 (the story keeps a finisher). A six-marble cast cannot fill the plan''s eight seeds, so the operator decides byes or guests.'
 - id: L93
   date: 2026-12-26
   world: grand-final
   generator: physics
   variant: marble_race
   params:
-    section: dice-quarterfinal
-  entrants: []
+    stage: dicetriple
+    section: dice-gates-duel
+    rounds: 1
+  entrants:
+  - volt
+  - nova
   format: race
   story:
     must:
       lead_changes: '>=1'
+      any_event: rolled
   copy:
     angle: the dice track picks the path and doesn't care about seeding
     title: 'Dice quarterfinal: seed two vs seed seven'
-    hook: The die ignores seeding
+    hook: Call it before the die
     desc: The dice track picks the path; the die doesn't care about seeding. Two semifinal spots are filled after tonight.
     pin: Does the die save the lower seed? Comment "save" or "sink".
     pin_type: either_or
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 dice: dice gates (reused from World 6)'
+  status: ready
+  blocked_on: null
   operator_input:
-    seeds: null
-  note: Seed 2 vs seed 7. Seeds come from standings at plan time; do not hard-code names. A six-marble cast cannot fill the plan's eight seeds, so the operator decides byes or guests.
+    seeds: stand-in - volt vs nova, no standings yet
+  note: 'STAND-IN VALUES set 2026-09-25, replace when the real seeds exist: entrants are seeds two and seven from the standings at plan time. The dice track -> World 6''s duel stage and mechanic (dicetriple, dice-gates-duel, as L54): three dice gates, each die picking a lane. Stage QA (docs/06, World 10): rotating pairs pass every gate; volt-nova passes all but parked (1 of 5 unfinished). A six-marble cast cannot fill the plan''s eight seeds, so the operator decides byes or guests.'
 - id: L94
   date: 2026-12-27
   world: grand-final
@@ -2976,66 +2992,80 @@ levels:
   copy:
     angle: 'last quarterfinal: shrinking arena, no finish line'
     title: 'Arena quarterfinal: sudden death'
-    hook: Last one standing advances
+    hook: Who survives the arena?
     desc: 'The last quarterfinal: shrinking arena, no finish line. The last marble standing goes to the semis.'
     pin: Arena sudden death. Who's standing when the walls stop?
     pin_type: predict_outcome
   rematch_of: null
   status: blocked
-  blocked_on: 'WP7 arena: shrinking arena (reused from World 7)'
+  blocked_on: 'WP7 arena: shrinking arena'
   operator_input:
     seeds: null
-  note: Seed 3 vs seed 6. Seeds come from standings at plan time; do not hard-code names. A six-marble cast cannot fill the plan's eight seeds, so the operator decides byes or guests.
+  note: Seed 3 vs seed 6. World 7's shrinking arena is built in parallel (WP7 arena) and is not on this branch; the level stays blocked until it lands and names its stage and mechanic here. Seeds come from standings at plan time; do not hard-code names. A six-marble cast cannot fill the plan's eight seeds, so the operator decides byes or guests.
 - id: L95
   date: 2026-12-28
   world: grand-final
   generator: physics
   variant: marble_race
   params:
+    stage: magnetgates
     section: gauntlet-magnets-ice-gates
-  entrants: []
+    rounds: 1
+  entrants:
+  - blaze
+  - moss
   format: race
   story:
     must:
+      lead_changes: '>=1'
+      any_event: flipped
+    prefer:
       lead_changes: '>=2'
   copy:
     angle: three worlds in one track; the winner goes to the New Year's Eve final
     title: 'Grand Final semifinal: magnets, ice, gates'
-    hook: Three worlds, one track
-    desc: Three worlds in one track. The winner goes to the New Year's Eve final.
+    hook: Which world decides it?
+    desc: Three worlds in one track. Magnets that flip, then a color gate on ice. The winner goes to the New Year's Eve final.
     pin: 'Semifinal one. Which world''s mechanic decides it: magnet, ice or gate?'
     pin_type: either_or
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 grand-final: composite gauntlet: magnets, ice, colour gates'
+  status: ready
+  blocked_on: null
   operator_input:
-    seeds: null
-  note: Winners of L91 and L92. Seeds come from standings at plan time; do not hard-code names. A six-marble cast cannot fill the plan's eight seeds, so the operator decides byes or guests.
+    seeds: stand-in - blaze vs moss (the L91 and L92 stand-ins), no results yet
+  note: 'STAND-IN VALUES set 2026-09-25, replace when the real results exist: entrants are the winners of L91 and L92. magnetgates (trial, docs/06 World 10): pegs, a band of World 3''s magnets, World 9''s colour gate with World 5''s ice for arms, pegs. gauntlet-magnets-ice-gates: the magnets pull, then flip to a jolt and a push once the leader is a third of the way down (World 3''s flip); the gate lights one seeded colour and holds the other 1.4-2 s (World 9). The ice is the gate''s arms: a band of ice ramps above the gate parked marbles on it. Stage QA passes on theme marbles; a duel changes the lead 1.0-1.4 times a race against the 1.5 gate, recorded as World 3 and World 8 recorded theirs (docs/06). The prefer asks the seed search for two lead changes where it can find them.'
 - id: L96
   date: 2026-12-29
   world: grand-final
   generator: physics
   variant: marble_race
   params:
+    stage: trapdice
     section: gauntlet-trapdoors-repulsion-dice
-  entrants: []
+    rounds: 1
+  entrants:
+  - nova
+  - tide
   format: race
   story:
     must:
-      any_event: trap_catch
+      any_event: rolled
+      finishers: '>=1'
+    prefer:
+      lead_changes: '>=2'
   copy:
     angle: 'the other half of the bracket: trapdoors, repulsion and dice gates'
     title: 'Second semifinal: trapdoors, repulsion, dice'
-    hook: The other half of the bracket
-    desc: 'The other half of the bracket: trapdoors, repulsion and dice gates. The final matchup is set after this race.'
+    hook: Who reaches the final?
+    desc: 'The other half of the bracket: a dice gate, a trapdoor, and two marbles that push each other apart. The final matchup is set after this race.'
     pin: Who reaches the final, and who did you want to see there instead?
     pin_type: predict_outcome
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 grand-final: composite gauntlet: trapdoors, repulsion, dice gates'
+  status: ready
+  blocked_on: null
   operator_input:
-    seeds: null
-  note: Winners of L93 and L94. Seeds come from standings at plan time; do not hard-code names. A six-marble cast cannot fill the plan's eight seeds, so the operator decides byes or guests.
+    seeds: stand-in - nova vs tide (L93's stand-in winner and a stand-in for L94, which is blocked), no results yet
+  note: 'STAND-IN VALUES set 2026-09-25, replace when the real results exist: entrants are the winners of L93 and L94 (L94 is blocked on World 7; tide stands in for its winner). trapdice (trial, docs/06 World 10): World 6''s dice gate into three lanes, World 2''s trapdoor panel under pegs, pegs. gauntlet-trapdoors-repulsion-dice: the die rolls as the leader reaches the gate, the panel opens on a seeded cycle (30% open, shut for the first 2.5 s) and takes whoever is on its lid, and every marble pushes every other apart (World 8''s push, 1.6 x gravity). The panel was above the gate first; a duel was past it before it could open. It opens in every race and takes one of the two in 4-9 races of 48 (by pair), so the story asks for the die and a finisher, not a catch (a duel with a catch has nobody left to race). Stage QA passes on the pair, on rotating pairs and on theme marbles.'
 - id: L97
   date: 2026-12-30
   world: grand-final
@@ -3043,9 +3073,10 @@ levels:
   variant: marble_race
   params:
     stage: quarry
+    rounds: 1
   entrants:
-  - volt
   - moss
+  - tide
   format: race
   story:
     must:
@@ -3053,7 +3084,7 @@ levels:
   copy:
     angle: the two semifinal losers race on the track the comments chose
     title: 'Third place marble race: bronze on the line'
-    hook: Bronze is on the line
+    hook: Your pick for bronze?
     desc: The two semifinal losers race on the track the comments chose.
     pin: Bronze race. Should third place matter? Yes or no, and pick your marble.
     pin_type: either_or
@@ -3061,67 +3092,105 @@ levels:
   status: ready
   blocked_on: null
   operator_input:
-    seeds: stand-in - volt vs moss, no semifinals yet
-    stage: quarry
-  note: STAND-IN VALUES set 2026-09-25, replace when the real vote or seeds exist. Losers of L95 and L96. Operator sets params.stage to the fan-chosen passing stage (drop section). Seeds come from standings at plan time; do not hard-code names. A six-marble cast cannot fill the plan's eight seeds, so the operator decides byes or guests.
+    seeds: stand-in - moss vs tide (the L95 and L96 stand-ins' other halves), no semifinals yet
+    stage: stand-in - quarry, no vote yet
+  note: 'STAND-IN VALUES set 2026-09-25, replace when the real vote or results exist: entrants are the losers of L95 and L96; params.stage is the fan-chosen stage, which must be one that passes docs/06 (drop section unless the stage needs one). The stand-in was volt vs moss; the pair changed with the bracket''s stand-ins, and volt-moss on quarry left 2 of 7 unfinished parked. quarry is live; moss-tide passes every gate over 48 seeds (docs/06, World 10). Seeds come from standings at plan time; do not hard-code names.'
 - id: L98
   date: 2026-12-31
   world: grand-final
   generator: physics
   variant: marble_race
   params:
+    stage: hauntedfinal
     section: grand-final-composite
     rounds: 3
-  entrants: []
+    mechanics:
+      open_share: 0.12
+      fork:
+      - 1.3
+      - 1.45
+    round_params:
+    - {}
+    - stage: trapdice
+      mechanics:
+        repel: 1.6
+    - stage: magnetgates
+      mechanics: {}
+  entrants:
+  - blaze
+  - nova
   format: race
   final: true
   story:
     must:
       rounds: '>=3'
       lead_changes: '>=2'
+      finishers: '>=1'
   copy:
-    angle: 'Grand Final on New Year''s Eve: every mechanic from every world, three rounds, two marbles'
-    title: 'Marble race Grand Final: every world'
-    hook: Every world. One champion.
-    desc: Every mechanic from every world, three rounds, two marbles, one Season Zero champion. New Year's Eve.
+    angle: 'Grand Final on New Year''s Eve: the season''s worlds in three rounds, two marbles'
+    title: 'Grand Final marble race: the season in three rounds'
+    hook: Pick your champion
+    desc: Three rounds through the season's worlds. The haunted maze, then dice, a trapdoor and marbles that push apart, then magnets and a color gate on ice. The last round crowns the Season Zero champion. New Year's Eve.
     pin: The final. Pick your champion. The first correct prediction gets named in the Season One opener.
     pin_type: pick_color
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 grand-final: composite of every world''s sections, three rounds'
+  status: ready
+  blocked_on: null
   operator_input:
-    seeds: null
-  note: 'Anchored to Dec 31. Three laps -> rounds: 3. Winners of L95 and L96.'
+    seeds: stand-in - blaze vs nova (the L95 and L96 stand-ins), no semifinals yet
+  note: 'STAND-IN VALUES set 2026-09-25, replace when the real results exist: entrants are the winners of L95 and L96. Anchored to Dec 31. Laps are rounds: rounds 3, each on its own stage, every one a gauntlet (grand-final-composite switches on each world''s mechanism the round''s stage has). Round one hauntedfinal (World 4, with World 2''s panel as the coffin; L92''s knobs), round two trapdice (Worlds 6, 2 and 8), round three magnetgates (Worlds 3, 9 and 5, pegs as in World 1). Not every world: World 7''s arena has no finish line and cannot be a round of a race. The core places the last round (docs/08, Outcome), so round three decides the champion and the copy says so; the story keeps a finisher. Stage QA (docs/06, World 10): rounds one and two pass on the pair; round three passes on theme marbles and changes the lead 1.1-1.4 times in a duel (recorded as L95).'
 - id: L99
   date: 2027-01-01
   world: grand-final
   generator: physics
   variant: marble_race
   params:
+    stage: trapdice
     section: champion-lap
-  entrants: []
+    rounds: 3
+    mechanics:
+      standings: at_plan
+    round_params:
+    - {}
+    - stage: magnetgates
+      mechanics:
+        standings: at_plan
+    - stage: hauntedfinal
+      mechanics:
+        standings: at_plan
+        fork:
+        - 1.3
+        - 1.45
+  entrants:
+  - blaze
   format: race
-  story: {}
+  scored: false
+  story:
+    must:
+      finishers: ==1
+      no_event: eliminated
   copy:
-    angle: a solo victory lap through every world with the full season standings on screen
+    angle: a solo lap through the Grand Final's three tracks with the season standings on screen
     title: 'Champion''s lap: the trophy run'
-    hook: One marble. Every world.
-    desc: A solo victory lap through every world, with the full season standings on screen. Every result of the season is in the description below.
+    hook: Your race of the season?
+    desc: A solo lap through the Grand Final's three tracks, with the season standings on screen.
     pin: Season Zero is done. What was the best race of the year? Reply with the level.
     pin_type: vote_track
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 grand-final: solo lap through every world with a season standings overlay'
+  status: ready
+  blocked_on: null
   operator_input:
-    champion: null
-  note: 'champion: the L98 winner. Not a race; format race with one entrant.'
+    champion: stand-in blaze
+  note: 'STAND-IN VALUES set 2026-09-25, replace when the real champion exists: the entrant is the L98 winner. Not a race and not scored (scored: false): the champion alone through the final''s three tracks (trapdice, magnetgates, hauntedfinal) with champion-lap, which runs each track''s mechanisms as the final did but keeps every trapdoor and the coffin shut, and draws the season standings under the finish line in every round. The board is the table planning reads when the level is planned (mechanics.standings: at_plan is replaced by the rows, docs/10); with no table filled in, no board is drawn. Solo, as L38: no runner-up and no lead to change; the story keeps a run with no marble out (the maze''s dead ends) and one home. Over 48 seeds per track every solo run finished (docs/06, World 10).'
 - id: L100
   date: 2027-01-02
   world: grand-final
   generator: physics
   variant: marble_race
   params:
+    stage: construction
     section: season-one-teaser
+    rounds: 1
   entrants:
   - blaze
   - tide
@@ -3130,16 +3199,19 @@ levels:
   - nova
   - ember
   format: race
-  story: {}
+  scored: false
+  story:
+    must:
+      any_event: built
   copy:
     angle: a first look at the next season's track under construction and a new marble's silhouette
     title: 'Season One teaser: new track, new marble'
-    hook: Something new is coming
+    hook: Name the new marble
     desc: A first look at the Season One track under construction, and the silhouette of a new marble. Season One starts on Monday.
     pin: Name the new marble. The top-voted name becomes canon when Season One starts.
     pin_type: name_racer
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 grand-final: teaser scene: track under construction and a new marble''s silhouette (not a race)'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: 'Not a race: needs a non-race scene. The six regulars appear.'
+  note: 'Not a race and not scored (scored: false): the six regulars roll down a track under construction. construction (trial, docs/06 World 10): pegs, the scaffold section, pegs. Each scaffold ramp is a blueprint line (a door, open) until the field comes down to it and is built then, in construction yellow (a built event), never through a marble. From 85% of the way down a new marble''s silhouette sits by the line: a prop with no body, never an entrant. It rides the physics generator, so it has a trace and captions like any clip. Stage QA passes with the six.'

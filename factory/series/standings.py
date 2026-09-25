@@ -179,9 +179,13 @@ def record(conn: sqlite3.Connection, clip_id: str) -> dict[str, Any] | None:
         logs.event("standings.skipped", level="warn", channel=row["channel_id"], clip=clip_id,
                    reason="level clip has no outcome in its facts")
         return None
-    guard(conn, clip_id)
     season_id, level_id = ids
     season, level = _season_level(row["channel_id"], season_id, level_id)
+    if level is not None and not level.scored:
+        logs.event("standings.skipped", channel=row["channel_id"], clip=clip_id, level=level_id,
+                   reason="the level is marked scored: false")
+        return None
+    guard(conn, clip_id)
     rules = scoring(row["channel_id"], season.scoring if season else "default")
     points = rules.points(outcome, final=bool(level and level.final),
                           guests=_guests(cast_mod.load(row["channel_id"])))

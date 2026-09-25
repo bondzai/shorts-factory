@@ -129,7 +129,9 @@ A door gives each marble a collision bit, so a race holds at most 12
 | `rig.effect("countdown", clock=…, at=(x, y))` | the clock's value drawn as a number |
 | `rig.effect("die", clock=… \| value=k, at=(x, y), size=px, layer="top" \| "under", tints={"1": rgb})` | a die face with pips; the clock's value is None (not drawn), a face, or `{"f": face, "s": "roll" \| "set" \| "lit" \| "dim"}` — tumbling while it rolls, ringed when lit, faded when dim. `worlds/dice.roll` registers one with its clocks |
 | `rig.effect("prop", clock=…, at=(x, y), radius=r, color=[r, g, b])` | a marble drawn there while the clock is truthy (always, with no clock): a picture with no body, never an entrant, never in the outcome — L50's purple watcher |
-| `rig.effect("prop", clock=…, track=True, look="pumpkin", radius=r, color=…)` | a prop drawn where its clock says: the clock's value is `[x, y]`, or None to hide it. How a world draws a body of its own that moves and is not a marble (World 4's pumpkins record their body's position this way); `look` picks a drawing, today only `pumpkin` |
+| `rig.effect("prop", clock=…, track=True, look="pumpkin", radius=r, color=…)` | a prop drawn where its clock says: the clock's value is `[x, y]`, or None to hide it. How a world draws a body of its own that moves and is not a marble (World 4's pumpkins record their body's position this way); `look` picks a drawing: `pumpkin`, or `silhouette` (a dark marble with a rim of light, L100's newcomer) |
+| `rig.effect("board", rows=[{name, points, color}], at=(x, y), title=…)` | a table in a dark panel centred on `at` for the whole round, two columns past three rows — L99's season standings. The rows are the level's (planning fills `mechanics.standings: at_plan` from the table before the level); the render never computes one |
+| `rig.effect("sketch", clock=…, a=(x, y), b=(x, y))` | a dashed blueprint line from a to b while the clock is falsy: track not built yet (L100's scaffold, whose ramps are doors that shut for good as the field arrives) |
 | `rig.effect("field", clock=…, reach=k, sign=1 \| -1)` | while the clock is truthy (always, with none), every pair of visible marbles closer than `k` x their summed radii is drawn with the pair force between them: facing arcs that brighten as they close (a push), a dotted tether (a pull). Drawn from the trace's positions, under the marbles — World 8's repulsion |
 
 Gate lights, surface textures and outward magnet chevrons need no effect
@@ -364,4 +366,38 @@ Five trial stages (`singlefile`, `blockade`, `mergelane`, `pitfunnels`,
 `threeramps`); docs/06 "World 8" has their numbers, and one lesson for any
 world with a push: a marble in a throat holds the next one above it, so a
 push that reaches past a throat parks the queue behind it.
+
+## What World 10 built (L91–L100)
+
+`factory/generators/physics/worlds/grand_final.py`. The Grand Final is the
+other worlds put together, so its one idea is **`gauntlet`**: a mechanic that
+looks at what the round's stage built — `style.magnets`, `gates_of(rig)`,
+`panels_of(rig)`, `dice_record(style)["gates"]`, `maze_of(rig)` and the
+coffin — and switches on each world's own mechanism for it (World 3's flip,
+World 9's random and cycling gates, World 2's cycling panels, World 6's dice,
+World 4's final maze with its fog, pumpkins and web, World 8's push when the
+knob `repel` says). A stage stacked from several worlds' sections (docs/06
+"World 10": `magnetgates`, `trapdice`) then races all of them, and a
+three-round level names a stage a round with `round_params` and one mechanic
+(`grand-final-composite`) for all three. Each round's `mechanics` in
+`round_params` replaces the level's, so a round's knobs are its own.
+
+Three things came with the levels that are not races:
+
+- **A table on screen** (L99): the `board` effect, and
+  `planning.fill_standings`, which replaces `mechanics.standings: at_plan`
+  (the level's, and each round's) with the standings before the level when
+  the level is planned — by `season plan` and by a batch. A render with no
+  rows filled in draws no board.
+- **Track under construction** (L100): the `scaffold` section's ramps are
+  doors, open and drawn as `sketch` blueprints, each shut for good the frame
+  the field is within reach above it and nothing is touching it; a `built`
+  event each.
+- **A level that does not score**: `scored: false` in the season file
+  (docs/08 "Standings") — L99's lap after the final and L100's teaser.
+
+Two lessons: a duel on World 9's random gate changes the lead less than the
+gate asks (the lit colour flies through; 1.0–1.4 a race), and a trapdoor
+panel above a dice gate never catches a duel, which is past it before World
+2's `GRACE_S` — the panel goes under the gate.
 

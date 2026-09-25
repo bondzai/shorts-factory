@@ -33,7 +33,7 @@ disagree, and two of its rules decided most of the conversion:
 | arena | L61–L70 | 0 | 10 | 0 | Nov 21 |
 | repel | L71–L80 | 9 | 1 | 0 | Dec 1 (built; docs/06 "World 8"; L77 waits on the arena) |
 | colour-gates | L81–L90 | 9 | 0 | 1 | done: World 9 stages pass docs/06 (L90 waits on the seed list) |
-| grand-final | L91–L100 | 0 | 8 | 2 | Dec 22 (L92 needs the World 4 maze) |
+| grand-final | L91–L100 | 9 | 1 | 0 | built; docs/06 "World 10" (L94 waits on the arena; brackets are stand-ins) |
 | **total** | | **24** | **72** | **4** | |
 
 Blocked wins over needs-input: a blocked level that also waits on the
@@ -231,14 +231,7 @@ what was approximated, and docs/06 "World 2" has the numbers.
 | L88 | Dec 21 | colour-gates | breakable colour gate with a penalty rule for heavy marbles | — |
 | L89 | Dec 22 | colour-gates | cycling gate on the seeding track | — |
 | L90 | Dec 23 | colour-gates | composite final: random, reverse, cycling and trapdoor gates on snow | — |
-| L92 | Dec 25 | grand-final | maze with dead ends (reused from World 4) | — |
-| L93 | Dec 26 | grand-final | dice gates (reused from World 6) | — |
 | L94 | Dec 27 | grand-final | shrinking arena (reused from World 7) | — |
-| L95 | Dec 28 | grand-final | composite gauntlet: magnets, ice, colour gates | — |
-| L96 | Dec 29 | grand-final | composite gauntlet: trapdoors, repulsion, dice gates | — |
-| L98 | Dec 31 | grand-final | composite of every world's sections, three rounds | — |
-| L99 | Jan 01 | grand-final | solo lap through every world with a season standings overlay | — |
-| L100 | Jan 02 | grand-final | teaser scene: track under construction and a new marble's silhouette (not a race) | — |
 
 ## Ready and needs-input levels
 
@@ -270,8 +263,15 @@ what was approximated, and docs/06 "World 2" has the numbers.
 | L58 | ready | plinko | — | section handicap-start: start cups numbered left to right; the die picks one, which goes early (head_start_s, 1.2 s). |
 | L59 | needs_input | dicegrid | back_marker | section handicap-back-start: a rolled grid, the back marker last with no die. Operator sets operator_input.back_marker and params.mechanics.back_marker to the standings leader at plan time. |
 | L60 | ready | dicefinal | — | section dice-final, rounds 3: rolled grid, a round die in the heat, a path die and a surface die at the gate. |
-| L91 | needs_input | zigzag | seeds | World 1 track -> zigzag (L01's stage) under the Christmas theme. Seed 1 vs seed 8. Seeds come from standings at plan time; do not hard-code names. A six-marble cast cannot fill the plan's eight seeds, so the operator decides byes or guests. |
-| L97 | needs_input | — | seeds, stage | Losers of L95 and L96. Operator sets params.stage to the fan-chosen passing stage (drop section). Seeds come from standings at plan time; do not hard-code names. A six-marble cast cannot fill the plan's eight seeds, so the operator decides byes or guests. |
+| L91 | ready (stand-in) | zigzag | seeds | World 1 track -> zigzag under the Christmas theme, rounds 1. Seed 1 vs seed 8; stand-in blaze vs tide. |
+| L92 | ready (stand-in) | hauntedfinal | seeds | L37's stage and mechanic as the declared rematch venue, race format, rounds 1; stand-in moss vs ember. |
+| L93 | ready (stand-in) | dicetriple | seeds | dice-gates-duel (L54's), rounds 1; stand-in volt vs nova. |
+| L95 | ready (stand-in) | magnetgates | seeds | gauntlet-magnets-ice-gates: magnet flip, a colour gate with ice arms; stand-in blaze vs moss. |
+| L96 | ready (stand-in) | trapdice | seeds | gauntlet-trapdoors-repulsion-dice: dice gate, trapdoor, the push; stand-in nova vs tide. |
+| L97 | ready (stand-in) | quarry | seeds, stage | Losers of L95 and L96 on the fan-chosen stage; stand-in moss vs tide on quarry. |
+| L98 | ready (stand-in) | hauntedfinal, trapdice, magnetgates | seeds | grand-final-composite, rounds 3, one stage a round; the last round places. Stand-in blaze vs nova. |
+| L99 | ready (stand-in) | trapdice, magnetgates, hauntedfinal | champion | champion-lap, rounds 3, solo, trapdoors shut, standings board filled at plan time; scored: false. |
+| L100 | ready | construction | — | season-one-teaser: scaffold ramps built as the field arrives, a silhouette by the line; scored: false. |
 
 ## Story and copy rewrites
 
@@ -391,4 +391,6 @@ that would make a hint name some entrants but not all. 89 rewrites: 19 story, 70
   (L56, L59, L75): dropped rather than rewritten into a result-driven arc.
 - **"Last frame matches first"** (plan §A2): dropped in docs/08 §9; a falling
   race cannot loop.
-- **L100** is not a race; it waits on a non-race scene.
+- **L100** is not a race: the six regulars roll down a track under
+  construction and a silhouette appears; `scored: false` keeps it (and L99's
+  lap) out of the standings.

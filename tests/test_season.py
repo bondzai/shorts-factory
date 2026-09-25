@@ -670,6 +670,37 @@ def test_a_fresh_rejected_clip_keeps_its_trace(chan):
     assert (d / "trace.json").exists()
 
 
+def test_a_level_marked_scored_false_never_counts(chan, fake_render):
+    levels = [level(n) for n in range(1, 4)]
+    levels[2]["scored"] = False  # World 10: L100's teaser, L99's lap
+    write_season(chan, levels)
+    with db.connect() as conn:
+        pipeline.approve(conn, render_level(conn, "L01", fake_render, ["tide", "volt"]))
+        pipeline.approve(conn, render_level(conn, "L03", fake_render, ["blaze", "tide"]))
+        rows = {r["entrant_id"]: r for r in table_now(conn)}
+        assert rows["tide"]["points"] == 3 and rows["tide"]["races"] == 1
+        assert rows["blaze"]["points"] == 0 and rows["blaze"]["wins"] == 0
+        before, after = recomputed(conn)
+        assert before == after
+
+
+def test_standings_at_plan_are_filled_into_the_task_from_the_table_before_the_level(chan, fake_render):
+    levels = [level(n) for n in range(1, 4)]
+    levels[2]["params"] = {"stage": "funnels", "rounds": 2, "mechanics": {"standings": "at_plan"},
+                           "round_params": [{}, {"stage": "same", "mechanics": {"standings": "at_plan"}}]}
+    write_season(chan, levels)
+    with db.connect() as conn:
+        pipeline.approve(conn, render_level(conn, "L01", fake_render, ["volt", "tide"]))
+        seasons.plan(conn, channels.get(conn, CH), "L03")
+        row = planning.level_row(conn, CH, "s0", "L03")
+        params = json.loads(db.get_task(conn, row["task_id"])["params_json"])
+    board = params["mechanics"]["standings"]
+    assert board == params["round_params"][1]["mechanics"]["standings"]
+    assert [r["name"] for r in board][:2] == ["Volt", "Tide"] and board[0]["points"] == 3
+    assert board[0]["color"] == [0xF5, 0xC5, 0x18]
+    assert params["round_params"][0] == {}
+
+
 def test_the_series_package_never_imports_a_generator():
     import pathlib
 

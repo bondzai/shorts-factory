@@ -22,6 +22,8 @@ from .worlds import haunted as w4  # World 4's maze sections, likewise
 
 from .worlds import repel as w8  # World 8's sections register with the kit on import
 
+from .worlds import grand_final as w10  # World 10: the scaffold section registers on import
+
 @dataclass(frozen=True)
 class Stage:
     """Everything the factory knows about one stage, in one place.
@@ -318,6 +320,16 @@ STAGE_SPECS: list[Stage] = [
              noun="the pits", blurb="pegs and two funnels, each with a pit at both edges"),
     composed("threeramps", [("ramp", 1.0), ("pegs", 0.8), ("ramp", 1.0), ("pegs", 0.8), ("ramp", 1.0)],
              gravity=-30.0, noun="ramps", blurb="three long ramps with pegs between them"),
+    # World 10, the Christmas Grand Final (L91-L100; worlds/grand_final.py): the
+    # earlier worlds' sections stacked into the semifinal and final tracks,
+    # and the Season One teaser's track under construction. Trial stages,
+    # each raced by the level that names it; docs/06 "World 10".
+    composed("magnetgates", list(w10.MAGNETGATES), gravity=-42.0, noun="the gauntlet",
+             blurb="pegs, magnets, a colour gate on ice, then pegs"),
+    composed("trapdice", list(w10.TRAPDICE), gravity=-45.0, noun="the gauntlet",
+             blurb="a dice gate into three lanes, a trapdoor panel under pegs, then pegs"),
+    composed("construction", list(w10.CONSTRUCTION), gravity=-50.0, noun="the new track",
+             blurb="pegs, ramps still being built, then pegs"),
     # COMPOSED-STAGES-END
 ]
 
@@ -453,6 +465,18 @@ MECHANIC_SPECS: list[Mechanic] = [
     Mechanic("repulsion-gauntlet", w8.repulsion_gauntlet, stage="pitfunnels",
              blurb="the push over funnels with a pit at each edge"),
     Mechanic("repel-final", w8.repel_final, stage="threeramps", blurb="the push on three long ramps"),
+
+    # World 10, the Christmas Grand Final (worlds/grand_final.py; docs/06 "World 10").
+    Mechanic("gauntlet-magnets-ice-gates", w10.magnets_ice_gates, stage="magnetgates",
+             blurb="the magnets flip, the ice, a colour gate on ice"),
+    Mechanic("gauntlet-trapdoors-repulsion-dice", w10.trapdoors_repulsion_dice, stage="trapdice",
+             blurb="a trapdoor on a cycle, a dice gate, every marble pushing every other"),
+    Mechanic("grand-final-composite", w10.grand_final, stage="magnetgates",
+             blurb="each round's stage with every world's mechanism it has switched on"),
+    Mechanic("champion-lap", w10.champion_lap, stage="magnetgates",
+             blurb="one marble through the final's tracks, trapdoors shut, the standings on screen"),
+    Mechanic("season-one-teaser", w10.season_one_teaser, stage="construction",
+             blurb="ramps built as the field comes down to them; a new marble's silhouette at the end"),
     # MECHANICS-END
 ]
 MECHANICS: dict[str, Mechanic] = {m.id: m for m in MECHANIC_SPECS}

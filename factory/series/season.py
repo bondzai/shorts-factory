@@ -46,6 +46,9 @@ class Level(BaseModel):
     entrants: list[str] = Field(default_factory=list)
     format: Format = "race"
     final: bool = False
+    # False: the level is not a contest (L100's teaser; L99's lap, run after
+    # the final) and its clip's result is never counted in the standings.
+    scored: bool = True
     story: Story = Field(default_factory=Story)
     copy_: CopyHints = Field(default_factory=CopyHints, alias="copy")
     rematch_of: str | None = None

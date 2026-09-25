@@ -469,3 +469,90 @@ What the numbers changed, in the order they were found:
   a cradle of peg, arm and wall (L78, seed 712); the rows stop a marble's room
   above it. A peg straight under the merge gap balanced a marble dropped
   through it (seed 707); the gap sits a seeded 14–24 px off the middle.
+## World 10: the Christmas Grand Final (L91–L100)
+
+Written by hand, not by `--report`: each row is a *level* (or one round of
+one), raced with its own params, seeds 700–747 through the render's retry
+loop (`stage_qa.run(stage, seeds, params=…, cast=…)`), measured 2026-09-25.
+The brackets race whoever the standings say at plan time, so each duel is
+measured three ways: **pair**, the level's stand-in pair; **rot2**, a pair
+that rotates through the fifteen pairs of the six persona by seed (as World 4
+measured L36–L38); **theme**, the theme's three to five marbles. L99 rotates
+one marble through the six (`rot1`). The three new stages are trial
+(weight 0); L91 (zigzag) and L97 (quarry) race live stages, and L92, L93 and
+round one of L98 race World 4's and World 6's trial stages. Everything is in
+`factory/generators/physics/worlds/grand_final.py`. L94 is not here: it waits
+on World 7's shrinking arena.
+
+| level | stage · section | field | g | finished | first try | runner-up | parked | median s | leads | wins | verdict |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| L91 | `zigzag` | pair (blaze, tide) | -600 | 48/48 | 40/48 | 100% | 0/8 | 14.3 | 2.8 | T28 B20 | pass |
+| L91 | `zigzag` | rot2 | -600 | 48/48 | 41/48 | 98% | 1/7 (2 short) | 14.9 | 2.8 | B10 T9 M9 N9 E7 V4 | parked 1/7 (a duel leaves 7 unfinished) |
+| L92 | `hauntedfinal` · `haunted-maze-final` | pair (moss, ember) | -90 | 48/48 | 48/48 | 56% | 0/0 | 17.6 | 1.7 | M21 E21 | pass |
+| L92 | same | rot2 | -90 | 48/48 | 48/48 | 54% | 0/0 | 16.6 | 1.6 | B10 M10 V8 E6 T6 N3 | pass |
+| L93 | `dicetriple` · `dice-gates-duel` | pair (volt, nova) | -150 | 48/48 | 45/48 | 90% | 1/5 | 16.6 | 2.6 | V25 N23 | parked 1/5 (one marble) |
+| L93 | same | rot2 | -150 | 48/48 | 44/48 | 94% | 0/3 | 16.3 | 2.9 | B10 V9 M8 E8 T7 N6 | pass |
+| L95 | `magnetgates` · `gauntlet-magnets-ice-gates` | pair (blaze, moss) | -42 | 48/48 | 47/48 | 92% | 0/4 (4 short) | 13.9 | 1.0 | B31 M17 | leads 1.0 (duel, below) |
+| L95 | same | rot2 | -42 | 48/48 | 48/48 | 96% | 0/2 (7 short) | 14.1 | 1.4 | V11 E8 B8 T7 M7 N7 | leads 1.4 (duel, below) |
+| L95 | same | theme | -42 | 48/48 | 37/48 | 100% | 6/85 (7 short) | 12.6 | 2.0 | — | pass |
+| L96 | `trapdice` · `gauntlet-trapdoors-repulsion-dice` | pair (nova, tide) | -45 | 48/48 | 48/48 | 90% | 0/2 | 15.9 | 1.9 | T34 N13 | pass |
+| L96 | same | rot2 | -45 | 48/48 | 48/48 | 77% | 0/3 | 16.1 | 2.3 | E14 T12 B7 M7 N7 V1 | pass |
+| L96 | same | theme | -45 | 48/48 | 48/48 | 100% | 1/85 | 12.2 | 2.4 | — | pass |
+| L97 | `quarry` | pair (moss, tide) | -30 | 48/48 | 48/48 | 85% | 0/7 | 17.5 | 1.7 | T25 M23 | pass |
+| L97 | `quarry` | rot2 | -30 | 48/48 | 48/48 | 83% | 1/9 | 18.0 | 1.7 | T10 M9 B9 V7 E7 N6 | pass |
+| L98 r1 | `hauntedfinal` · `grand-final-composite` | pair (blaze, nova) | -90 | 48/48 | 48/48 | 65% | 0/0 | 16.4 | 1.9 | N22 B22 | pass |
+| L98 r1 | same | rot2 | -90 | 48/48 | 48/48 | 54% | 0/0 | 16.6 | 1.6 | B10 M10 V8 E6 T6 N3 | pass |
+| L98 r2 | `trapdice` · `grand-final-composite` (repel 1.6) | pair | -45 | 48/48 | 48/48 | 83% | 0/0 | 15.6 | 2.2 | N27 B21 | pass |
+| L98 r2 | same | rot2 · theme | -45 | 48/48 · 48/48 | 48/48 · 48/48 | 77% · 100% | 0/3 · 1/85 | 16.1 · 12.2 | 2.3 · 2.4 | — | pass · pass |
+| L98 r3 | `magnetgates` · `grand-final-composite` | pair | -42 | 48/48 | 46/48 | 92% | 2/6 (3 short) | 14.6 | 1.1 | B26 N22 | leads 1.1 (duel, below) |
+| L98 r3 | same | rot2 | -42 | 48/48 | 48/48 | 96% | 0/2 (7 short) | 14.1 | 1.4 | — | leads 1.4 (duel; theme passes, L95) |
+| L99 r1 | `trapdice` · `champion-lap` | rot1 | -45 | 48/48 | 38/48 | n/a | 0/0 | 16.8 | n/a | 48 of 48 home | pass (solo) |
+| L99 r2 | `magnetgates` · `champion-lap` | rot1 | -42 | 48/48 | 31/48 | n/a | 0/0 | 13.7 | n/a | 48 of 48 home | pass (solo) |
+| L99 r3 | `hauntedfinal` · `champion-lap` | rot1 | -90 | 48/48 | 38/48 | n/a | 0/0 | 13.5 | n/a | 48 of 48 home | pass (solo) |
+| L100 | `construction` · `season-one-teaser` | the six | -50 | 48/48 | 38/48 | 98% | 1/180 (9 short) | 12.5 | 2.6 | B15 E11 V7 N6 M5 T4 | pass |
+
+**Mechanism**, over the same seeds: L95 and L98 r3 flipped and lit a colour
+in 48/48. L96 rolled and opened its panel in 48/48; the panel took one of the
+pair in 4–9 races of 48 (by pair), and both at once in 1 — which is why L96's
+story asks for a finisher and the die, not a catch. L92 and L98 r1: pumpkins,
+fog and web in 48/48, someone out (coffin or dead end) in 17–22, nobody home
+in 4–6 (the stories keep a finisher). L99: no trapdoor opened and nobody went
+out in any of the 144 solo runs. L100: every scaffold ramp built in 48/48,
+none with a marble touching it the frame it was built (`tests/test_world10.py`
+checks one seed of it).
+
+How to read the exceptions:
+
+- **The magnet-and-gate duels (L95, L98 r3) change the lead 1.0–1.4 times a
+  race against the 1.5 gate**, and pass on theme marbles. A random colour
+  gate lights one of two colours and holds the other 1.4–2 s, which a duel
+  rarely wins back; a cycling gate (1.1), a second peg band (1.1) and bumpers
+  under the gate (1.3, parking 6 of 19) did worse. Recorded as World 3's cast
+  and World 8's L78 were: the verdict is on theme marbles.
+- **Parked in a duel** is one or two marbles of three to seven unfinished
+  (L91 rot2, L93 pair); World 8 read L78's the same way.
+- **Balance is not judged on a duel** (World 6's L54): the split is shown.
+
+What the numbers changed, in the order they were found:
+
+- **magnetgates lost its ice ramps.** Pegs, magnets, a band of World 5's ice
+  ramps, the gate on ice, pegs parked 14 of 87 on the ramps (the gate's arms
+  squeeze the band flat, as L90 found); the ice is now the gate's arms. At
+  -60 it ran 11.8 s with 27/48 first try; -42.
+- **trapdice put the panel under the dice gate.** On top, a duel was past it
+  before World 2's 2.5 s grace and it never took anyone (0 of 12); under the
+  gate the field arrives after the die. -34 ran a duel 18.1 s; -45.
+- **The final's third stage is magnetgates.** A ramps-bumpers-funnel lap with
+  pumpkins and fog ran a duel 21 s with 0.7 lead changes and a runner-up in
+  27%; ramps into the maze, 1.0 with the last two 4.5 s apart. World 4's
+  final maze (L37's knobs) passes on pairs, so it is round one, and the last
+  round — the one the core places — is the non-lethal magnetgates.
+- **The scaffold is steeper than the kit's ramps** (0.55–0.62 against
+  0.37–0.44, which race at -600 on zigzag): at -30 to -90 marbles dropped into
+  a ramp's high corner sat there (70 of 220 parked). A funnel under it queued
+  six marbles in its throat (27 of 183); pegs. Ramps built 150 px ahead of
+  the leader were all built in the first seconds; 80 px ahead, and a ramp
+  every 80–100 px of band, keeps the blueprints on screen.
+
+Reproduce a row: `stage_qa.run("trapdice", range(700, 748), params={"section":
+"gauntlet-trapdoors-repulsion-dice"}, cast=[<nova>, <tide> from cast.toml])`.
