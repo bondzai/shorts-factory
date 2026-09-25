@@ -276,6 +276,8 @@ levels:
   format: race
   story:
     must:
+      finishers: '>=3'
+    prefer:
       finishers: '>=4'
   copy:
     angle: 'no moving parts at all: pegs, bars and a funnel; the purest test on the channel'
