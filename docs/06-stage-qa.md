@@ -37,3 +37,64 @@ A stage built from sections is given a weight — picked at random — only afte
 | `delta` | chutes → bumpers → pegs | trial | -30 | 48/48 | 48/48 | 85% | 2/112 (5 short) | 0 | 15.5 | 2.1 | 4% | pass |
 | `lodestone` | pegs → magnets → pegs | trial | -30 | 48/48 | 40/48 | 98% | 1/92 (11 short) | 0 | 12.4 | 1.5 | 15% | pass |
 | `trapdoor` | pegs → trap → pegs | trial | -30 | 48/48 | 42/48 | 77% | 6/108 (9 short) | 0 | 14.7 | 1.4 | 27% | FAIL: lead changes 1.4 |
+
+## World 5: Ice vs Sand (L41–L50)
+
+Written by hand, not by `--report`: these stages are measured with each level's own params and the
+four regulars (`cast main`: blaze, tide, volt, moss), seeds 700–747. `factory stage-qa --stage <id>
+--cast main --seeds 48` prints the balance row for a level with no `section`, `format` or
+`mechanics`. For the rest, add the level's params (`--section`, `--format elimination`, `--mechanics
+'{"melt": 0.55}'`); the CLI then prints the plain row, and the balance column below is
+`stage_qa.balance` on the same run. All nine are weight 0 (trial). The gates are the ones above, plus
+`ELIMINATION_GATES` for L46. None of them was loosened. Every stage is in
+`factory/generators/physics/worlds/ice_sand.py`.
+
+| level | stage | built from | params | gravity | finished | first try | runner-up | parked | out | median s | lead changes | verdict | wins b/t/v/m | ice / sand speed |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| L41 | `icesand` | ice_ramps → pegs → sand_ramps | — | -85 | 48/48 | 38/48 | 92% | 2/92 (12 short) | 0 | 12.9 | 2.1 | pass | 15/23/35/27% | 62 / 32 px/s |
+| L42 | `stripes` | striped_ramps → striped_ramps | — | -200 | 48/48 | 48/48 | 100% | 4/73 | 0 | 14.5 | 2.0 | pass | 29/25/23/23% | 80 / 41 |
+| L43 | `skijump` | ice_launch → sand_ramps | — | -300 | 48/48 | 48/48 | 100% | 0/66 | 0 | 13.2 | 2.3 | pass | 27/33/19/21% | 133 / 75; 4.0 `launched` a race |
+| L44 | `sandpit` | ice_ramps → sand_pit → sand_ramps | — | -120 | 48/48 | 48/48 | 100% | 1/83 | 0 | 15.1 | 1.8 | pass | 27/23/29/21% | 79 / 40; 1.0 `sank` a race |
+| L45 r1 | `icefall` | ice_ramps → pegs → ice_ramps | melt 0.2 | -50 | 48/48 | 44/48 | 100% | 0/90 (6 short) | 0 | 12.5 | 2.1 | pass | 35/25/21/19% | ice 54 / slush 48 |
+| L45 r2 | `icefall` | same layout | melt 0.55 | -50 | 48/48 | 46/48 | 100% | 1/84 (6 short) | 0 | 12.9 | 1.6 | pass | 19/27/31/23% | ice 54 / slush 41 |
+| L45 r3 | `icefall` | same layout | melt 0.9 | -50 | 48/48 | 43/48 | 96% | 1/89 | 0 | 13.5 | 2.1 | pass | 21/27/27/25% | ice 59 / slush 42 |
+| L46 | `thinice` | thin_ice → pegs → thin_ice | elimination | -60 | 48/48 | 48/48 | 79% | 0/40 | 0 | 16.2 | 2.2 | pass | 27/19/23/31% | ice 53; 1.6 `broke` a race |
+| L47 | `dunes` | dunes → dunes | — | -140 | 48/48 | 47/48 | 100% | 1/85 | 0 | 15.9 | 1.6 | pass | 29/21/27/23% | sand 40 |
+| L48 | `icebowl` | ice_bowl → sand_chute | — | -80 | 48/48 | 48/48 | 98% | 1/90 (1 short) | 0 | 14.6 | 1.9 | pass | 17/25/23/35% | 70 / 29 |
+| L50 | `terrain` | ice_ramps → striped_ramps → dunes → sand_pit | section sideline-watcher | -230 | 48/48 | 44/48 | 98% | 3/88 | 0 | 14.5 | 2.1 | pass | 19/23/42/17% | 96 / 53 |
+
+L46 against the elimination gates: 1.8 finishers and 1.4 eliminations a race, 79% of races take
+someone out, the decided gate (95%) holds, last two 1.75 s apart at the median: pass.
+
+**The surface changes the race.** The last column is the mean speed of a marble whose centre is in an
+ice layer against one in a sand layer, over 24 of the same seeds: ice is 1.8–2.4 times as fast
+everywhere both appear. Round by round on L45, the ice left grips more and the slush share rises
+(about a fifth, half, nine tenths of the track), and the median round goes 12.5 → 12.9 → 13.5 s.
+
+What the numbers were bought with, in order of the lessons:
+
+- **Floors, then chutes.** The first stages were full-width floors, one wall to the other. On ice
+  every marble slides at the same speed, so a floor is single file: the lead changed 0.4–0.8 times a
+  race. Every ramp is now laid on the `chutes` section's split-and-rejoin rows (`_chutes`), so there
+  are two ways down each split and the two need not be the same ground.
+- **Where the split's point sits.** The chutes section's tilted cap, and a point half a marble off
+  the throat above it, both sent the whole field the same way at every split. Under the throat
+  (`APEX_SHIFT`), the field divides: stripes went 1.4 → 1.7 over 96 seeds. After a pit or the bowl
+  (a straight drop) the point moves clear (`DROP_SHIFT`): a marble dropped dead onto it sat balanced.
+- **Fresh sand.** Sand drags (`SAND_DRAG` 0.75/s), and the first marble through each sand patch drags
+  `TRAIL` more (2.0/s; 3.0 on the stripes), because it breaks the trail. It is arrival order, never
+  identity (docs/08 rule 2.4). It is what keeps a sand race close: without it dunes and stripes both
+  measured 1.4 lead changes. Frost on the ice (the same, on ice) was tried and made ice worse (0.9–1.2).
+- **Ice alone barely changes the lead.** Ice-only chutes sit at 1.2–1.5 however they are tuned
+  (slope, throat, offset, gravity). L41, L45 and L46 put a band of the kit's pegs mid-course. That is
+  the approximation, and each level's `note` says so.
+- **Pace is the gravity, per stage.** Ice wants low gravity (it is quick anyway) and sand high (on
+  sand the drag, not the slope, sets the pace: speed is (2/3)·g·sin(slope)/drag). A mixed stage sits
+  between, which is why the gravities run from -50 to -300.
+- **What parked marbles.** Ramps shorter than the frame put a ramp's end over the next ramp, 45–60 px
+  above it against a 57 px marble (the first ice stage parked its whole field there); a squeezed
+  one-row band laid its sand at 0.14 (the terrain stage parked 64 of 123 before a single row was
+  allowed the band's full height); the ski jump's upturned lip was a hollow (a flat table now); the
+  bowl's gap off to one side left every slowed marble resting on the ice beside it (the gap now takes
+  in the lowest point); the pit's throat under a throat let a marble fall through three sections in
+  4.4 s (a cap over the pit's throat now, and a split under every throat).

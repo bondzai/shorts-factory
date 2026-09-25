@@ -17,7 +17,7 @@ from __future__ import annotations
 import math
 import random
 
-from ..mechanics import blackout, clock_at, door_state, wall_offset
+from ..mechanics import _in_poly, blackout, clock_at, door_state, wall_offset
 
 SURFACE_COLOURS = {
     "ice": (178, 220, 244),
@@ -25,6 +25,7 @@ SURFACE_COLOURS = {
     "sand": (214, 184, 120),
     "mud": (122, 88, 56),
     "cobweb": (214, 214, 224),
+    "slush": (150, 176, 190),
 }
 OUT_RIM = (214, 70, 70)
 
@@ -59,10 +60,14 @@ def texture(z, t: float, sim_h: float):
             gx = x0 + ((gx - x0 + t * 18.0) % max(x1 - x0, 1.0))
             length = rng.uniform(8, 18)
             out.append(("line", (gx, gy), (min(x1, gx + length), max(y0, gy - length * 0.6))))
-    elif kind in ("sand", "mud"):
+    elif kind in ("sand", "mud", "slush"):
         for _ in range(max(6, int((x1 - x0) * (y1 - y0) / 260))):
             out.append(("dot", (rng.uniform(x0, x1), rng.uniform(y0, y1)), rng.choice((-1, 1))))
-    elif kind == "cobweb":
+    if z.get("poly") and kind != "cobweb":
+        # A slanted layer's box is mostly air: keep only the marks inside it
+        # (the draws above are made either way, so a rect zone is unchanged).
+        out = [item for item in out if _in_poly(item[1][0], item[1][1], pts)]
+    if kind == "cobweb":
         cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
         for k in range(8):
             a = k * math.pi / 4 + rng.uniform(-0.2, 0.2)
@@ -89,6 +94,17 @@ def countdowns(mech: dict, frame: int):
             continue
         x, y = e.get("at") or (270.0, 800.0)
         out.append((str(value), x, y))
+    return out
+
+
+def props(mech: dict, frame: int):
+    """(x, y, radius, colour) for each prop showing now (physics coords): a
+    marble drawn where no entrant is, with no body behind it."""
+    out = []
+    for e in mech.get("effects") or ():
+        if e["kind"] == "prop" and clock_at(mech, e.get("clock"), frame, e.get("clock") is None):
+            x, y = e["at"]
+            out.append((x, y, float(e.get("radius", 20.0)), tuple(e.get("color") or (200, 200, 200))))
     return out
 
 
@@ -155,6 +171,11 @@ def pil_over(draw, style, mech: dict, frame: int, sim_h: float, colours: dict) -
         a, b = wl["a"], wl["b"]
         draw.line([(a[0] + dx, sim_h - a[1] - dy), (b[0] + dx, sim_h - b[1] - dy)],
                   fill=mix(st, (255, 255, 255), 0.2), width=style.thickness)
+    for x, y, r, c in props(mech, frame):
+        iy = sim_h - y
+        draw.ellipse([x - r, iy - r, x + r, iy + r], fill=c)
+        draw.ellipse([x - r * 0.42, iy - r * 0.55, x - r * 0.06, iy - r * 0.19],
+                     fill=tuple(min(255, v + 60) for v in c))
 
 
 def pil_top(image, style, mech: dict, frame: int, sim_w: int, sim_h: int):
@@ -247,6 +268,9 @@ def pg_over(surface, style, mech: dict, frame: int, sim_h: float, colours: dict)
         a, b = wl["a"], wl["b"]
         fx.capped_line(surface, (a[0] + dx, sim_h - a[1] - dy), (b[0] + dx, sim_h - b[1] - dy),
                        style.thickness, mix(st, (255, 255, 255), 0.2))
+    for x, y, r, c in props(mech, frame):
+        fx.disc(surface, x, sim_h - y, r, c)
+        fx.disc(surface, x - r * 0.25, sim_h - y - r * 0.37, r * 0.2, tuple(min(255, v + 60) for v in c))
 
 
 _TEXT_CACHE: dict = {}

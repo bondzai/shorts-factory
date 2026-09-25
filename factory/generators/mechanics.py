@@ -58,6 +58,8 @@ SURFACES: dict[str, dict[str, Any]] = {
     "cobweb": {"friction": None, "elasticity": None, "damping": 3.0},
     "thin_ice": {"friction": 0.03, "elasticity": 0.40, "damping": 0.0},
     "mud": {"friction": 0.80, "elasticity": 0.08, "damping": 2.2},
+    # Ice going soft (World 5's melting rounds): grips some, drags some.
+    "slush": {"friction": 0.35, "elasticity": 0.20, "damping": 0.25},
 }
 
 
@@ -367,9 +369,11 @@ class Rig:
     def effect(self, kind: str, **data) -> None:
         """A render effect: "blackout" (clock=...: marbles hidden while it is
         truthy, sound goes on), "countdown" (clock=..., at=(x, y): the clock's
-        value drawn as a number). Both renderers draw them."""
-        if kind not in ("blackout", "countdown"):
-            raise ValueError(f"no effect {kind!r}; have blackout, countdown")
+        value drawn as a number), "prop" (clock=..., at=(x, y), radius=,
+        color=[r, g, b]: a marble drawn there while the clock is truthy — a
+        picture with no body, never an entrant). Both renderers draw them."""
+        if kind not in ("blackout", "countdown", "prop"):
+            raise ValueError(f"no effect {kind!r}; have blackout, countdown, prop")
         if "at" in data:
             data["at"] = list(self._pt(data["at"]))
         self.effects.append({"kind": kind, **data})

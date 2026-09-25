@@ -1197,7 +1197,11 @@ levels:
   generator: physics
   variant: marble_race
   params:
-    section: ice-then-sand
+    stage: icesand
+    rounds: 2
+    round_params:
+    - {}
+    - stage: same
   entrants:
   - blaze
   - tide
@@ -1208,24 +1212,28 @@ levels:
     must:
       lead_changes: '>=1'
   copy:
-    angle: first half ice, fast and uncontrolled; second half sand, slow and controlled
+    angle: the top half is ice, fast and uncontrolled; a band of pegs in the middle; the bottom half is sand, slow, and the marble in front breaks the trail
     title: 'Ice vs sand marble race: slick, then slow'
-    hook: Ice first. Sand second.
-    desc: 'The first half is ice: fast, no control. The second half is sand: slow, full control. Who wins the middle?'
+    hook: Who rules ice and sand?
+    desc: 'The top half is ice: fast, no grip. The bottom half is sand: slow, and whoever is in front wades through it first. Who wins the middle?'
     pin: 'Ice or sand: which surface decides this race?'
     pin_type: either_or
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 ice-sand: terrain friction sections (ice half, sand half)'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: null
+  note: 'Built as stage icesand: split-and-rejoin ice ramps, a band of pegs, then sand ramps. The pegs are the approximation: on ice alone the field slides single file and the lead barely changes, so the seam between the halves is a band of pegs (stage QA, docs/06 World 5).'
 - id: L42
   date: 2026-11-05
   world: ice-sand
   generator: physics
   variant: marble_race
   params:
-    section: ice-sand-stripes
+    stage: stripes
+    rounds: 2
+    round_params:
+    - {}
+    - stage: same
   entrants:
   - blaze
   - tide
@@ -1236,24 +1244,28 @@ levels:
     must:
       lead_changes: '>=3'
   copy:
-    angle: stripes of ice and sand alternate; momentum builds and dies
+    angle: stripes of ice and sand alternate down every ramp, out of step on the two sides of each split; momentum builds and dies
     title: 'Marble run striped track: ice, sand, ice'
-    hook: Grip, slide, grip, slide
+    hook: Pick one for the stripes
     desc: Stripes of ice and sand alternate. Momentum builds and dies every second.
     pin: On which stripe does the lead change? Call it before the start.
     pin_type: predict_outcome
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 ice-sand: alternating ice and sand stripes'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: null
+  note: 'Built as stage stripes: split-and-rejoin ramps, each striped ice and sand along its length, the two sides of a split out of step.'
 - id: L43
   date: 2026-11-06
   world: ice-sand
   generator: physics
   variant: marble_race
   params:
-    section: ice-ramp-launch
+    stage: skijump
+    rounds: 2
+    round_params:
+    - {}
+    - stage: same
   entrants:
   - blaze
   - tide
@@ -1264,24 +1276,28 @@ levels:
     must:
       any_event: launched
   copy:
-    angle: an ice ramp launches the marbles and sand catches them; the longest flight doesn't always win
+    angle: an ice in-run launches the marbles and a sand slope catches them; the slope runs back toward the lip, so the longest flight doesn't always win
     title: 'Ice ramp marble race: launch far, land short'
-    hook: Launch far, land short
+    hook: Who sticks the landing?
     desc: An ice ramp launches the marbles and sand catches them. The farthest landing doesn't always win.
     pin: 'Farthest launch or shortest: which one wins?'
     pin_type: either_or
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 ice-sand: ice ramp launch into a sand landing zone'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: null
+  note: 'Built as stage skijump. The lip is a flat table tipped just down rather than an upturned kicker: an upturned lip was a hollow a slow marble sat in on ice. `launched` is emitted when a marble leaves the lip.'
 - id: L44
   date: 2026-11-07
   world: ice-sand
   generator: physics
   variant: marble_race
   params:
-    section: sand-pit
+    stage: sandpit
+    rounds: 2
+    round_params:
+    - {}
+    - stage: same
   entrants:
   - blaze
   - tide
@@ -1291,26 +1307,37 @@ levels:
   story:
     must:
       lead_changes: '>=1'
+      any_event: sank
   copy:
     angle: 'a soft sand pit at halfway: the first marble in sinks deepest'
     title: 'Sand pit marble race: the leader sinks first'
-    hook: First in sinks deepest
+    hook: Who sinks in the sand?
     desc: A soft sand pit at the halfway mark. The first marble in sinks deepest.
     pin: Who sinks? Predict the color that stalls in the pit.
     pin_type: predict_trap
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 ice-sand: soft sand pit (friction trap) at halfway'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: null
+  note: 'Built as stage sandpit: ice ramps, a sand funnel with a cap over its throat, then sand ramps. "Sinks deepest" is drag: the first marble into the pit (arrival order, never identity) wades through extra drag and `sank` fires for it.'
 - id: L45
   date: 2026-11-08
   world: ice-sand
   generator: physics
   variant: marble_race
   params:
-    section: melting-ice
+    stage: icefall
     rounds: 3
+    mechanics:
+      melt: 0.2
+    round_params:
+    - {}
+    - layout: 0
+      mechanics:
+        melt: 0.55
+    - layout: 0
+      mechanics:
+        melt: 0.9
   entrants:
   - blaze
   - tide
@@ -1321,24 +1348,28 @@ levels:
     must:
       rounds: '>=3'
   copy:
-    angle: three rounds on ice that melts a little every round; the last round is slush
+    angle: three rounds on the same ice track, melting a little every round; the last round is mostly slush
     title: Three round marble race on melting ice
-    hook: Every round, more slush
+    hook: Who lasts the melt?
     desc: Every round the ice melts a little. The last round is slush.
     pin: Who leads the first round, and who takes the last? Two guesses.
     pin_type: predict_outcome
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 ice-sand: ice that melts between rounds, and three rounds (the sandbox runs at most two)'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: 'Three laps -> rounds: 3.'
+  note: 'Three laps -> rounds: 3, the same layout each round (layout: 0). mechanics.melt 0.2 / 0.55 / 0.9 turns that share of the ice to slush (grips, drags) and raises the friction of what is left. The track has a band of pegs mid-course: ice alone barely changes the lead.'
 - id: L46
   date: 2026-11-09
   world: ice-sand
   generator: physics
   variant: marble_race
   params:
-    section: thin-ice
+    stage: thinice
+    rounds: 2
+    round_params:
+    - {}
+    - stage: same
   entrants:
   - blaze
   - tide
@@ -1347,26 +1378,31 @@ levels:
   format: elimination
   story:
     must:
-      any_event: trap_catch
+      eliminations: '>=1'
+      any_event: broke
   copy:
-    angle: cracks open under weight anywhere on the ice; elimination with no way to plan
+    angle: thin ice over cold water cracks under weight at a moment nobody can call; elimination on ice
     title: 'Thin ice marble race: cracks open at random'
-    hook: The ice gives way
-    desc: Cracks open under weight, anywhere. Elimination on ice, and no way to plan for it.
+    hook: Pick who stays dry
+    desc: Thin ice over cold water cracks under weight, and nobody can say when. Elimination on ice.
     pin: Who falls through first? Name the color.
     pin_type: predict_trap
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 ice-sand: thin ice that cracks at random under weight, elimination format'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: null
+  note: 'Built as stage thinice: in every row of ice ramps one side has a thin panel over water. How much weight a panel takes is drawn from the seed (`breakable`); a marble through it is eliminated. Story asks for an elimination and a `broke` event instead of trap_catch; a band of pegs mid-course keeps the lead moving.'
 - id: L47
   date: 2026-11-10
   world: ice-sand
   generator: physics
   variant: marble_race
   params:
-    section: sand-dunes
+    stage: dunes
+    rounds: 2
+    round_params:
+    - {}
+    - stage: same
   entrants:
   - blaze
   - tide
@@ -1377,24 +1413,28 @@ levels:
     must:
       lead_changes: '>=2'
   copy:
-    angle: dunes hide the racing line; every marble takes a different path
+    angle: dunes hide the quick way down; every split drops into different dunes on each side
     title: 'Sand dune marble race: no straight line'
-    hook: Hidden hills everywhere
-    desc: Dunes hide the racing line; every marble takes a different path. No leader trap this time.
+    hook: Who reads the dunes?
+    desc: Every split drops into different dunes on each side, and which way is quicker is hidden in the sand.
     pin: Which marble finds the hidden fast line through the dunes?
     pin_type: predict_outcome
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 ice-sand: sand dunes (hidden hills in the floor)'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: null
+  note: 'Built as stage dunes: split-and-rejoin ramps profiled as dunes (gentle back, steep face), always downhill so nothing settles in a hollow. "No leader trap" dropped from the copy: fresh sand slows whoever is in front.'
 - id: L48
   date: 2026-11-11
   world: ice-sand
   generator: physics
   variant: marble_race
   params:
-    section: ice-bowl-sand-chute
+    stage: icebowl
+    rounds: 2
+    round_params:
+    - {}
+    - stage: same
   entrants:
   - blaze
   - tide
@@ -1405,17 +1445,17 @@ levels:
     must:
       lead_changes: '>=1'
   copy:
-    angle: marbles spin round an ice bowl, then drop into a sand chute that kills their speed
-    title: 'Ice bowl marble race: spin fast, exit slow'
-    hook: Time the exit
-    desc: The marbles spin round an ice bowl, then drop into a sand chute that kills their speed. Timing the exit is everything.
+    angle: marbles swing round an ice bowl until they are slow enough to drop through the gap in its floor, then a sand chute kills their speed
+    title: 'Ice bowl marble race: swing fast, exit slow'
+    hook: Who times the exit?
+    desc: The marbles swing round an ice bowl and only drop out through the gap in its floor once they slow down. Then a sand chute. Timing the exit is everything.
     pin: 'Early exit or late exit: which one wins? Comment "early" or "late".'
     pin_type: either_or
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 ice-sand: ice bowl with a sand exit chute'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: null
+  note: 'Built as stage icebowl. The marbles swing rather than spin; a light drag in the bowl stands in for what real ice would take, so every marble slows and drops out.'
 - id: L49
   date: 2026-11-12
   world: ice-sand
@@ -1453,7 +1493,12 @@ levels:
   generator: physics
   variant: marble_race
   params:
-    section: terrain-gauntlet
+    stage: terrain
+    section: sideline-watcher
+    rounds: 2
+    round_params:
+    - section: null
+    - stage: same
   entrants:
   - blaze
   - tide
@@ -1466,17 +1511,17 @@ levels:
       lead_changes: '>=2'
       finishers: '>=3'
   copy:
-    angle: 'world five final: every terrain trick in one gauntlet, and a purple marble watching'
+    angle: 'world five final: ice, stripes, dunes and a soft sand pit in one gauntlet, and a purple marble watching from the sidelines at the end'
     title: 'Ice vs sand final: a stranger is watching'
-    hook: Who is the purple one?
+    hook: Who masters the terrain?
     desc: Every terrain trick in one gauntlet; the winner takes a Grand Final seat. A purple marble watches from the sidelines.
     pin: A purple marble is watching. Friend or threat? Comment your guess.
     pin_type: predict_outcome
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 ice-sand: terrain gauntlet composite, plus a non-racing purple marble on the sidelines'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: null
+  note: 'Built as stage terrain (ice ramps, striped ramps, dunes, sand pit). The purple marble is a drawn prop (`sideline-watcher`, effect "prop"): no body, not an entrant, never named; it appears in the dead corner under the pit once the race is 80% down.'
 - id: L51
   date: 2026-11-14
   world: dice
