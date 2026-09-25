@@ -118,7 +118,7 @@ scores = true
 
 Traits physics understands: `mass_mult`, `friction`, `radius_mult`, `jitter`
 (small seeded nudge each frame), `force_immune` (magnets and future fields
-skip it), `charge` (a marble's share of a pair force, default 1; docs/10).
+skip it; World 8's marble-to-marble push does not), `charge` (a marble's share of a pair force, default 1; docs/10).
 Unknown traits are logged and ignored. With a cast, entrant colours
 override the theme's marble colours; the theme keeps palettes and decoration.
 `bio` is for the model and never parsed. `scores = false` marks a guest.

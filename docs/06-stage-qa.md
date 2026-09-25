@@ -228,3 +228,87 @@ trap's pit. The relay keeps each team's second marble in a pen until its
 teammate reaches the gate; a slow first leg left those waiting marbles in the
 parked count (8 of 43, all in pens). A sloped lid is never a floor, and a
 marble stuck while a pen waits for it is still counted as parked itself.
+## World 8: Repel Race (L71–L80)
+
+Written by hand, not by `--report`: each row is a *level*, raced with its own
+params (`section`, `format`, `mechanics`) and its own entrants from
+`channels/main/cast.toml` (six for most, Ember included), seeds 700–747 through
+the render's retry loop (`stage_qa.run(stage, seeds, params=…, cast=…)`),
+measured 2026-09-25. The ordinary gates are the table above's, plus
+`ELIMINATION_GATES` for L79. **Balance** is each entrant's share of wins: with
+four racing (L74) every regular 10–45%; with six, nobody under 5% or over 50%,
+Ember included. L77 is not here: it waits on World 7's shrinking arena. The
+new stages are trial (weight 0); L71, L73, L75 and L76 race on live stages.
+Everything is in `factory/generators/physics/worlds/repel.py`.
+
+| level | stage · section | gravity | finished | first try | runner-up | parked | out | median s | lead changes | wins | verdict |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| L71 | `seesaw` · `marble-repulsion` | -30 | 48/48 | 47/48 | 98% | 15/189 (6 short) | 0 | 12.8 | 2.7 | B23 V21 T17 M17 N15 E8 | pass |
+| L72 | `singlefile` · `single-file-corridor` (strength 0.8) | -120 | 48/48 | 30/48 | 100% | 19/192 (4 short) | 0 | 11.7 | 2.1 | B23 M19 T17 V17 N15 E10 | pass |
+| L73 | `tumble` · `repulsion-switch` | -30 | 48/48 | 30/48 | 98% | 16/171 (11 short) | 0 | 12.2 | 2.6 | B31 T19 M17 E15 N12 V6 | pass |
+| L74 | `blockade` · `heavy-blocker` | -36 | 48/48 | 42/48 | 90% | 11/97 (14 short) | 0 | 13.8 | 2.1 | E33 V31 M23 B12 | pass |
+| L75 | `pinball` · `repulsion-bumpers` | -30 | 48/48 | 32/48 | 96% | 17/191 (17 short) | 0 | 13.1 | 1.9 | E23 B21 N17 T15 M12 V12 | pass |
+| L76 | `switchback` · `marble-attraction` | -60 | 48/48 | 44/48 | 100% | 9/145 (1 short) | 0 | 12.0 | 2.2 | V23 T17 N17 E17 B15 M12 | pass |
+| L78 | `mergelane` · `merge-point`, the duel | -50 | 48/48 | 48/48 | 94% | 2/3 (6 short) | 0 | 14.9 | 1.4 | B58 N42 (duel) | gates on theme marbles (below) |
+| L78 | same, theme marbles (3–5) | -50 | 48/48 | 40/48 | 96% | 11/96 (17 short) | 0 | 12.4 | 1.9 | — | pass |
+| L79 | `pitfunnels` · `repulsion-gauntlet`, elimination | -30 | 48/48 | 46/48 | 71% | 4/69 (2 short) | 0 | 16.9 | 2.8 | M25 E21 N21 V12 B10 T10 | pass |
+| L80 | `threeramps` · `repel-final` | -30 | 48/48 | 30/48 | 90% | 21/194 (12 short) | 0 | 14.9 | 2.2 | V23 T21 E19 M15 N12 B10 | pass |
+
+L79 against the elimination gates: 1.8 finishers and 2.8 eliminations a race,
+98% of races take someone out, the decided gate (95%) holds, the last two
+2.96 s apart at the median: pass.
+
+**Mechanism**, over the same 48 seeds: L72, the first marble into the corridor
+won 48 of 48 and the finish order was the entry order in 48 of 48 (nobody
+passes). L73, the field's mean distance between marbles went from 136 px at
+the switch to 193 px a second later. L74, the heaviest marble was first into
+the lane in 42 of 48 and moved 51 px/s on a ramp against 56–62 for the three
+light ones. L78, the first into the gap won 48 of 48, and the push acted (both
+marbles at the merge at once) in 38. L80, Ember spent 2.40 s a race on the
+ramps against 2.24–2.49 for the others: a weakness, but a small one.
+
+**L78 is the one row that does not pass on its own entrants.** A duel of two
+marbles in two lanes changes the lead 1.1–1.5 times a race on every variant
+tried (pegs, bumper-sized pegs, mirrored lanes, rocking planks, offset
+shelves, a second merge, gravity -35 to -80), against the 1.5 gate; parked is
+two marbles of three unfinished (a duel leaves almost none). On theme marbles the stage passes every gate,
+and that is its verdict, as World 3's cast lead changes were judged. The
+offset shelves reached 1.6 but gave Blaze 71–77% of a duel; the pegs keep it
+58/42.
+
+What the numbers changed, in the order they were found:
+
+- **The push is equal and opposite** (`pair_force(newton=True)`), and Ember
+  feels it (`skip_immune=False`): a decision, not a measurement. Ember's bio
+  makes it immune to magnets and wind; the other marbles are neither, and a
+  marble that pushes without being pushed back would break the one law a
+  viewer can check by eye.
+- **Ember's traits** (cast.toml): `charge = 1.5` (its pairs push hardest) and
+  `friction = 0.45` (it rolls where the others slide: slower on a ramp). Its
+  `mass_mult`, `radius_mult` and `force_immune` are unchanged, and no other
+  entrant's traits moved, so no level without Ember changes. Friction 0.8 made
+  it win 2–4% of the corridor races (a corridor is a ramp); 0.45 is 10%.
+- **A marble behind a gap is held up by the one in it.** The push reaches
+  three times two radii, so a marble in a throat holds the next one above it:
+  the corridor's hopper parked up to 15% at the full push (0.8 there), and the
+  merge held a marble over its gap for seconds until the push was made to act
+  only while both marbles are at the merge. Stages with V-shaped throats
+  (spillway: 48 of 196) park the same way and were not used.
+- **Geometry from the marbles.** The corridor and the merge gap are sized
+  each race from the biggest marble racing (2.3 radii), so they are one wide
+  whatever the seed drew: a width fixed for the biggest marble a seed can
+  draw lets two of the smallest pass. The section builds them for the kit's
+  biggest marble, as always-shut `rig.door`s, so the stage races without its
+  mechanic; the mechanic takes those out and builds them again for the
+  marbles racing (a door is the one wall that can be added once the marbles
+  exist). The corridor is the hopper and one leg across the frame: the band
+  has no room for a second.
+- **The blocker's head start is a slot.** L74's heaviest marble started
+  inside the lane's mouth won 58–75%; it now takes the start slot over the
+  mouth and wins 33%.
+- **No stage keeps six marbles a tight pack.** L73 holds the field with a weak
+  pull (0.3 × gravity, drawn as tethers) until halfway; its note says so.
+- **Cradles.** A peg row on the lanes' bottom edge over the merge's arm made
+  a cradle of peg, arm and wall (L78, seed 712); the rows stop a marble's room
+  above it. A peg straight under the merge gap balanced a marble dropped
+  through it (seed 707); the gap sits a seeded 14–24 px off the middle.

@@ -46,11 +46,16 @@ traits = { radius_mult = 1.05, friction = 0.2 }
 bio = "Unknown, mid-season challenger. The disruptor."
 debut = "L51"
 
+# Ember (2026-09-25, World 8): charge 1.5 makes every pair it is in push
+# hardest; friction 0.45 makes it roll where the others slide, so it is slower
+# on a ramp ("weak on ramps"). force_immune keeps it out of magnets and wind,
+# not out of the other marbles' push (docs/10, "What World 8 built"). Over
+# 48 seeds of each World 8 level it wins 8-33% (docs/06 "World 8").
 [[entrant]]
 id = "ember"
 name = "Ember"
 color = "#EF8A27"
-traits = { mass_mult = 1.6, radius_mult = 1.1, force_immune = true }
+traits = { mass_mult = 1.6, radius_mult = 1.1, force_immune = true, charge = 1.5, friction = 0.45 }
 bio = "Heavy, immune to magnets and wind, weak on ramps. The late-season tank."
 debut = "L71"
 

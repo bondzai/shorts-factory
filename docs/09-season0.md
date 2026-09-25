@@ -31,7 +31,7 @@ disagree, and two of its rules decided most of the conversion:
 | ice-sand | L41–L50 | 0 | 9 | 1 | Nov 1 |
 | dice | L51–L60 | 9 | 0 | 1 | Nov 11 (built; docs/06 "World 6") |
 | arena | L61–L70 | 0 | 10 | 0 | Nov 21 |
-| repel | L71–L80 | 0 | 10 | 0 | Dec 1 |
+| repel | L71–L80 | 9 | 1 | 0 | Dec 1 (built; docs/06 "World 8"; L77 waits on the arena) |
 | colour-gates | L81–L90 | 0 | 10 | 0 | Dec 11 |
 | grand-final | L91–L100 | 0 | 8 | 2 | Dec 22 (L92 needs the World 4 maze) |
 | **total** | | **24** | **72** | **4** | |

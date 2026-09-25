@@ -191,6 +191,7 @@ def frames_pygame(states, balls, segments, sim_w, sim_h, overlay=None, style=Non
             fx.disc(surface, cx - r * 0.25, Y(cy) - r * 0.35, r * 0.22, fx.lighten(style.structure, 40))
         if mech:
             render_mech.pg_over(surface, style, mech, frame_index, sim_h, colours)
+            render_mech.pg_field(surface, style, mech, frame_index, positions, balls, sim_h)
         for i, (ball, (x, y)) in enumerate(zip(balls, positions)):
             if mech and hidden(mech, ball.name, frame_index):
                 continue
