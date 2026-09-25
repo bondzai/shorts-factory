@@ -124,10 +124,11 @@ base_url = "http://localhost:11434/v1"
 vision = true
 json_mode = "object"
 free = true
-# QC and (when on) Metadata look at frames, so they need a model that can:
-# qwen2.5vl:7b is the one that fits in 16 GB with room for the render.
-# Idea and Analyst read text only; a text model is faster.
-models = ["qwen2.5vl:7b", "qwen2.5:7b", "llama3.1:8b"]
+# QC and (when on) Metadata look at frames, so they need a model that can
+# see; Idea, Copy and Analyst read text only. The 3b pair (3.2 + 1.9 GB) is
+# the default: fast on an M-series laptop with 16 GB and room for the render.
+# The 7b pair is the step up when the validator's fallback rate says so.
+models = ["qwen2.5vl:3b", "qwen2.5:3b", "qwen2.5vl:7b", "qwen2.5:7b", "llama3.1:8b"]
 
 [llm.agents]
 # The four agents are not the same job. Analyst reasons about a table of
@@ -143,12 +144,12 @@ models = ["qwen2.5vl:7b", "qwen2.5:7b", "llama3.1:8b"]
 #   qc = "ollama/qwen2.5vl:7b"        analyst = "ollama/qwen2.5:7b"
 # With metadata_source = "template", the Metadata brain is only used for a
 # generator the template does not write.
-idea = "ollama/qwen2.5vl:7b"
-metadata = "ollama/qwen2.5vl:7b"
+idea = "ollama/qwen2.5:3b"
+metadata = "ollama/qwen2.5vl:3b"
 # Season copy (title, pin, description line, hook): text only, so a text model.
-copy = "ollama/qwen2.5:7b"
-qc = "ollama/qwen2.5vl:7b"
-analyst = "ollama/qwen2.5vl:7b"
+copy = "ollama/qwen2.5:3b"
+qc = "ollama/qwen2.5vl:3b"
+analyst = "ollama/qwen2.5:3b"
 
 [llm.pricing]
 # USD per million tokens, [input, output]. A model missing here is billed at

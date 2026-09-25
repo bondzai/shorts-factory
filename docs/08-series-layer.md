@@ -217,7 +217,7 @@ points = [5, 3, 2, 1]
 
 ### Copy (title, pinned comment, description line 1, hook)
 
-A text-only local brain (`[llm.agents] copy = "ollama/qwen2.5:7b"`) gets the
+A text-only local brain (`[llm.agents] copy = "ollama/qwen2.5:3b"`) gets the
 outcome **without the winner**, facts, standings, the level's `copy` hints,
 cast names and bios, `rules.md`, and the last 30 titles/pins. It returns three
 candidates for each field (`CopyProposal`). Measured values reach the text only
@@ -318,7 +318,8 @@ does not carry: `data/` (the database and renders), `.env`, and each
     git checkout series-layer
     python3 -m venv .venv && .venv/bin/pip install -e ".[youtube]"
     # copy data/, .env, channels/*/rules.md, channels/*/token.json into place
-    ollama pull qwen2.5vl:7b && ollama pull qwen2.5:7b
+    brew install ollama && brew services start ollama   # or the Linux installer
+    ollama pull qwen2.5vl:3b && ollama pull qwen2.5:3b
     factory doctor && factory brains --test ollama && pytest -q
 
 `doctor` clean, the brains answer, every test passes.

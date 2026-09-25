@@ -10,9 +10,10 @@ Four lanes. You never talk to an agent directly: you add work, the server
 holds it, whichever agent is around does it, and the result comes back to
 you as a clip to approve.
 
-<svg viewBox="0 0 760 420" xmlns="http://www.w3.org/2000/svg" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12">
+<svg viewBox="0 0 760 470" xmlns="http://www.w3.org/2000/svg" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12">
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--dim)"/></marker>
+    <marker id="arrow-key" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--key)"/></marker>
     <style>
       .lane{fill:var(--panel);stroke:var(--line);rx:10}
       .lane-name{fill:var(--faint);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase}
@@ -21,54 +22,57 @@ you as a clip to approve.
       .t{fill:var(--ink);font-weight:600}
       .s{fill:var(--dim);font-size:10.5px}
       .route{fill:none;stroke:var(--dim);stroke-width:1.3;marker-end:url(#arrow)}
-      .route.key{stroke:var(--key)}
+      .route.key{stroke:var(--key);marker-end:url(#arrow-key)}
+      .label{fill:var(--dim);font-size:10px}
     </style>
   </defs>
 
-  <rect class="lane" x="8" y="8" width="744" height="88"/>
-  <text class="lane-name" x="20" y="24">You</text>
-  <rect class="card key" x="24" y="34" width="150" height="48"/><text class="t" x="36" y="54">Console</text><text class="s" x="36" y="70">Today · Team · Clips · Activity</text>
-  <rect class="card" x="196" y="34" width="150" height="48"/><text class="t" x="208" y="54">Telegram</text><text class="s" x="208" y="70">clip + Approve / Reject</text>
-  <rect class="card" x="368" y="34" width="150" height="48"/><text class="t" x="380" y="54">Discord / Slack</text><text class="s" x="380" y="70">what finished, daily reminder</text>
-  <rect class="card" x="540" y="34" width="190" height="48"/><text class="t" x="552" y="54">YouTube</text><text class="s" x="552" y="70">by hand, or the API on your press</text>
+  <rect class="lane" x="8" y="8" width="744" height="92"/>
+  <text class="lane-name" x="20" y="26">You</text>
+  <rect class="card key" x="24" y="38" width="166" height="48"/><text class="t" x="36" y="58">Console</text><text class="s" x="36" y="74">Today · Clips · Season</text>
+  <rect class="card" x="206" y="38" width="166" height="48"/><text class="t" x="218" y="58">Telegram</text><text class="s" x="218" y="74">clip + Approve / Reject</text>
+  <rect class="card" x="388" y="38" width="166" height="48"/><text class="t" x="400" y="58">Discord / Slack</text><text class="s" x="400" y="74">done · daily reminder</text>
+  <rect class="card" x="570" y="38" width="166" height="48"/><text class="t" x="582" y="58">YouTube</text><text class="s" x="582" y="74">uploads on your press</text>
 
-  <rect class="lane" x="8" y="108" width="744" height="88"/>
-  <text class="lane-name" x="20" y="124">Server · factory serve</text>
-  <rect class="card key" x="24" y="134" width="120" height="48"/><text class="t" x="36" y="154">Web API</text><text class="s" x="36" y="170">FastAPI, one password</text>
-  <rect class="card" x="164" y="134" width="120" height="48"/><text class="t" x="176" y="154">Task queue</text><text class="s" x="176" y="170">what was asked for</text>
-  <rect class="card key" x="304" y="134" width="150" height="48"/><text class="t" x="316" y="154">Pipeline + gates</text><text class="s" x="316" y="170">render · measure · refuse</text>
-  <rect class="card" x="474" y="134" width="120" height="48"/><text class="t" x="486" y="154">Workers</text><text class="s" x="486" y="170">starts the agent for you</text>
-  <rect class="card" x="614" y="134" width="116" height="48"/><text class="t" x="626" y="154">Notify</text><text class="s" x="626" y="170">webhook · Telegram</text>
+  <rect class="lane" x="8" y="126" width="744" height="92"/>
+  <text class="lane-name" x="20" y="144">Server</text>
+  <rect class="card key" x="24" y="156" width="166" height="48"/><text class="t" x="36" y="176">Web API</text><text class="s" x="36" y="192">factory serve, one password</text>
+  <rect class="card" x="206" y="156" width="166" height="48"/><text class="t" x="218" y="176">Task queue</text><text class="s" x="218" y="192">what was asked for</text>
+  <rect class="card key" x="388" y="156" width="166" height="48"/><text class="t" x="400" y="176">Pipeline + gates</text><text class="s" x="400" y="192">render · measure · refuse</text>
+  <rect class="card" x="570" y="156" width="166" height="48"/><text class="t" x="582" y="176">Notify</text><text class="s" x="582" y="192">webhook · Telegram</text>
 
-  <rect class="lane" x="8" y="208" width="744" height="88"/>
-  <text class="lane-name" x="20" y="224">Agents · over MCP</text>
-  <rect class="card key" x="24" y="234" width="200" height="48"/><text class="t" x="36" y="254">Claude Code / Codex</text><text class="s" x="36" y="270">next_task → render_clip → submit_qc → finish_task</text>
-  <rect class="card" x="244" y="234" width="170" height="48"/><text class="t" x="256" y="254">factory mcp</text><text class="s" x="256" y="270">the tools, one process per agent</text>
-  <rect class="card" x="434" y="234" width="160" height="48"/><text class="t" x="446" y="254">Built-in agents</text><text class="s" x="446" y="270">idea · metadata · QC · analyst — local or API</text>
-  <rect class="card" x="614" y="234" width="116" height="48"/><text class="t" x="626" y="254">Playbooks</text><text class="s" x="626" y="270">prompts/*.md + skills</text>
+  <rect class="lane" x="8" y="244" width="744" height="92"/>
+  <text class="lane-name" x="20" y="262">Agents · MCP</text>
+  <rect class="card key" x="24" y="274" width="166" height="48"/><text class="t" x="36" y="294">Claude Code / Codex</text><text class="s" x="36" y="310">you, or a Worker, starts it</text>
+  <rect class="card" x="206" y="274" width="166" height="48"/><text class="t" x="218" y="294">factory mcp</text><text class="s" x="218" y="310">the tools agents call</text>
+  <rect class="card" x="570" y="274" width="166" height="48"/><text class="t" x="582" y="294">Built-in agents</text><text class="s" x="582" y="310">QC · copy · idea — ollama</text>
 
-  <rect class="lane" x="8" y="308" width="744" height="100"/>
-  <text class="lane-name" x="20" y="324">Storage · data/ and the checkout</text>
-  <rect class="card key" x="24" y="334" width="160" height="48"/><text class="t" x="36" y="354">SQLite</text><text class="s" x="36" y="370">clips · tasks · runs · settings</text>
-  <rect class="card" x="204" y="334" width="150" height="48"/><text class="t" x="216" y="354">Renders</text><text class="s" x="216" y="370">data/work/&lt;channel&gt;/&lt;clip&gt;/clip.mp4</text>
-  <rect class="card" x="374" y="334" width="150" height="48"/><text class="t" x="386" y="354">Event log</text><text class="s" x="386" y="370">data/logs/*.jsonl — the feed</text>
-  <rect class="card" x="544" y="334" width="186" height="48"/><text class="t" x="556" y="354">config.toml · channels/ · .env</text><text class="s" x="556" y="370">knobs · rules · secrets (never in git)</text>
+  <rect class="lane" x="8" y="362" width="744" height="92"/>
+  <text class="lane-name" x="20" y="380">Storage</text>
+  <rect class="card key" x="24" y="392" width="166" height="48"/><text class="t" x="36" y="412">SQLite</text><text class="s" x="36" y="428">clips · tasks · standings</text>
+  <rect class="card" x="206" y="392" width="166" height="48"/><text class="t" x="218" y="412">config · channels/</text><text class="s" x="218" y="428">cast · season · rules</text>
+  <rect class="card" x="388" y="392" width="166" height="48"/><text class="t" x="400" y="412">Renders</text><text class="s" x="400" y="428">clip.mp4 + trace per clip</text>
+  <rect class="card" x="570" y="392" width="166" height="48"/><text class="t" x="582" y="412">Event log</text><text class="s" x="582" y="428">data/logs — the feed</text>
 
-  <path class="route key" d="M99,82 L84,134"/>
-  <path class="route" d="M534,182 L124,234"/>
-  <path class="route" d="M329,234 L379,182"/>
-  <path class="route key" d="M224,258 L244,258"/>
-  <path class="route" d="M379,182 L379,152"/>
-  <path class="route" d="M672,182 L440,82"/>
-  <path class="route" d="M672,182 L271,82"/>
-  <path class="route key" d="M84,182 L104,334"/>
-  <path class="route" d="M379,182 L279,334"/>
-  <path class="route" d="M379,182 L449,334"/>
-  <path class="route" d="M99,82 L635,82" stroke-dasharray="4 4"/>
+  <!-- Every arrow runs in a gap between cards; none crosses a card. -->
+  <path class="route key" d="M107,86 L107,156"/>
+  <path class="route" d="M190,180 L206,180"/>
+  <path class="route key" d="M190,298 L206,298"/>
+  <path class="route" d="M289,274 L289,204"/><text class="label" x="296" y="235">next_task</text>
+  <path class="route" d="M372,298 L451,298 L451,204"/><text class="label" x="382" y="290">render_clip</text>
+  <path class="route" d="M495,204 L495,392"/><text class="label" x="502" y="350">clip + trace</text>
+  <path class="route" d="M540,204 L596,274"/><text class="label" x="574" y="235">asks</text>
+  <path class="route" d="M653,156 L653,113 L289,113 L289,86"/>
+  <path class="route" d="M471,113 L471,86"/>
+  <path class="route" d="M107,38 L107,28 L653,28 L653,38" stroke-dasharray="4 4"/><text class="label" x="300" y="23">only when you press it</text>
 </svg>
 
-Orange cards are the ones you will meet every day. The dotted line is the
-step that never happens on its own: a clip reaches YouTube only when you
+Orange cards are the ones you will meet every day. Read it top to bottom:
+you ask in the console, the server queues it, an agent picks it up
+(`next_task`) and asks the pipeline to render (`render_clip`), the pipeline
+writes the clip and its trace and asks the built-in brains for QC and copy,
+and Notify tells you on Telegram or Discord. Everything is recorded in the
+storage lane. The dotted line is the step that never happens on its own: a clip reaches YouTube only when you
 press the button. On a manual channel that means you upload the file and
 press **I uploaded it**; with the YouTube driver connected (docs/07) the
 same press uploads it, private, scheduled for the slot.

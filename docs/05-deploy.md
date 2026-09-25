@@ -86,10 +86,11 @@ On the new machine:
     .venv/bin/factory doctor                    # ffmpeg, deps, which brains are ready
 
 For clips without a token bill, install Ollama from ollama.com/download and
-pull the one model QC needs; `config.toml` already points the four brains
-at it:
+pull the two small models `config.toml` points the brains at — one that sees
+frames (QC, Metadata) and one for text (Idea, Copy, Analyst):
 
-    ollama pull qwen2.5vl:7b                    # about 6 GB
+    ollama pull qwen2.5vl:3b                    # about 3.2 GB
+    ollama pull qwen2.5:3b                      # about 1.9 GB
     .venv/bin/factory brains --test ollama      # one round trip, before a clip finds out
 
 Then `factory serve --host 0.0.0.0 --port 8765` with `FACTORY_PASSWORD` in
