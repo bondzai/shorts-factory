@@ -1137,7 +1137,7 @@ levels:
   generator: physics
   variant: marble_race
   params:
-    section: fan-track
+    stage: pinball
   entrants:
   - blaze
   - tide
@@ -1155,12 +1155,12 @@ levels:
     pin: Your track. Comment your next obstacle idea; the top one gets built next world.
     pin_type: vote_track
   rematch_of: null
-  status: needs_input
+  status: ready
   blocked_on: null
   operator_input:
-    stage: null
-    fan_idea: null
-  note: Operator picks the passing stage nearest the winning idea, sets params.stage and drops section; if nothing fits, set status blocked.
+    stage: pinball
+    fan_idea: stand-in - a pinball bumper field, no fan vote yet
+  note: STAND-IN VALUES set 2026-09-25, replace when the real vote or seeds exist. Operator picks the passing stage nearest the winning idea, sets params.stage and drops section; if nothing fits, set status blocked.
 - id: L40
   date: 2026-11-03
   world: halloween-maze
@@ -1422,7 +1422,7 @@ levels:
   generator: physics
   variant: marble_race
   params:
-    section: fan-obstacle
+    stage: pinwheel
   entrants:
   - blaze
   - tide
@@ -1440,13 +1440,13 @@ levels:
     pin: This obstacle came from your votes; the winning comment is credited below. Vote the next one.
     pin_type: vote_track
   rematch_of: null
-  status: needs_input
+  status: ready
   blocked_on: null
   operator_input:
-    stage: null
-    fan_idea: null
-    credit: null
-  note: Operator sets params.stage to the passing stage nearest the winning idea (drop section) and posts the credit; blocked if nothing fits.
+    stage: pinwheel
+    fan_idea: stand-in - spinning arms, no fan vote yet
+    credit: stand-in - no vote yet
+  note: STAND-IN VALUES set 2026-09-25, replace when the real vote or seeds exist. Operator sets params.stage to the passing stage nearest the winning idea (drop section) and posts the credit; blocked if nothing fits.
 - id: L50
   date: 2026-11-13
   world: ice-sand
@@ -2652,7 +2652,9 @@ levels:
   variant: marble_race
   params:
     stage: zigzag
-  entrants: []
+  entrants:
+  - blaze
+  - tide
   format: race
   story:
     must:
@@ -2665,11 +2667,11 @@ levels:
     pin: Christmas Eve quarterfinal. Does the top seed hold, or is this the upset?
     pin_type: predict_outcome
   rematch_of: null
-  status: needs_input
+  status: ready
   blocked_on: null
   operator_input:
-    seeds: null
-  note: World 1 track -> zigzag (L01's stage) under the Christmas theme. Seed 1 vs seed 8. Seeds come from standings at plan time; do not hard-code names. A six-marble cast cannot fill the plan's eight seeds, so the operator decides byes or guests.
+    seeds: stand-in - blaze vs tide, no standings yet
+  note: STAND-IN VALUES set 2026-09-25, replace when the real vote or seeds exist. World 1 track -> zigzag (L01's stage) under the Christmas theme. Seed 1 vs seed 8. Seeds come from standings at plan time; do not hard-code names. A six-marble cast cannot fill the plan's eight seeds, so the operator decides byes or guests.
 - id: L92
   date: 2026-12-25
   world: grand-final
@@ -2799,8 +2801,10 @@ levels:
   generator: physics
   variant: marble_race
   params:
-    section: fan-track-bronze
-  entrants: []
+    stage: quarry
+  entrants:
+  - volt
+  - moss
   format: race
   story:
     must:
@@ -2813,12 +2817,12 @@ levels:
     pin: Bronze race. Should third place matter? Yes or no, and pick your marble.
     pin_type: either_or
   rematch_of: null
-  status: needs_input
+  status: ready
   blocked_on: null
   operator_input:
-    seeds: null
-    stage: null
-  note: Losers of L95 and L96. Operator sets params.stage to the fan-chosen passing stage (drop section). Seeds come from standings at plan time; do not hard-code names. A six-marble cast cannot fill the plan's eight seeds, so the operator decides byes or guests.
+    seeds: stand-in - volt vs moss, no semifinals yet
+    stage: quarry
+  note: STAND-IN VALUES set 2026-09-25, replace when the real vote or seeds exist. Losers of L95 and L96. Operator sets params.stage to the fan-chosen passing stage (drop section). Seeds come from standings at plan time; do not hard-code names. A six-marble cast cannot fill the plan's eight seeds, so the operator decides byes or guests.
 - id: L98
   date: 2026-12-31
   world: grand-final
