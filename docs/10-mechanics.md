@@ -256,3 +256,32 @@ three days before its first level (docs/08, "Calendar").
 some seed of a few, the same seed gives the same `style.mech`, and a redraw
 of one clip equals its shipped frames in both engines. Leave the pinned
 traces alone: if they move, something that was not opt-in changed.
+
+## What World 2 built (L11–L20)
+
+The worked example above is the shape; `factory/generators/physics/worlds/trapdoor.py`
+is the real thing, and it went a different way in one respect worth copying:
+the stage kit's holding `trap` stays as it was (the pinned `trapdoor-cast`
+trace depends on it), and World 2 brought its own **panel** — a lid (a
+`rig.door`) over a pit (two `rig.out_zone`s) — built by sections `trap1` (and `trap1wide`),
+`trap2`, `trap3` (one, two, three panels at the foot of a band), `bowl` and
+`relaystation`, registered into `stagekit.SECTIONS` from the world module.
+Nine trial stages use them (`trapfall`, `trapstairs`, `trapline`, `decoys`,
+`tripwire`, `sinkhole`, `relay`, `trapwalk`, `pitfall`; docs/06 "World 2"),
+and each level's mechanic only sets the panels' `opener(frame)`. Three things
+a world with doors that open under marbles should know:
+
+- **A door must not close through a marble.** At the kit's gravity a marble
+  needs over a second to fall below a lid, and a door that closes on it is
+  resolved by the solver shoving it back up. World 2's lids stay open while a
+  marble is falling through (`_is_open`); another world's doors will want the
+  same.
+- **Events**: `trap_catch` (with `eliminated`, by `trapdoor`) when a pit
+  takes a marble; `trap_opened` the first time each panel opens;
+  `sensor_tripped` (L15); `handed_off` and `relay_dropped` (L17: a relay's
+  first leg leaving the race at the gate, and a second leg that never gets
+  to run). A handover is recorded as an elimination (`by: handoff`), so a
+  relay's `eliminations` count includes them; its story asks for a catch.
+- **A held marble is not parked.** Stage QA counts a marble resting on a
+  shut, level door as held (`stage_qa._on_shut_floor`), as it does one in a
+  trap's pit: a relay pen, a drain between openings.

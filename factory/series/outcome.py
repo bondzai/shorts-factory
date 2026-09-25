@@ -50,7 +50,8 @@ class Outcome(BaseModel):
         Placements, finish events and anything naming an entrant's result are
         dropped; counts and mechanism events stay.
         """
-        hidden = {"finish", "eliminated", "trap_catch"}
+        # relay_dropped: a relay team out because its first leg fell (World 2)
+        hidden = {"finish", "eliminated", "trap_catch", "relay_dropped"}
         return {
             "format": self.format,
             "entrants": len(self.placements),

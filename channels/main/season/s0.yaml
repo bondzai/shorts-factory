@@ -328,8 +328,16 @@ levels:
   generator: physics
   variant: marble_race
   params:
-    stage: trapdoor
+    stage: trapfall
     section: timer-trap
+    teams:
+      blaze: 2
+      tide: 2
+      volt: 2
+      moss: 2
+    round_params:
+    - {}
+    - stage: same
   entrants:
   - blaze
   - tide
@@ -339,26 +347,35 @@ levels:
   story:
     must:
       any_event: trap_catch
+      eliminations: '>=1'
   copy:
     angle: 'the elimination format arrives: two of each colour, a trapdoor on a timer nobody knows'
     title: 'Elimination race: one trapdoor, two per color'
-    hook: Two of each color
+    hook: Which pair loses one?
     desc: 'Each color now runs two marbles. The trapdoor opens on a timer nobody knows. New format, new board: team points.'
     pin: Two of each color. Which team loses a marble first?
     pin_type: predict_trap
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 trapdoor: hidden-timer trap mode, elimination format, two marbles per colour (teams)'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: 'Plan runs two marbles per colour with team points: entrants are the four colours; needs team entrants and team scoring. Base stage trapdoor exists but fails QA today (lead changes 1.4).'
+  note: 'trapfall (trial, docs/06 World 2): pegs, a funnel, one trapdoor panel, pegs. timer-trap opens the panel once at a seeded 5-7.5 s for 3-4.2 s; whoever lands on it then is out. Two marbles a colour via teams (blaze.1/blaze.2, shaded); team points are the standings'' team sum. Heat and final both on trapfall (round_params stage: same).'
 - id: L12
   date: 2026-10-06
   world: trapdoor
   generator: physics
   variant: marble_race
   params:
-    stage: trapdoor
+    stage: trapstairs
     section: trap-sequence
+    teams:
+      blaze: 2
+      tide: 2
+      volt: 2
+      moss: 2
+    round_params:
+    - {}
+    - stage: same
   entrants:
   - blaze
   - tide
@@ -368,27 +385,31 @@ levels:
   story:
     must:
       any_event: trap_catch
+      eliminations: '>=1'
       lead_changes: '>=1'
   copy:
     angle: three trapdoors on staggered timing; speed is a liability if you arrive early
     title: 'Marble race trapdoors: three drops in a row'
-    hook: Early is not safe
+    hook: Who arrives too early?
     desc: Three trapdoors on staggered timing. Arrive early and speed becomes a liability.
     pin: Does early or late arrival survive? Comment "early" or "late".
     pin_type: either_or
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 trapdoor: three staggered trapdoors in sequence, elimination format, teams'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: 'Plan runs two marbles per colour with team points: entrants are the four colours; needs team entrants and team scoring. Base stage trapdoor exists but fails QA today (lead changes 1.4).'
+  note: 'trapstairs (trial): three trapdoor panels one above another (a wide one first), a funnel before the last. Staggered timing is the race''s own: each panel opens for 1.2-1.8 s when the leader comes within three radii of it (never in the first 2.5 s), so the first to arrive finds it open (it reacts to how far the race has come, never to who). Two marbles a colour via teams.'
 - id: L13
   date: 2026-10-07
   world: trapdoor
   generator: physics
   variant: marble_race
   params:
-    stage: trapdoor
+    stage: trapline
     section: finish-trapdoor
+    round_params:
+    - {}
+    - stage: same
   entrants:
   - blaze
   - tide
@@ -399,25 +420,28 @@ levels:
     must:
       any_event: trap_catch
   copy:
-    angle: the finish line itself is a trapdoor that opens just before anyone crosses
-    title: 'Pick a color: the finish line is a trapdoor'
-    hook: The finish line opens
-    desc: The finish line opens for a moment before anyone crosses. Arrive too fast and you fall.
+    angle: the finish line has a trapdoor that opens just as the first marble comes through
+    title: 'Pick a color: the finish line has a trapdoor'
+    hook: Who drops at the line?
+    desc: A trapdoor sits in the run-in, just above the line, and opens for a moment as the first marble comes through. Arrive too fast and you fall.
     pin: Who reads the finish door and who drops through it? Pick a color.
     pin_type: predict_trap
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 trapdoor: finish-line trapdoor mode'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: Base stage trapdoor exists but fails QA today (lead changes 1.4).
+  note: 'trapline (trial): ramps and pegs to a throat with a trapdoor under it. The door is just above the line, not in it (a marble resting on it would otherwise count as across); it opens 0-0.4 s after the first marble passes the throat, for 1.3-1.9 s.'
 - id: L14
   date: 2026-10-08
   world: trapdoor
   generator: physics
   variant: marble_race
   params:
-    stage: trapdoor
+    stage: decoys
     section: fake-panels
+    round_params:
+    - {}
+    - stage: same
   entrants:
   - blaze
   - tide
@@ -427,27 +451,31 @@ levels:
   story:
     must:
       any_event: trap_catch
+      eliminations: '>=1'
       finishers: '>=2'
   copy:
     angle: six panels look like trapdoors and only two open
     title: 'Marble run fake trapdoors: which are real?'
-    hook: Only some panels open
+    hook: Which panels are real?
     desc: 'Six panels look like trapdoors; only two open. Standings: Blaze {standing:blaze}, Tide {standing:tide}, Volt {standing:volt}, Moss {standing:moss}.'
     pin: Guess which panels are real before the first one opens.
     pin_type: predict_trap
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 trapdoor: fake (painted) trap panels, elimination format'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: Base stage trapdoor exists but fails QA today (lead changes 1.4).
+  note: 'decoys (trial): two rows of three identical panels. The seed picks the two real ones; each opens at its own hidden 2-3.5 s and stays open. The four painted ones never open.'
 - id: L15
   date: 2026-10-09
   world: trapdoor
   generator: physics
   variant: marble_race
   params:
-    stage: trapdoor
+    stage: tripwire
     section: leader-sensor-trap
+    round_params:
+    - {}
+    - stage: same
   entrants:
   - blaze
   - tide
@@ -457,26 +485,31 @@ levels:
   story:
     must:
       any_event: trap_catch
+      eliminations: '>=1'
       lead_changes: '>=1'
   copy:
-    angle: a sensor trap drops whoever leads at halfway; nobody wants to lead
-    title: 'Elimination race: the trap takes the leader'
-    hook: Nobody wants to lead
-    desc: 'A sensor trap: whoever leads at the halfway mark drops. The first race here where slow is the strategy.'
+    angle: a sensor at halfway opens the trapdoor under whoever leads; nobody wants to lead
+    title: 'Elimination race: the trap opens under the leader'
+    hook: Who dares to lead?
+    desc: 'A sensor at the halfway mark opens the trapdoor under whoever is leading. The first race here where slow is the strategy.'
     pin: Who gets caught leading at halfway? Predict the marble that falls.
     pin_type: predict_trap
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 trapdoor: leader-sensor trap (opens under whoever leads at halfway)'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: Base stage trapdoor exists but fails QA today (lead changes 1.4).
+  note: 'tripwire (trial): a drawn sensor line at the middle of the course over a row of three panels. The frame the leading marble crosses it, the panel under that marble opens for 2.2-2.8 s. It reacts to where the leader is, never to who; the leader can still bounce clear, and another marble can land on the open panel.'
 - id: L16
   date: 2026-10-10
   world: trapdoor
   generator: physics
   variant: marble_race
   params:
+    stage: sinkhole
     section: spiral-bowl-reverse
+    round_params:
+    - {}
+    - stage: same
   entrants:
   - blaze
   - tide
@@ -485,28 +518,35 @@ levels:
   format: last_standing
   story:
     must:
-      any_event: trap_catch
+      eliminations: '>=3'
   copy:
-    angle: a spiral bowl drains into a trapdoor; the last marble to reach the centre wins
-    title: 'Marble race spiral bowl: last one in wins'
-    hook: Stay out of the hole
-    desc: A spiral bowl drains into a trapdoor. The last marble to reach the centre wins. A reverse race.
+    angle: a bowl drains into a trapdoor at its centre; the last marble to fall in wins
+    title: 'Marble race sinkhole: last one in wins'
+    hook: Who stays out longest?
+    desc: A bowl drains through a trapdoor at its centre. The last marble to fall in wins. A reverse race.
     pin: Reverse race. Pick the marble that stays out of the hole longest.
     pin_type: pick_color
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 trapdoor: spiral bowl draining into a centre trapdoor, reverse scoring (last in wins)'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: Reverse race mapped to format last_standing.
+  note: 'sinkhole (trial): pegs into a bowl the width of the frame, mud on its lower slopes, a trapdoor drain at the centre that opens on a 2.6-3 s cycle. No finish line; last_standing (win: last_standing by default). A side view cannot spiral: marbles swing across the bowl instead of circling it. Once one is left the drain stays shut.'
 - id: L17
   date: 2026-10-11
   world: trapdoor
   generator: physics
   variant: marble_race
   params:
-    stage: trapdoor
+    stage: relay
     section: relay-legs
-    rounds: 2
+    teams:
+      blaze: 2
+      tide: 2
+      volt: 2
+      moss: 2
+    round_params:
+    - {}
+    - stage: same
   entrants:
   - blaze
   - tide
@@ -515,28 +555,32 @@ levels:
   format: race
   story:
     must:
-      rounds: '>=2'
       any_event: trap_catch
+    prefer:
+      lead_changes: '>=1'
   copy:
     angle: 'a relay: the first marble tags in the second at the halfway gate, one trapdoor per leg'
     title: 'Marble relay race: two legs, a trapdoor each'
-    hook: Tag in at the gate
+    hook: Which team tags in first?
     desc: The first marble tags in the second at the halfway gate. Each leg has its own trapdoor.
     pin: Which team fumbles the handoff? Name the color.
     pin_type: predict_outcome
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 trapdoor: team relay (tag at a halfway gate, a trapdoor per leg), teams'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: 'Two legs -> rounds: 2. Plan runs two marbles per colour with team points: entrants are the four colours; needs team entrants and team scoring. Base stage trapdoor exists but fails QA today (lead changes 1.4).'
+  note: 'relay (trial): leg one (a trapdoor panel), the halfway gate with a pen per team (the seed assigns pens), leg two (a trapdoor panel). Each team''s .1 marble runs leg one and leaves the race at the gate, which opens its teammate''s pen; a .1 caught by leg one''s trapdoor never hands over and its teammate is out with it. The relay is one round, not two (the plan''s two legs as rounds could not tag); handovers count as eliminations in the outcome, so the story asks for a trapdoor catch, not an elimination count.'
 - id: L18
   date: 2026-10-12
   world: trapdoor
   generator: physics
   variant: marble_race
   params:
-    stage: trapdoor
+    stage: trapfall
     section: trap-timer-overlay
+    round_params:
+    - {}
+    - stage: same
   entrants:
   - blaze
   - tide
@@ -546,26 +590,30 @@ levels:
   story:
     must:
       any_event: trap_catch
+      eliminations: '>=1'
   copy:
     angle: the trapdoor countdown is on screen, so viewers can see who mistimes it
     title: 'Trapdoor timer on screen: still a fair race?'
-    hook: Watch the clock
+    hook: Who mistimes the clock?
     desc: The trapdoor countdown is on screen this time. Now you can see exactly who mistimes it.
     pin: You can see the timer. Call the marble that drops; the first correct answer gets pinned.
     pin_type: call_it
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 trapdoor: trapdoor countdown drawn on screen'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: Base stage trapdoor exists but fails QA today (lead changes 1.4).
+  note: 'trapfall (L11''s stage) with the timer trap''s countdown drawn over the panel, whole seconds to the opening. One marble a colour, so the door stays open longer than L11''s (4.5-5.5 s).'
 - id: L19
   date: 2026-10-13
   world: trapdoor
   generator: physics
   variant: marble_race
   params:
-    stage: trapdoor
+    stage: trapwalk
     section: five-trapdoors
+    round_params:
+    - {}
+    - stage: same
   entrants:
   - blaze
   - tide
@@ -576,23 +624,31 @@ levels:
   copy:
     angle: 'two marbles, five trapdoors, no teammates: speed against patience'
     title: 'Blaze vs Tide marble race: speed vs patience'
-    hook: Speed against patience
+    hook: Pick speed or patience
     desc: 'Two marbles, five trapdoors, no teammates. Head-to-head so far: {h2h:blaze:tide}.'
     pin: Speed or patience? Comment "speed" or "patience".
     pin_type: either_or
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 trapdoor: five-trapdoor track'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: Base stage trapdoor exists but fails QA today (lead changes 1.4).
+  note: 'trapwalk (trial): five panels in three bands, each on its own seeded cycle, open just under half the time and shut for the first 2.5 s. A catch happens in two races of five, so the story searches seeds for one; once one marble falls the other still has doors to pass.'
 - id: L20
   date: 2026-10-14
   world: trapdoor
   generator: physics
   variant: marble_race
   params:
-    stage: trapdoor
+    stage: pitfall
     section: trap-gauntlet
+    teams:
+      blaze: 3
+      tide: 3
+      volt: 3
+      moss: 3
+    round_params:
+    - {}
+    - stage: same
   entrants:
   - blaze
   - tide
@@ -603,19 +659,20 @@ levels:
   story:
     must:
       any_event: trap_catch
+      eliminations: '>=1'
       lead_changes: '>=1'
   copy:
-    angle: 'world two final: twelve marbles enter the trapdoor gauntlet and one leaves'
+    angle: 'world two final: twelve marbles, seven trapdoors, and the first one out the bottom takes the world'
     title: 'Elimination race final: seven trapdoors'
-    hook: Twelve in, one out
-    desc: 'Twelve marbles enter the gauntlet, one leaves. The world champion takes a Grand Final seat. Going in: Blaze {standing:blaze}, Tide {standing:tide}, Volt {standing:volt}, Moss {standing:moss}.'
+    hook: Who survives the gauntlet?
+    desc: 'Twelve marbles, seven trapdoors. The first one out the bottom takes the world and a Grand Final seat. Going in: Blaze {standing:blaze}, Tide {standing:tide}, Volt {standing:volt}, Moss {standing:moss}.'
     pin: World Two final. Rank all four colors and see how close you get.
     pin_type: rank
   rematch_of: null
-  status: blocked
-  blocked_on: 'WP7 trapdoor: seven-trapdoor gauntlet, elimination to one, three marbles per colour (teams)'
+  status: ready
+  blocked_on: null
   operator_input: {}
-  note: 'Plan has twelve marbles (three per colour); entrants are the four colours. Plan runs two marbles per colour with team points: entrants are the four colours; needs team entrants and team scoring. Base stage trapdoor exists but fails QA today (lead changes 1.4).'
+  note: 'pitfall (trial): seven panels in four bands, opening in a wave that follows the field down (none in the first 2.5 s); three marbles a colour via teams, from a two-row start grid; gravity -27, a little under the kit''s -30. Elimination to one, first across: the doors take most of the field and the first marble across the line wins (or the last one left, if nobody crosses first); a second may still cross behind it.'
 - id: L21
   date: 2026-10-15
   world: polarity-swap
