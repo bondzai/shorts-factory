@@ -265,7 +265,7 @@ def test_with_a_password_everything_waits_at_the_door(sandbox, monkeypatch):
 def test_a_pin_opens_the_door_and_guessing_is_rationed(sandbox, monkeypatch):
     from factory.api import server
 
-    monkeypatch.delenv("FACTORY_PASSWORD", raising=False)
+    monkeypatch.setenv("FACTORY_PASSWORD", "")
     monkeypatch.setenv("FACTORY_PIN", "1234")
     server._FAILS.clear()
     with db.connect() as conn:
