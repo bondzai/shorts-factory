@@ -17,6 +17,8 @@ They are now one module each, and each may only import the ones below it:
     render_pil  the original drawing
     render_pgm  the same race with motion on every object
     render      which of the two, by `render.engine`
+    outcome     placements, lead changes, events          → registry
+    replay      the trace, and a redraw from it           → render, text
     sandbox     the generator the factory registers       → all of the above
 
 Impacts are detected from per-frame velocity changes rather than pymunk's
@@ -41,7 +43,10 @@ from .registry import (BUILDERS, GATE_STAGES, LIVE_STAGES, SPINNER_ROWS, SPINNER
 from .render import frames  # noqa: F401
 from .render_pil import frames_pil  # noqa: F401
 from .render_pygame import frames_pygame  # noqa: F401
-from .sandbox import PhysicsSandbox, generate  # noqa: F401
+from .sandbox import (STORY_STRIDE, PhysicsSandbox, StoryUnsatisfiable, choose_story, generate,  # noqa: F401
+                      race_outcome, race_rounds, story_seed)
+from .build import TRAITS, known_traits  # noqa: F401
+from .replay import redraw, redraw_frame  # noqa: F401
 from .simulate import run_round, simulate  # noqa: F401
 from .text import closing_ask, default_hook, overlay, stage_text  # noqa: F401
 from ..base import register

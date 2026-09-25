@@ -135,6 +135,10 @@ def cmd_render_check(args) -> int:
     # A trial stage has weight 0, so a random pick never lands on it: naming it
     # is the only way to look at one, which is what this command is for.
     params = {"stage": args.stage} if args.stage else {}
+    if args.cast:
+        from .ops import cast_entrants
+
+        params["cast"] = cast_entrants(args.cast, args.entrants)
     clip = gen.generate(
         seed=args.seed, variant=args.variant, params=params, work_dir=cfg.work_dir / label
     )
@@ -161,6 +165,8 @@ def cmd_render_check(args) -> int:
     print(f"phash      {phash.clip_hash(frames)[:32]}...")
     print(f"facts      {json.dumps(clip.facts, default=str)}")
     print(f"says       {clip.description}")
+    if clip.trace_path:
+        print(f"trace      {clip.trace_path}")
     if failures:
         print("hard QC    FAIL")
         for failure in failures:
@@ -203,4 +209,6 @@ def add(sub) -> None:
     p.add_argument("--variant", default="marble_race")
     p.add_argument("--seed", type=int, default=1)
     p.add_argument("--stage", default=None, help="race stage id; default is the seed's own weighted pick")
+    p.add_argument("--cast", help="race this channel's cast (channels/<id>/cast.toml) instead of the theme's marbles")
+    p.add_argument("--entrants", help="with --cast: these ids, comma-separated (default: the L01 regulars)")
     p.set_defaults(func=cmd_render_check)
