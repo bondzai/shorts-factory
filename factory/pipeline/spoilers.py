@@ -9,17 +9,27 @@ from __future__ import annotations
 import re
 
 
-def winners(facts: dict) -> list[str]:
+def _persona(name: str) -> str:
+    """A team marble ("blaze.2") is its persona's; the viewer reads "Blaze"."""
+    return name.split(".", 1)[0]
+
+
+def winners(facts: dict) -> set[str]:
     """Every marble that won a round, from the render's own facts."""
     names = [r.get("winner") for r in facts.get("rounds") or []] + [facts.get("winner")]
-    return {n for n in names if n}
+    return {_persona(n) for n in names if n}
 
 
 def lineup(facts: dict) -> set[str]:
+    """Everyone who raced. Not only who crossed: in an elimination or
+    last-standing race nobody may cross, and a field read from the finishes
+    alone made "Blaze, Tide, Volt or Moss" look like it named just the winner."""
     names: set[str] = set(facts.get("finishes") or {})
     for r in facts.get("rounds") or []:
         names |= set(r.get("finishes") or {})
-    return names
+    names |= set(facts.get("lineup") or []) | set(facts.get("cast") or [])
+    names |= {p.get("entrant_id") for p in (facts.get("outcome") or {}).get("placements") or [] if p.get("entrant_id")}
+    return {_persona(n) for n in names if n}
 
 
 RESULT_WORDS = re.compile(
