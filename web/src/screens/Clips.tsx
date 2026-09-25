@@ -109,7 +109,7 @@ export function Clips({ snap, channelId, refresh, onOpen, route, navigate }: {
           onRow={(r) => { if (r.row_kind === "clip") onOpen(r.id as string); }}
           selectable selected={picked} onSelect={(id) => setPicked((p) => { const s = new Set(p); s.has(id) ? s.delete(id) : s.add(id); return s; })}
           onSelectAll={() => setPicked((p) => p.size === keys.length ? new Set() : new Set(keys))}
-          empty={anyFilter ? <>Nothing matches. <button className="link" onClick={() => navigate("clips")}>Clear filters</button></> : "Nothing yet. Plan levels on Today or Season, or press Add work."} />
+          empty={anyFilter ? <>Nothing matches. <button className="link" onClick={() => navigate("clips")}>Clear filters</button></> : "Nothing yet. Plan levels on Team or Season, or press Add work."} />
         {body && <div className="row wrap">
           <Pagination page={body.page} pageSize={body.page_size} total={body.total} onPage={(p) => query.set({ page: p })} onPageSize={(s) => query.set({ page_size: s, page: 1 })} />
           {(counts.done || counts.failed || counts.cancelled) ? <button className="sm ghost right" onClick={() => bulk("/api/tasks/clear", { channel: channelId }, "Remove every done, failed and cancelled task on this channel?")}>Clear finished tasks</button> : null}
@@ -253,7 +253,7 @@ function HandOff({ snap, channelId, refresh }: { snap: Snap; channelId: string; 
       <pre className="captured" style={{ maxHeight: 260 }}>{text || "loading…"}</pre>
       {snap.agents?.available
         ? <div className="row mt-3"><button onClick={() => act(() => send("/api/tasks/work", { channel: channelId }), { after: refresh })} disabled={snap.job?.running}>Run with built-in agents</button><span className="hint">does every make-clip task in the queue, in a job</span></div>
-        : <div className="hint mt-3">Or let the console run the agent for you: <a href="#/agents">Agents → Workers</a> starts Claude Code or Codex on this queue, with an auto mode that watches for new work.</div>}
+        : <div className="hint mt-3">Or let the console run the agent for you: the desks on <a href="#/team">Team</a> start Claude Code or Codex on this queue, with an auto mode that watches for new work.</div>}
     </div>
   );
 }

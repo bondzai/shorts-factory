@@ -107,7 +107,7 @@ factory youtube status
 ```
 
 Then set the channel's driver to `youtube` and press **Upload to YouTube**
-on Today. A clip goes up private with a `publishAt` for the next slot, its
+on Team. A clip goes up private with a `publishAt` for the next slot, its
 question is posted as a comment, and a retitle of a published clip is
 pushed to the video. Nothing uploads by itself, and agents cannot upload at
 all. See docs/07.
@@ -238,11 +238,16 @@ title playbook says to use it.
 
 ## The console
 
-Five screens, named for what you do on them: **Today** (what needs you now,
-one button each), **Season** (levels, what each waits for, the table),
-**Clips** (every piece of work from queued to published, and the bin),
-**Agents** (who is working, the jobs and spend, the activity log) and
-**Settings** (the channel, its rules, the docs).
+Four screens. **Team** is home: a one-paragraph briefing, then **Your
+decisions** (review with `A`/`R`/`J`/`K`, run QC, publish, plan the next
+season levels), then **the office** — a desk per agent and built-in brain
+saying what it is doing and did today, with start/stop for workers — and,
+collapsed below, jobs and spend and the activity log. **Season** (levels,
+what each waits for, the table), **Clips** (every piece of work from queued
+to published, and the bin) and **Settings** (the channel, its rules, the
+brains, the docs). A command bar in the header (⌘K) runs it all by name —
+`plan L02..L04`, `make 3 zigzag`, `import`, `run qc`, `open L05` — showing
+what each write will do before Enter runs it.
 
 Every screen follows one contract — title row, toolbar (search · filter
 chips · sort · count), content, pagination — and every list answers one

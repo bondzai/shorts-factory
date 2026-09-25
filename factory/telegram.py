@@ -5,7 +5,7 @@ Two directions, one bot.
   Out    every notification that goes to the webhook also goes here, and a
          clip that passes QC arrives as the video itself with Approve and
          Reject buttons under it. Deciding on the phone is the same call as
-         pressing A or R on Today.
+         pressing A or R on Team.
 
   In     a handful of commands — /status, /queue, /clip, /approve, /reject,
          /daily — answered by the server while `factory serve` runs. The bot
@@ -44,8 +44,8 @@ HELP = (
     "/status — every channel: to decide, to upload, queued, who is working\n"
     "/queue — the clips waiting for your decision\n"
     "/clip <id> — send me that clip to watch, with Approve / Reject under it\n"
-    "/approve <id> — same as A on Today\n"
-    "/reject <id> [why] — same as R on Today; the reason is what the next planner reads\n"
+    "/approve <id> — same as A on Team\n"
+    "/reject <id> [why] — same as R on Team; the reason is what the next planner reads\n"
     "/daily — the upload reminder, now\n"
     "An id is the first few characters of a clip id; the queue shows them."
 )
@@ -193,7 +193,7 @@ def send_clip(clip_id: str, *, chat_id: str | None = None) -> dict[str, Any]:
             timeout=60,
         )
     why = "file not kept" if path is None or not path.exists() else "file over Telegram's 50 MB limit"
-    return send_text(f"{caption}\n(video not attached: {why}; open Today to watch)", chat_id=chat_id, reply_markup=markup)
+    return send_text(f"{caption}\n(video not attached: {why}; open Team to watch)", chat_id=chat_id, reply_markup=markup)
 
 
 # --- inbound --------------------------------------------------------------------
@@ -257,7 +257,7 @@ def decide(conn, prefix: str, what: str, reason: str = "") -> tuple[str, str | N
         return f"{row['id'][:8]} is {row['status'].replace('_', ' ')}, not waiting for a decision", row["id"]
     if what == "approve":
         pipeline.approve(conn, row["id"])
-        return f"✅ approved {row['id'][:8]} — {row['title'] or ''}\nIt is on Today under 'to upload'.", row["id"]
+        return f"✅ approved {row['id'][:8]} — {row['title'] or ''}\nIt is on Team under 'Ready to upload'.", row["id"]
     pipeline.reject(conn, row["id"], reason or "rejected from Telegram")
     return f"❌ rejected {row['id'][:8]}" + (f" — {reason}" if reason else ""), row["id"]
 

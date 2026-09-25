@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import tempfile
+from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
 from ... import db, logs
@@ -121,3 +123,64 @@ def work_tasks(body: ChannelOnly) -> dict[str, Any]:
 
     JOB.start("work", ch.id, run)
     return JOB.state()
+
+
+# --- Bulk work from the console --------------------------------------------
+# The same service the CLI (`factory tasks import`) and MCP (`enqueue_batch`)
+# use: every row checked before anything is written, dry run to see the
+# receipt, all rows or none unless partial.
+
+def _submit(channel: str | None, source, *, dry_run: bool, partial: bool, ref: str | None = None) -> dict[str, Any]:
+    from ... import batch
+
+    with db.connect() as conn:
+        ch = resolve(conn, channel)
+        try:
+            receipt = batch.service().submit(batch.context(conn, ch), source, by="human",
+                                             dry_run=dry_run, partial=partial, ref=ref)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from None
+    return receipt.as_dict()
+
+
+class BatchBody(BaseModel):
+    channel: str | None = None
+    jobs: list[dict[str, Any]]
+    dry_run: bool = True
+    partial: bool = False
+    ref: str | None = None
+
+
+@router.post("/api/tasks/batch")
+def batch_tasks(body: BatchBody) -> dict[str, Any]:
+    """Rows as JSON — what the command bar's `make 3 zigzag` sends."""
+    from ... import batch
+
+    return _submit(body.channel, batch.ListSource(body.jobs, name="console"),
+                   dry_run=body.dry_run, partial=body.partial, ref=body.ref)
+
+
+@router.post("/api/tasks/import")
+async def import_tasks(
+    file: UploadFile = File(...), channel: str | None = Form(None),
+    dry_run: bool = Form(True), partial: bool = Form(False),
+) -> dict[str, Any]:
+    """A file of jobs (csv, json, jsonl, yaml). Written to a temporary file
+    with its own extension so the reader for that format picks it up."""
+    from ... import batch
+
+    name = Path(file.filename or "upload").name
+    suffix = Path(name).suffix.lower()
+    if suffix not in batch.SOURCES:
+        raise HTTPException(400, f"{name}: no reader for {suffix or 'a file with no extension'}; "
+                                 f"have {', '.join(sorted(batch.SOURCES))}")
+    data = await file.read()
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / name
+        path.write_bytes(data)
+        source = batch.source_for(path)
+        try:
+            rows = list(source.read())  # a malformed file is a 400 that names it, not a 500
+        except Exception as exc:
+            raise HTTPException(400, f"{name}: could not read it ({exc})") from None
+        return _submit(channel, batch.ListSource(rows, name=name), dry_run=dry_run, partial=partial)

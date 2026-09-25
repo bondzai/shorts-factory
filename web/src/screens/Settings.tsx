@@ -291,8 +291,8 @@ function YouTube({ channelId, driver, refresh }: { channelId: string; driver: st
   };
   return (
     <Card title="YouTube" hint={v.connected
-      ? `Approved clips upload from Today: private now, public at ${v.slot}. About ${v.uploads_per_day} uploads a day fit YouTube's quota.`
-      : "Connect this channel to upload from Today instead of by hand. One token per channel, kept in channels/ and gitignored."}>
+      ? `Approved clips upload from Team: private now, public at ${v.slot}. About ${v.uploads_per_day} uploads a day fit YouTube's quota.`
+      : "Connect this channel to upload from Team instead of by hand. One token per channel, kept in channels/ and gitignored."}>
       <div className="row wrap">
         <span className={"badge " + (v.connected ? "ok" : "")}>{v.connected ? "connected" : "not connected"}</span>
         {v.account && <span className="hint">{v.account.title}{v.account.videos != null ? ` · ${v.account.videos} videos` : ""}{v.account.subscribers != null ? ` · ${v.account.subscribers} subscribers` : ""}</span>}
@@ -304,7 +304,7 @@ function YouTube({ channelId, driver, refresh }: { channelId: string; driver: st
           : <button className="sm primary" onClick={connect} disabled={!v.client_secrets || waiting}>Connect this channel</button>}
       </div>
       {!v.client_secrets && <p className="hint mt-3">First put an OAuth client for a Google Cloud project with the YouTube Data API v3 and YouTube Analytics API enabled at <code>client_secrets.json</code> in the project folder, then install the extra: <code>pip install -e '.[youtube]'</code>.</p>}
-      {v.connected && driver !== "youtube" && <p className="hint mt-3">This channel still publishes with the <b>manual</b> driver — set <b>publish driver</b> above to <b>youtube</b> to upload from Today.</p>}
+      {v.connected && driver !== "youtube" && <p className="hint mt-3">This channel still publishes with the <b>manual</b> driver — set <b>publish driver</b> above to <b>youtube</b> to upload from Team.</p>}
     </Card>
   );
 }

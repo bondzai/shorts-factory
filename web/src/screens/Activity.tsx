@@ -35,7 +35,7 @@ export function Activity({ channelId, route, navigate }: { channelId: string; ro
 
   return (
     <>
-      <p className="page-lead">Each box is one job (a build, a re-render, a plan) with the events it produced inside. Lines outside a box came from the command line, an agent, or a decision on Today.</p>
+      <p className="page-lead">Each box is one job (a build, a re-render, a plan) with the events it produced inside. Lines outside a box came from the command line, an agent, or a decision on Team.</p>
       <Toolbar total={events.total}>
         <SearchBox value={query.get("q")} onChange={(v) => query.set({ q: v, page: 1 })} placeholder="search events" />
         <Chips options={[{ value: "warn", label: "problems only" }]} value={level} onChange={(v) => query.set({ level: v, page: 1 })} all="everything" />

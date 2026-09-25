@@ -168,11 +168,18 @@ def put_themes(body: ThemesBody) -> dict[str, Any]:
     return {**_themes_view(), "themes": [t.as_dict() for t in parsed], "force": body.force, "overridden": True}
 
 
+def _qc_enabled() -> bool:
+    from ...pipeline.common import qc_enabled
+    return bool(qc_enabled())
+
+
 def _brains_view() -> dict[str, Any]:
     return {
         "providers": [{**p.as_dict(), "key_present": p.key_present()} for p in llm.providers()],
         "agents": {a: llm.assignment(a) for a in llm.AGENTS},
         "readiness": llm.readiness(),
+        # Off: new clips stop as "awaiting QC" until someone runs QC.
+        "qc_enabled": _qc_enabled(),
         "needs_vision": sorted(llm.NEEDS_VISION),
         "presets": llm.PRESETS,
         "mcp_command": [str(settings.ROOT / ".venv" / "bin" / "factory"), "mcp"],

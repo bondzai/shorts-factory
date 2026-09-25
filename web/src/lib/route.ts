@@ -6,10 +6,13 @@ export interface Route { view: string; params: URLSearchParams }
 
 /* Screens that moved keep their old addresses: a bookmark or a link in a
    Telegram message still lands on the right place. */
+const PANEL: Record<string, string> = { jobs: "jobs", activity: "activity", team: "", workers: "" };
 const MOVED: Record<string, (p: URLSearchParams) => [string, Record<string, string>]> = {
-  team: () => ["agents", {}],
-  workers: () => ["agents", {}],
-  activity: (p) => ["agents", { ...Object.fromEntries(p), tab: "activity" }],
+  "": () => ["team", {}],
+  today: () => ["team", {}],
+  agents: (p) => { const { tab, ...rest } = Object.fromEntries(p); return ["team", PANEL[tab || ""] ? { ...rest, panel: PANEL[tab] } : {}]; },
+  workers: () => ["team", {}],
+  activity: (p) => ["team", { ...Object.fromEntries(p), panel: "activity" }],
   bin: (p) => ["clips", { ...Object.fromEntries(p), phase: "binned" }],
   docs: (p) => ["settings", { tab: "docs", ...(p.get("page") ? { page: p.get("page")! } : {}) }],
   queue: () => ["clips", {}],
@@ -27,7 +30,7 @@ function parse(): Route {
     window.history.replaceState(null, "", `#/${to}${sp ? "?" + sp : ""}`);
     return { view: to, params: new URLSearchParams(sp) };
   }
-  return { view: view || "today", params };
+  return { view, params };
 }
 
 export function useRoute() {

@@ -29,7 +29,7 @@ you as a clip to approve.
 
   <rect class="lane" x="8" y="8" width="744" height="92"/>
   <text class="lane-name" x="20" y="26">You</text>
-  <rect class="card key" x="24" y="38" width="166" height="48"/><text class="t" x="36" y="58">Console</text><text class="s" x="36" y="74">Today · Clips · Season</text>
+  <rect class="card key" x="24" y="38" width="166" height="48"/><text class="t" x="36" y="58">Console</text><text class="s" x="36" y="74">Team · Season · Clips</text>
   <rect class="card" x="206" y="38" width="166" height="48"/><text class="t" x="218" y="58">Telegram</text><text class="s" x="218" y="74">clip + Approve / Reject</text>
   <rect class="card" x="388" y="38" width="166" height="48"/><text class="t" x="400" y="58">Discord / Slack</text><text class="s" x="400" y="74">done · daily reminder</text>
   <rect class="card" x="570" y="38" width="166" height="48"/><text class="t" x="582" y="58">YouTube</text><text class="s" x="582" y="74">uploads on your press</text>
@@ -80,7 +80,7 @@ same press uploads it, private, scheduled for the slot.
 ## One clip, start to finish
 
 Eight steps. The dot walks them in order; every step leaves a row or an
-event behind, so the Agents screen and Telegram can tell you where a clip is
+event behind, so Team and Telegram can tell you where a clip is
 without asking the agent.
 
 <svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12">
@@ -101,7 +101,7 @@ without asking the agent.
   <rect class="step" x="580" y="20" width="170" height="56"/><text class="n" x="590" y="38">4</text><text class="t" x="604" y="38">Gates measure</text><text class="s" x="590" y="56">length · loudness · sameness</text><text class="s" x="590" y="68">too alike is refused in code</text>
 
   <rect class="step" x="580" y="130" width="170" height="56"/><text class="n" x="590" y="148">5</text><text class="t" x="604" y="148">Title + QC</text><text class="s" x="590" y="166">agent writes, server checks</text><text class="s" x="590" y="178">no spoilers, hook ≥ 3/5</text>
-  <rect class="step you" x="390" y="130" width="170" height="56"/><text class="n" x="400" y="148">6</text><text class="t" x="414" y="148">You decide</text><text class="s" x="400" y="166">Today, or the video on Telegram</text><text class="s" x="400" y="178">Approve / Reject with a reason</text>
+  <rect class="step you" x="390" y="130" width="170" height="56"/><text class="n" x="400" y="148">6</text><text class="t" x="414" y="148">You decide</text><text class="s" x="400" y="166">Team, or the video on Telegram</text><text class="s" x="400" y="178">Approve / Reject with a reason</text>
   <rect class="step you" x="200" y="130" width="170" height="56"/><text class="n" x="210" y="148">7</text><text class="t" x="224" y="148">Upload</text><text class="s" x="210" y="166">one press: by hand, or the API</text><text class="s" x="210" y="178">private, public at 06:00 Bangkok</text>
   <rect class="step you" x="10" y="130" width="170" height="56"/><text class="n" x="20" y="148">8</text><text class="t" x="34" y="148">Numbers come back</text><text class="s" x="20" y="166">Clips: % viewed, % swiped</text><text class="s" x="20" y="178">→ the next playbook knows</text>
 
@@ -130,9 +130,10 @@ on the **Stage QA** page.
 
 ## The daily loop, in practice
 
-1. **Clips → Add work** — "make three marble races". Or leave **Team →
-   Workers** on *auto* and just keep the queue fed.
-2. **Today** — watch what came out, approve or reject (`A` / `R`), fix the
+1. **Clips → Add work** — "make three marble races", or type
+   `make 3 zigzag` / `plan L02..L04` in the command bar (⌘K). Or leave
+   Claude's desk on **Team** on *auto* and just keep the queue fed.
+2. **Team → Your decisions** — watch what came out, approve or reject (`A` / `R`), fix the
    opening caption if you want, **Copy for upload**, upload by hand, press
    **I uploaded it**. On the phone, the same clip arrives on Telegram with
    two buttons.
@@ -145,11 +146,18 @@ on the **Stage QA** page.
 
 | screen | what you do there |
 |---|---|
-| **Today** | what needs you now, one button each: review, run QC, publish, plan the next levels |
+| **Team** (home) | the office. A briefing in plain words; **Your decisions** — review (`A` / `R` / `J` / `K`), run QC, publish, plan the next levels; **the office** — a desk per agent (Claude Code, Codex, any MCP agent) and per built-in brain, with what it is doing, what it did today, and start/stop for workers; below, **Records**: jobs and spend, what just happened, the activity log, how to connect an outside agent |
 | **Season** | every level, what a blocked one waits for, planning, the standings table |
 | **Clips** | one row per piece of work, queued to published — add work, hand it to an agent, view, download, bin. *In the bin* is a status: restore, or delete for good. Filter to *published* and the same screen shows how they did |
-| **Agents** | every agent: what it holds and did today; start and stop workers; the jobs (build, QC, publish, digest) and what they cost; the activity log |
 | **Settings** | this channel, its rules, the brains, the knobs, the themes, alerts — and these docs |
+
+The **command bar** in the header (⌘K / Ctrl-K) runs the console by name,
+with no model in between: `plan L02..L04`, `make 3 zigzag`, `import` (a
+csv/json/yaml file of jobs, checked row by row before you confirm),
+`run qc`, `build`, `publish`, `digest`, `open L05` or `open <clip id>`, and
+`season` / `clips` / `settings`. Every write shows what it will do and runs
+only on Enter. Old addresses (`#/today`, `#/agents`, `#/workers`,
+`#/activity`) land on Team.
 
 ## How every screen is laid out
 

@@ -47,8 +47,9 @@ export function Season({ channelId, refresh, onOpen, route, navigate }: {
   }, [channelId]);
   useEffect(() => { load(); }, [load]);
 
-  const world = query.get("world"), status = query.get("status");
-  const rows = useMemo(() => (view?.levels || []).filter((l) => (!world || l.world === world) && (!status || l.status === status)), [view, world, status]);
+  // ?level=L05 is what the command bar's `open L05` lands on: that one row.
+  const world = query.get("world"), status = query.get("status"), only = query.get("level");
+  const rows = useMemo(() => (view?.levels || []).filter((l) => (!only || l.id === only) && (!world || l.world === world) && (!status || l.status === status)), [view, world, status, only]);
 
   if (missing) {
     return (
@@ -116,6 +117,7 @@ export function Season({ channelId, refresh, onOpen, route, navigate }: {
       <div className="season">
         <section className="season-levels" aria-label="Levels">
           <Toolbar total={rows.length}>
+            {only && <span className="pill">Showing <b>{only}</b><button className="link" onClick={() => query.set({ level: undefined })}>Show all levels</button></span>}
             <label className="row"><span className="hint">World</span>
               <select value={world} onChange={(e) => query.set({ world: e.target.value })}>
                 <option value="">All worlds</option>{view.worlds.map((w) => <option key={w} value={w}>{w}</option>)}

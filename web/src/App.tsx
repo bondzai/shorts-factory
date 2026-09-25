@@ -1,6 +1,6 @@
-// The shell: five places named for what the operator came to do, a header
-// that says which channel and what is running, and the screen the URL names.
-// The machinery (agents, jobs, logs, spend) lives on Agents, not up here.
+// The shell: four places, a header with the channel, the command bar and the
+// one job running, and the screen the URL names. Team is home: the briefing,
+// your decisions and the office. Everything else is one click or one command.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, q } from "./lib/api";
 import { toast } from "./lib/toast";
@@ -9,20 +9,19 @@ import { ErrorNote, Toasts } from "./ui";
 import { Logo } from "./ui/Logo";
 import { useTheme } from "./lib/theme";
 import { ThemeSwitch } from "./ui/ThemeSwitch";
-import { Today } from "./screens/Today";
+import { CommandBar } from "./ui/CommandBar";
+import { Team } from "./screens/Team";
 import { Season } from "./screens/Season";
 import { Clips } from "./screens/Clips";
-import { Agents } from "./screens/Agents";
 import { ClipDrawer } from "./ui/ClipDrawer";
 import { Settings, AddChannel } from "./screens/Settings";
 import type { Channel, Snap } from "./lib/types";
 
 const VIEWS = [
-  { id: "today", name: "Today", meaning: "what needs you now" },
+  { id: "team", name: "Team", meaning: "your decisions, the office" },
   { id: "season", name: "Season", meaning: "levels and the table" },
   { id: "clips", name: "Clips", meaning: "every clip, and the bin" },
-  { id: "agents", name: "Agents", meaning: "who is working, jobs, logs" },
-  { id: "settings", name: "Settings", meaning: "channel, rules, docs" },
+  { id: "settings", name: "Settings", meaning: "channel, brains, docs" },
 ];
 
 export default function App() {
@@ -63,7 +62,7 @@ export default function App() {
     wasRunning.current = job.running;
   }, [snap?.job]);
 
-  const view = VIEWS.some((v) => v.id === route.view) ? route.view : "today";
+  const view = VIEWS.some((v) => v.id === route.view) ? route.view : "team";
   useEffect(() => { document.title = `${VIEWS.find((v) => v.id === view)?.name} · shorts factory`; }, [view]);
 
   if (channels && !channels.length) {
@@ -80,7 +79,7 @@ export default function App() {
         <div className="nav-items">
           {VIEWS.map((v) => (
             <a key={v.id} href={`#/${v.id}`} aria-current={view === v.id ? "page" : undefined}>
-              <span className="name">{v.name}{v.id === "today" && toReview > 0 && <span className="count" aria-label={`${toReview} to review`}>{toReview}</span>}</span>
+              <span className="name">{v.name}{v.id === "team" && toReview > 0 && <span className="count needs" aria-label={`${toReview} waiting for your decision`}>{toReview}</span>}</span>
               <span className="meaning">{v.meaning}</span>
             </a>
           ))}
@@ -91,16 +90,16 @@ export default function App() {
         </div>
       </nav>
       <div className="main">
-        <Header channels={channels || []} channelId={channelId} setChannelId={setChannelId} snap={snap} navigate={navigate} />
+        <Header channels={channels || []} channelId={channelId} setChannelId={setChannelId} snap={snap} navigate={navigate}
+          bar={snap && channelId ? <CommandBar snap={snap} channelId={channelId} refresh={reload} navigate={navigate} onOpen={setOpenClip} /> : null} />
         <Toasts />
         <main className="content" id="content">
           {openClip && <ClipDrawer id={openClip} close={() => setOpenClip(null)} refresh={reload} sound={sound} />}
           {error && snap && <ErrorNote message={`Lost touch with the server: ${error}. Showing what was last loaded.`} retry={reload} />}
           {!snap ? (error ? <ErrorNote message={`Cannot reach the server: ${error}. Is \`factory serve\` running?`} retry={reload} /> : <p className="empty">Loading…</p>)
-            : view === "today" ? <Today snap={snap} {...screenProps} sound={sound} setSound={setSound} />
+            : view === "team" ? <Team snap={snap} {...screenProps} sound={sound} setSound={setSound} />
             : view === "season" ? <Season {...screenProps} />
             : view === "clips" ? <Clips snap={snap} {...screenProps} />
-            : view === "agents" ? <Agents snap={snap} {...screenProps} />
             : <Settings snap={snap} channelId={channelId!} refresh={reload} route={route} navigate={navigate} theme={<ThemeSwitch theme={theme} setTheme={setTheme} />} />}
         </main>
       </div>
@@ -108,10 +107,9 @@ export default function App() {
   );
 }
 
-/* The channel, and the one job running right now. Nothing else: counts live
-   on Today, spend and the job buttons on Agents. */
-function Header({ channels, channelId, setChannelId, snap, navigate }: {
-  channels: Channel[]; channelId: string | null; setChannelId: (id: string) => void; snap: Snap | null; navigate: (v: string, p?: Record<string, string>) => void;
+/* The channel, the command bar, and the one job running right now. */
+function Header({ channels, channelId, setChannelId, snap, navigate, bar }: {
+  channels: Channel[]; channelId: string | null; setChannelId: (id: string) => void; snap: Snap | null; navigate: (v: string, p?: Record<string, string>) => void; bar: React.ReactNode;
 }) {
   const job = snap?.job;
   const current = channels.find((c) => c.id === channelId);
@@ -121,8 +119,9 @@ function Header({ channels, channelId, setChannelId, snap, navigate }: {
       {channels.length > 1
         ? <label className="row"><span className="sr-only">Channel</span><select value={channelId || ""} onChange={(e) => setChannelId(e.target.value)}>{channels.map((c) => <option key={c.id} value={c.id}>{c.name}{c.active ? "" : " (paused)"}</option>)}</select></label>
         : <span className="channel-name">{current?.name || snap?.channel.name || ""}{current && !current.active && <span className="hint"> · paused</span>}</span>}
+      {bar}
       {job?.running && (
-        <button type="button" className="running" onClick={() => navigate("agents", { tab: "jobs" })} title="See the job's log on Agents">
+        <button type="button" className="running" onClick={() => navigate("team", { panel: "jobs" })} title="See the job's log under Jobs and spend">
           <span className="dot working" aria-hidden />
           <span className="truncate"><b>{JOB_WORD[job.name || ""] || job.name}</b>{last && <span className="dim"> · {last}</span>}</span>
         </button>

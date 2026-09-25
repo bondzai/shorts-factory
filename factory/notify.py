@@ -209,7 +209,7 @@ def daily_text(conn) -> str | None:
         lines.append(f"[{ch.id}] {len(rows)} approved, ready to upload: {titles}{more}")
     if not lines:
         return None
-    return "\n".join(lines) + f"\nNext slot: {schedule.describe(schedule.next_slot())} — open Today, Copy for upload."
+    return "\n".join(lines) + f"\nNext slot: {schedule.describe(schedule.next_slot())} — open Team, Copy for upload."
 
 
 def daily(force: bool = False) -> bool:
