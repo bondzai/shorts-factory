@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 
-from .. import channels, db
+from .. import channels, db, seasons
 from ..series import longform, season as season_mod
 
 
@@ -21,7 +21,8 @@ def cmd_longform(args) -> int:
         ch = channels.resolve(conn, args.channel)
         season = season_mod.load(ch.id, args.season)
         started = time.monotonic()
-        out = longform.render(conn, ch.id, season, _levels(args.levels), args.kind, preset=args.preset)
+        out = longform.render(conn, ch.id, season, _levels(args.levels), args.kind,
+                              redraw=seasons.redraw, preset=args.preset)
     wall = time.monotonic() - started
     print(f"{out['video']}\n  {out['duration_s'] / 60:.1f} min of video in {wall / 60:.1f} min "
           f"({out['duration_s'] / max(wall, 1e-6):.1f}x realtime)")

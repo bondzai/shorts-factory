@@ -1,7 +1,8 @@
 """Long-form videos redrawn from traces: a tournament or a recap, 16:9.
 
 Nothing is re-simulated and no short is concatenated. Each level's race is
-redrawn from its trace by its own generator (reached through the registry),
+redrawn from its trace by its own generator — a `Redraw` the caller supplies,
+since the series package never imports one —
 set in the centre of a 1920x1080 frame with the level and the standings in
 panels either side, and its impacts are re-synthesised from the trace. The
 pieces are encoded as segments with identical codec settings and joined
@@ -23,14 +24,15 @@ import sqlite3
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any, Callable, Iterator
 
 from PIL import Image, ImageDraw
 
-from .. import audio, generators, settings
+from .. import audio, settings
 from ..brand import _font
 from ..render import require_ffmpeg
 from . import cast as cast_mod
+from . import standings
 from . import trace as trace_mod
 from .cast import level_number
 
@@ -43,6 +45,9 @@ PANEL = (24, 26, 34)
 INK = (235, 235, 242)
 DIM = (143, 143, 163)
 KINDS = ("tournament", "recap")
+
+# (trace meta, trace directory) -> the race's frames at sim size, as shipped.
+Redraw = Callable[[dict, Path], Iterator[bytes]]
 
 
 @dataclass
@@ -92,8 +97,6 @@ def _names(channel_id: str) -> dict[str, str]:
 
 
 def _table(conn, channel_id: str, season_id: str, before: str) -> list[dict]:
-    from . import standings  # the scoring lives there; imported late so this module loads alone
-
     return standings.table(conn, channel_id, season_id, before_level=before)
 
 
@@ -196,15 +199,11 @@ def _impacts(piece: Piece) -> list[audio.Impact]:
 
 
 def _race(piece: Piece, backdrop: Image.Image, race_w: int, out: Path, preset: str,
-          first_frame: int = 0) -> Path:
+          redraw: Redraw, first_frame: int = 0) -> Path:
     """The redrawn race over its panel; frames before `first_frame` are drawn
     (the renderer is sequential) but not encoded."""
     fps = int(piece.meta["fps"])
     sim_w, sim_h = int(piece.meta["sim_w"]), int(piece.meta["sim_h"])
-    gen = generators.get(piece.meta["generator"])
-    redraw = getattr(gen, "redraw", None)
-    if redraw is None:
-        raise ValueError(f"generator {piece.meta['generator']!r} cannot redraw from a trace")
     kept = piece.frames - first_frame
     seconds = kept / fps
     wav = out.with_suffix(".wav")
@@ -224,7 +223,7 @@ def _race(piece: Piece, backdrop: Image.Image, race_w: int, out: Path, preset: s
     proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
     assert proc.stdin is not None
     try:
-        for i, frame in enumerate(redraw(piece.trace_dir)):
+        for i, frame in enumerate(redraw(piece.meta, piece.trace_dir)):
             if i >= first_frame:
                 proc.stdin.write(frame)
     finally:
@@ -250,7 +249,7 @@ def stamp(seconds: float) -> str:
 
 
 def render(conn: sqlite3.Connection, channel_id: str, season, level_ids: list[str], kind: str, *,
-           out_dir: Path | None = None, preset: str = "faster") -> dict[str, Any]:
+           redraw: Redraw, out_dir: Path | None = None, preset: str = "faster") -> dict[str, Any]:
     """Render a long-form video; returns the paths and the chapter list."""
     if kind not in KINDS:
         raise ValueError(f"kind must be one of {KINDS}; sleep compilations are not built (docs/08 §7)")
@@ -275,7 +274,7 @@ def render(conn: sqlite3.Connection, channel_id: str, season, level_ids: list[st
         chapters.append((clock, f"{piece.level_id} · {piece.title}"))
         seq = [_still(card(piece, names, season.title), CARD_S, work / f"{n:03d}a.mp4", fps, preset)]
         tail = max(0, piece.frames - int(RECAP_TAIL_S * fps)) if kind == "recap" else 0
-        seq.append(_race(piece, panel(piece, names, before, race_w), race_w, work / f"{n:03d}b.mp4", preset, tail))
+        seq.append(_race(piece, panel(piece, names, before, race_w), race_w, work / f"{n:03d}b.mp4", preset, redraw, tail))
         seq.append(_still(table_card(piece, before, after, kind == "recap"), TABLE_S, work / f"{n:03d}c.mp4", fps, preset))
         for s in seq:
             clock += _duration(s)
@@ -300,7 +299,3 @@ def render(conn: sqlite3.Connection, channel_id: str, season, level_ids: list[st
             "duration_s": round(clock, 2), "levels": [p.level_id for p in parts],
             "rendered_at": dt.datetime.now().isoformat(timespec="seconds")}
 
-
-def frames_of(piece: Piece) -> Iterator[bytes]:
-    """The race as shipped, from the trace alone (for tests and checks)."""
-    return generators.get(piece.meta["generator"]).redraw(piece.trace_dir)

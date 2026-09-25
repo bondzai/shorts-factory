@@ -22,6 +22,16 @@ def known_stages() -> set[str]:
     return set(STAGE_BY_ID)
 
 
+def redraw(meta: dict, trace_dir):
+    """A trace's frames from the generator that wrote it (long-form's Redraw)."""
+    from . import generators
+
+    gen = generators.get(meta["generator"])
+    if not hasattr(gen, "redraw"):
+        raise ValueError(f"generator {meta['generator']!r} cannot redraw from a trace")
+    return gen.redraw(trace_dir)
+
+
 def load(ch: Channel, season_id: str | None = None):
     """(season, cast) for a channel."""
     return season_mod.load(ch.id, season_id), cast_mod.load(ch.id)
