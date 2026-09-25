@@ -3,7 +3,7 @@ import { api, q, Page as PageT } from "../lib/api";
 import { when, clock, fmt } from "../lib/format";
 import { toast } from "../lib/toast";
 import { useQuery } from "../lib/route";
-import { Page, Toolbar, SearchBox, Chips, Pagination } from "../ui";
+import { Toolbar, SearchBox, Chips, Pagination } from "../ui";
 import type { Route } from "../lib/route";
 import type { LogEvent, Run } from "../lib/types";
 
@@ -19,7 +19,7 @@ export function Activity({ channelId, route, navigate }: { channelId: string; ro
       api<PageT<LogEvent>>(`/api/logs?${q({ channel: channelId, level: level === "warn" ? undefined : level, q: query.get("q"), page, page_size: pageSize })}`),
     ]).then(([r, l]) => { setRuns(r.items); setEvents(l); }).catch((e) => toast((e as Error).message, "error"));
   }, [channelId, level, page, pageSize, query.get("q")]);
-  if (!events) return <Page title="What ran, and what happened"><p className="empty">loading…</p></Page>;
+  if (!events) return <p className="empty">Loading…</p>;
 
   const t = (iso: string) => Date.parse(iso) || 0;
   const visible = events.items.filter((e) =>
@@ -34,7 +34,8 @@ export function Activity({ channelId, route, navigate }: { channelId: string; ro
   const line = (e: LogEvent) => <div key={e.at + e.event} className="event"><span className="t">{clock(e.at)}</span><span className={tone(e.level)}>{e.event}{e.clip && <span className="hint"> {e.clip}</span>}</span><span className="d">{detail(e)}</span></div>;
 
   return (
-    <Page title="What ran, and what happened" lead="Each box is one job — a build, a re-render, a plan — with the events it produced inside. Lines outside a box came from the CLI, an agent over MCP, or a keypress on Today.">
+    <>
+      <p className="page-lead">Each box is one job (a build, a re-render, a plan) with the events it produced inside. Lines outside a box came from the command line, an agent, or a decision on Today.</p>
       <Toolbar total={events.total}>
         <SearchBox value={query.get("q")} onChange={(v) => query.set({ q: v, page: 1 })} placeholder="search events" />
         <Chips options={[{ value: "warn", label: "problems only" }]} value={level} onChange={(v) => query.set({ level: v, page: 1 })} all="everything" />
@@ -46,8 +47,8 @@ export function Activity({ channelId, route, navigate }: { channelId: string; ro
           <div className="events">{item.events.map(line)}{item.run.log && <pre className="captured mt-3">{item.run.log}</pre>}</div>
         </details>
       ) : <div key={item.event!.at + item.event!.event} className="run" style={{ padding: "0 var(--s4)", border: "1px solid var(--line)", borderRadius: "var(--r2)", marginBottom: "var(--s2)" }}>{line(item.event!)}</div>)}
-      {!timeline.length && <p className="empty">Nothing yet.</p>}
+      {!timeline.length && <p className="empty">Nothing matches. Clear the search or the filters.</p>}
       <Pagination page={events.page} pageSize={events.page_size} total={events.total} onPage={(p) => query.set({ page: p })} onPageSize={(s) => query.set({ page_size: s, page: 1 })} />
-    </Page>
+    </>
   );
 }

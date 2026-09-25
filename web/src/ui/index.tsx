@@ -40,31 +40,42 @@ export function Chips({ options, value, onChange, all = "all" }: { options: { va
   );
 }
 
-export interface Column<T> { key: string; label: ReactNode; sortable?: boolean; render: (row: T) => ReactNode; width?: string; align?: "right" }
-export function DataTable<T extends { id: string | number; key?: string }>({ columns, rows, sort, dir, onSort, onRow, empty = "Nothing matches.", loading, selectable, selected, onSelect, onSelectAll }: {
+export interface Column<T> { key: string; label: ReactNode; sortable?: boolean; render: (row: T) => ReactNode; width?: string; align?: "right"; wide?: boolean }
+/* A table of rows. `wide` columns are dropped on a phone; the table scrolls
+   inside its own box rather than pushing the page sideways. */
+export function DataTable<T extends { id: string | number; key?: string }>({ columns, rows, sort, dir, onSort, onRow, empty = "Nothing matches.", loading, selectable, selected, onSelect, onSelectAll, canSelect, label }: {
   columns: Column<T>[]; rows: T[]; sort?: string; dir?: string; onSort?: (key: string) => void; onRow?: (row: T) => void;
   empty?: ReactNode; loading?: boolean; selectable?: boolean; selected?: Set<string | number>; onSelect?: (id: string | number) => void; onSelectAll?: () => void;
+  canSelect?: (row: T) => boolean; label?: string;
 }) {
+  const pickable = rows.filter((r) => !canSelect || canSelect(r));
+  const cls = (c: Column<T>) => c.wide ? "wide" : undefined;
   return (
-    <table className="data">
-      <thead><tr>
-        {selectable && <th style={{ width: 28 }}><input type="checkbox" checked={rows.length > 0 && rows.every((r) => selected?.has(r.key ?? r.id))} onChange={onSelectAll} title="select all on this page" /></th>}
-        {columns.map((c) => (
-          <th key={c.key} className={c.sortable ? "sortable" : undefined} style={{ width: c.width, textAlign: c.align }} onClick={c.sortable && onSort ? () => onSort(c.key) : undefined}>
-            {c.label}{sort === c.key ? (dir === "asc" ? " ↑" : " ↓") : ""}
-          </th>
-        ))}
-      </tr></thead>
-      <tbody>
-        {rows.map((r) => (
-          <tr key={r.key ?? r.id} className={onRow ? "clickable" : undefined} onClick={onRow ? (e) => { if (!(e.target as HTMLElement).closest("button, input, a, select")) onRow(r); } : undefined}>
-            {selectable && <td><input type="checkbox" checked={!!selected?.has(r.key ?? r.id)} onChange={() => onSelect?.(r.key ?? r.id)} /></td>}
-            {columns.map((c) => <td key={c.key} style={{ textAlign: c.align }}>{c.render(r)}</td>)}
-          </tr>
-        ))}
-        {!rows.length && <tr><td colSpan={columns.length + (selectable ? 1 : 0)} className="empty">{loading ? "loading…" : empty}</td></tr>}
-      </tbody>
-    </table>
+    <div className="table-box">
+      <table className="data" aria-label={label}>
+        <thead><tr>
+          {selectable && <th style={{ width: 28 }}><input type="checkbox" aria-label="select all on this page" disabled={!pickable.length} checked={pickable.length > 0 && pickable.every((r) => selected?.has(r.key ?? r.id))} onChange={onSelectAll} /></th>}
+          {columns.map((c) => (
+            <th key={c.key} className={[cls(c), c.sortable ? "sortable" : ""].filter(Boolean).join(" ") || undefined} style={{ width: c.width, textAlign: c.align }}
+              aria-sort={sort === c.key ? (dir === "asc" ? "ascending" : "descending") : undefined}>
+              {c.sortable && onSort ? <button type="button" className="th-sort" onClick={() => onSort(c.key)}>{c.label}{sort === c.key ? (dir === "asc" ? " ↑" : " ↓") : ""}</button> : c.label}
+            </th>
+          ))}
+        </tr></thead>
+        <tbody>
+          {rows.map((r) => {
+            const can = !canSelect || canSelect(r);
+            return (
+              <tr key={r.key ?? r.id} className={onRow ? "clickable" : undefined} onClick={onRow ? (e) => { if (!(e.target as HTMLElement).closest("button, input, a, select, label")) onRow(r); } : undefined}>
+                {selectable && <td>{can && <input type="checkbox" aria-label={`select ${r.key ?? r.id}`} checked={!!selected?.has(r.key ?? r.id)} onChange={() => onSelect?.(r.key ?? r.id)} />}</td>}
+                {columns.map((c) => <td key={c.key} className={cls(c)} style={{ textAlign: c.align }}>{c.render(r)}</td>)}
+              </tr>
+            );
+          })}
+          {!rows.length && <tr><td colSpan={columns.length + (selectable ? 1 : 0)} className="empty">{loading ? "Loading…" : empty}</td></tr>}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -107,7 +118,15 @@ export function Drawer({ onClose, children }: { onClose: () => void; children: R
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
-  return <><div className="scrim" onClick={onClose} /><div className="drawer" role="dialog">{children}</div></>;
+  // Focus moves into the drawer when it opens and back where it was when it
+  // closes, so a keyboard user is never left behind the scrim.
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const before = document.activeElement as HTMLElement | null;
+    box.current?.focus();
+    return () => { before?.focus?.(); };
+  }, []);
+  return <><div className="scrim" onClick={onClose} /><div className="drawer" role="dialog" aria-modal="true" tabIndex={-1} ref={box}>{children}</div></>;
 }
 
 /* Modal: a centred dialog for one short form. A list screen stays a list;
@@ -155,3 +174,33 @@ export function StepStrip({ steps }: { steps: Step[] }) {
 }
 
 export const Badge = ({ tone, children }: { tone?: "ok" | "no" | "key"; children: ReactNode }) => <span className={"badge" + (tone ? " " + tone : "")}>{children}</span>;
+
+/* Tabs: a row of buttons that change what a screen shows, kept in the URL. */
+export function Tabs({ tabs, value, onChange, label }: { tabs: { id: string; label: ReactNode }[]; value: string; onChange: (id: string) => void; label: string }) {
+  return (
+    <div className="tabs" role="tablist" aria-label={label}>
+      {tabs.map((t) => <button key={t.id} type="button" role="tab" aria-selected={t.id === value} onClick={() => onChange(t.id)}>{t.label}</button>)}
+    </div>
+  );
+}
+
+/* One thing on the to-do list: what it is, how many, why it matters, and the
+   single button that moves it along. Done items shrink to one quiet line. */
+export function Todo({ title, count, hint, action, done, doneText, children }: {
+  title: ReactNode; count?: number; hint?: ReactNode; action?: ReactNode; done?: boolean; doneText?: ReactNode; children?: ReactNode;
+}) {
+  if (done) return <div className="todo done"><span className="check" aria-hidden>✓</span><span><b>{title}</b> <span className="hint">{doneText}</span></span></div>;
+  return (
+    <section className="todo">
+      <div className="todo-head">
+        <div className="grow"><h2>{title}{count != null && <span className="n">{count}</span>}</h2>{hint && <div className="hint">{hint}</div>}</div>
+        {action && <div className="todo-action">{action}</div>}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+export function ErrorNote({ message, retry }: { message: string; retry?: () => void }) {
+  return <div className="note error" role="alert"><span className="grow">{message}</span>{retry && <button className="sm" onClick={retry}>Try again</button>}</div>;
+}

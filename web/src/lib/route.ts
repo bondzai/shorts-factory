@@ -4,10 +4,30 @@ import { useCallback, useEffect, useState } from "react";
 
 export interface Route { view: string; params: URLSearchParams }
 
+/* Screens that moved keep their old addresses: a bookmark or a link in a
+   Telegram message still lands on the right place. */
+const MOVED: Record<string, (p: URLSearchParams) => [string, Record<string, string>]> = {
+  team: () => ["agents", {}],
+  workers: () => ["agents", {}],
+  activity: (p) => ["agents", { ...Object.fromEntries(p), tab: "activity" }],
+  bin: (p) => ["clips", { ...Object.fromEntries(p), phase: "binned" }],
+  docs: (p) => ["settings", { tab: "docs", ...(p.get("page") ? { page: p.get("page")! } : {}) }],
+  queue: () => ["clips", {}],
+  results: () => ["clips", { phase: "published" }],
+};
+
 function parse(): Route {
   const hash = window.location.hash.replace(/^#\/?/, "");
   const [view, query = ""] = hash.split("?");
-  return { view: view || "today", params: new URLSearchParams(query) };
+  const params = new URLSearchParams(query);
+  const moved = MOVED[view];
+  if (moved) {
+    const [to, next] = moved(params);
+    const sp = new URLSearchParams(next).toString();
+    window.history.replaceState(null, "", `#/${to}${sp ? "?" + sp : ""}`);
+    return { view: to, params: new URLSearchParams(sp) };
+  }
+  return { view: view || "today", params };
 }
 
 export function useRoute() {

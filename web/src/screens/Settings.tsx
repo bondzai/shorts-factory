@@ -2,7 +2,9 @@ import { useCallback, useEffect, useState } from "react";
 import { api, q, send } from "../lib/api";
 import { hex, rgb } from "../lib/format";
 import { act, toast } from "../lib/toast";
-import { Page, Card, Field, Chips } from "../ui";
+import { Page, Card, Field, Chips, Tabs } from "../ui";
+import { Docs } from "./Docs";
+import type { Route } from "../lib/route";
 import type { Channel, Snap } from "../lib/types";
 
 const TABS = [
@@ -13,15 +15,17 @@ const TABS = [
   { id: "themes", label: "Themes", meaning: "seasons: colours, marbles, decorations" },
   { id: "factory", label: "Factory", meaning: "the knobs: gates, captions, retention, rounds" },
   { id: "alerts", label: "Alerts", meaning: "where you are told: Discord, Slack, Telegram" },
+  { id: "docs", label: "Docs", meaning: "how it all works" },
 ];
 
-export function Settings({ snap, channelId, refresh, tab, setTab }: { snap: Snap; channelId: string; refresh: () => Promise<void>; tab: string; setTab: (id: string) => void }) {
+export function Settings({ snap, channelId, refresh, route, navigate, theme }: { snap: Snap; channelId: string; refresh: () => Promise<void>; route: Route; navigate: (v: string, p?: Record<string, string | number | undefined>) => void; theme?: React.ReactNode }) {
+  const tab = route.params.get("tab") || "channel";
   const current = TABS.find((t) => t.id === tab) || TABS[0];
   return (
-    <Page title={snap.channel.name} lead={current.meaning}>
-      <div className="row wrap mb-3">
-        {TABS.map((t) => <button key={t.id} className="chip" aria-pressed={t.id === current.id} onClick={() => setTab(t.id)}>{t.label}</button>)}
-      </div>
+    <Page title="Settings">
+      <Tabs label="Settings" tabs={TABS} value={current.id} onChange={(id) => navigate("settings", id === "channel" ? {} : { tab: id })} />
+      <p className="page-lead">{current.id === "channel" ? `${snap.channel.name}: ${current.meaning}` : current.meaning}</p>
+      {current.id === "docs" && <Docs page={route.params.get("page") || ""} setPage={(id) => navigate("settings", { tab: "docs", page: id })} />}
       {current.id === "channel" && <><ChannelForm ch={snap.channel} refresh={refresh} /><YouTube channelId={channelId} driver={snap.channel.driver} refresh={refresh} /><AddChannel onDone={refresh} /></>}
       {current.id === "rules" && <Rules channelId={channelId} />}
       {current.id === "directions" && <Directions channelId={channelId} />}
@@ -29,6 +33,7 @@ export function Settings({ snap, channelId, refresh, tab, setTab }: { snap: Snap
       {current.id === "themes" && <Themes />}
       {current.id === "factory" && <FactorySettings />}
       {current.id === "alerts" && <Alerts />}
+      {theme && <div className="row mt-3 appearance"><span className="hint">Appearance</span>{theme}</div>}
     </Page>
   );
 }

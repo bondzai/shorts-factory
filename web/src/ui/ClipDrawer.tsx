@@ -2,7 +2,7 @@
 // what the platform did with it. Opened from any list of clips.
 import { useCallback, useEffect, useState } from "react";
 import { api, send } from "../lib/api";
-import { fmt, num, pct, when, statusWord, download } from "../lib/format";
+import { fmt, num, pct, when, clipWord, clipTone, download } from "../lib/format";
 import { act } from "../lib/toast";
 import { Badge, Drawer } from ".";
 import type { ClipDetail } from "../lib/types";
@@ -25,7 +25,7 @@ export function ClipDrawer({ id, close, refresh, sound }: { id: string; close: (
       {err ? <p className="empty">{err}</p> : !c ? <p className="empty">loading…</p> : (
         <div className="stack gap-3">
           <div className="row wrap">
-            <Badge>{statusWord(c.status)}</Badge>{c.deleted_at && <Badge tone="no">in the bin</Badge>}
+            <Badge tone={clipTone(c.status)}>{clipWord(c.status)}</Badge>{c.deleted_at && <Badge tone="no">in the bin</Badge>}
             <span className="hint">{c.generator}/{c.variant} · seed {c.seed} · {when(c.created_at)}</span>
             <button className="sm right" onClick={close}>Close <kbd>Esc</kbd></button>
           </div>
