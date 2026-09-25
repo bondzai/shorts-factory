@@ -155,6 +155,26 @@ def migrate(conn: sqlite3.Connection) -> list[str]:
     level_id TEXT NOT NULL, outcome_json TEXT NOT NULL, points_json TEXT NOT NULL,
     approved_at TEXT NOT NULL)""")
 
+    # The feedback loop (factory/feedback.py): what the numbers taught the
+    # channel, written down by the operator (or proposed by an agent), and
+    # the linked clips' numbers frozen at the moment they were linked.
+    conn.execute("""CREATE TABLE IF NOT EXISTS feedback (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    channel_id   TEXT NOT NULL,
+    created_at   TEXT NOT NULL,
+    updated_at   TEXT NOT NULL,
+    created_by   TEXT,
+    source       TEXT NOT NULL DEFAULT 'manual',
+    area         TEXT NOT NULL DEFAULT 'other',
+    observation  TEXT NOT NULL,
+    evidence     TEXT NOT NULL DEFAULT '',
+    clip_ids     TEXT NOT NULL DEFAULT '[]',
+    action       TEXT NOT NULL DEFAULT '',
+    status       TEXT NOT NULL DEFAULT 'open',
+    result       TEXT NOT NULL DEFAULT '',
+    metrics_json TEXT NOT NULL DEFAULT '{}')""")
+    conn.execute("CREATE INDEX IF NOT EXISTS feedback_channel ON feedback (channel_id, status)")
+
     if "proposals_json" not in _columns(conn, "digests"):
         conn.execute("ALTER TABLE digests ADD COLUMN proposals_json TEXT NOT NULL DEFAULT '[]'")
         done.append("digests.proposals_json added")

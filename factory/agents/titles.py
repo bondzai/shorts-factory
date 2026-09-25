@@ -66,7 +66,7 @@ none of them shaped like the titles already used on this channel."""
 
 
 def suggest(*, facts: dict[str, Any], recent_titles: list[str], directions: str,
-            emoji_allowed: bool, want_captions: bool) -> tuple[TitleIdeas, float]:
+            emoji_allowed: bool, want_captions: bool, lessons: str = "") -> tuple[TitleIdeas, float]:
     lineup = facts.get("lineup") or []
     text = (
         f"Facts about the clip (only these are true):\n{json.dumps(facts, default=str)}\n\n"
@@ -77,6 +77,7 @@ def suggest(*, facts: dict[str, Any], recent_titles: list[str], directions: str,
         + "\n\nTitles already used on this channel — do not repeat their shape or their first three words:\n"
         + ("\n".join(f"- {t}" for t in recent_titles) if recent_titles else "- none yet")
         + (f"\n\nOperator's directions:\n{directions}" if directions else "")
+        + (f"\n\nLessons this channel's numbers taught (adopted by the operator):\n{lessons}" if lessons else "")
         + ("\n\nOne emoji at the end of a title is allowed." if emoji_allowed else "\n\nNo emoji.")
         + ("\n\nAlso give each idea a caption: two or three words for the opening frame, "
            "second person, a verb, no colours, no numbers." if want_captions else "")

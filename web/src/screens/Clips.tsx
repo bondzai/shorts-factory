@@ -166,7 +166,7 @@ const FIELDS = [
   { key: "likes", label: "Likes", help: "Optional." },
 ] as const;
 
-function Metrics({ c, after }: { c: Clip; after: () => Promise<void> }) {
+export function Metrics({ c, after, label }: { c: Pick<Clip, "id" | "title" | "published_at" | "views" | "avg_view_pct" | "swipe_away_pct" | "likes">; after: () => Promise<void> | void; label?: string }) {
   const [open, setOpen] = useState(false);
   const [m, setM] = useState({ views: String(c.views ?? ""), avg_view_pct: String(c.avg_view_pct ?? ""), swipe_away_pct: String(c.swipe_away_pct ?? ""), likes: String(c.likes ?? "") });
   const save = (e: React.FormEvent) => {
@@ -176,7 +176,7 @@ function Metrics({ c, after }: { c: Clip; after: () => Promise<void> }) {
   };
   return (
     <>
-      <button className="sm" onClick={(e) => { e.stopPropagation(); setOpen(true); }}>{c.views == null ? "Enter metrics" : "Edit metrics"}</button>
+      <button className="sm" onClick={(e) => { e.stopPropagation(); setOpen(true); }}>{label ?? (c.views == null ? "Enter metrics" : "Edit metrics")}</button>
       {open && <Modal title="Numbers from YouTube Studio" onClose={() => setOpen(false)}>
         <form className="form" onSubmit={save}>
           <p className="hint">{c.title || c.id} \u00b7 published {when(c.published_at)}</p>

@@ -18,7 +18,7 @@ import sqlite3
 from dataclasses import dataclass, field
 from typing import Any
 
-from .. import db, llm, logs, settings
+from .. import db, feedback, llm, logs, settings
 from ..agents import template
 from ..models import Metadata
 from . import cast as cast_mod
@@ -54,6 +54,7 @@ class Setting:
     table: list[dict[str, Any]] | None = None  # None: standings unavailable
     recent_hooks: list[str] = field(default_factory=list)
     asked: dict[str, Any] = field(default_factory=dict)  # the task's brief and hints, when it had them
+    lessons: str = ""  # adopted lessons about titles, hooks and captions (factory/feedback.py)
 
 
 @dataclass
@@ -193,6 +194,7 @@ def gather(conn: sqlite3.Connection, clip_id: str, facts: dict[str, Any] | None 
         seed=int(row["seed"] or 0), facts=facts, ctx=ctx, season=season, level=level, cast=cst,
         outcome=outcome, table=table, recent_hooks=[r["hook_text"] for r in recent if r["hook_text"]],
         asked={k: v for k, v in json.loads(row["params_json"] or "{}").items() if k in ("brief", "hints")},
+        lessons=feedback.adopted_text(conn, channel_id, feedback.COPY_AREAS).strip(),
     )
 
 
@@ -234,6 +236,7 @@ def inputs(s: Setting, rules: str) -> dict[str, Any]:
         "plan_hints": hints,
         "operator_brief": s.asked.get("brief"),
         "channel_rules": rules,
+        "adopted_lessons": s.lessons or None,
         "recent": {"titles": s.ctx.recent_titles, "hooks": s.recent_hooks, "pins": s.ctx.recent_pins},
         "placeholders": copy_check.PLACEHOLDERS,
         "allowed_placeholders": {f: sorted(copy_check.ALLOWED[f]) for f in FIELDS},
