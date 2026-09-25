@@ -53,7 +53,7 @@ on this machine:
 2. In `config.toml`, or on Settings → Brains, point the four agents at
    `ollama/…` — the commented lines under `[llm.agents]` are the exact ones.
 3. `factory brains --test ollama` for one round trip, then **Build planned**
-   on the console (or `factory build`). The MCP workers on the Team screen
+   on the console (or `factory build`). The MCP workers on the Agents screen
    are the Claude/Codex path and are not needed for this.
 
 Every frame a brain sees is shrunk first (`[llm] image_long_edge`, 768 by
@@ -103,11 +103,11 @@ serve`. Inside the Docker image it is not, and the page says so; there,
 **Connect an outside agent** on the same screen has the config to copy for
 Claude Code (one command), Codex (`~/.codex/config.toml`), any MCP client
 (JSON), the prompt command, and the terminal one-liner. An agent connected
-this way appears on the Team screen by the name it gives `next_task`.
+this way appears on the Agents screen by the name it gives `next_task`.
 
 ## Watching the team
 
-The **Team** screen is the whole factory from the manager's chair, across
+The **Agents** screen is the whole factory from the manager's chair, across
 every channel: each agent by the name it gave `next_task`, whether it is
 working, ready, idle or away, the task it holds and which step it is on,
 what it finished today (tasks, clips, QC passes, cost), and a feed of the

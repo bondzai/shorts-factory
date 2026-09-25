@@ -80,7 +80,7 @@ same press uploads it, private, scheduled for the slot.
 ## One clip, start to finish
 
 Eight steps. The dot walks them in order; every step leaves a row or an
-event behind, so the Team screen and Telegram can tell you where a clip is
+event behind, so the Agents screen and Telegram can tell you where a clip is
 without asking the agent.
 
 <svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12">
@@ -145,13 +145,11 @@ on the **Stage QA** page.
 
 | screen | what you do there |
 |---|---|
-| **Today** | decide on what is waiting, then upload what you approved |
-| **Team** | every agent across every channel: what it holds, how far along, what it did today; start and stop workers; the log read out loud |
-| **Clips** | one row per piece of work, queued to published — add work, hand it to an agent, view, download, bin. Filter to *published* and the same screen shows how they did: the channel's totals, plus retitle and enter-metrics on the row |
-| **Activity** | what ran and what happened inside each run |
-| **Bin** | what you threw away — restore, or delete for good |
-| **Settings** | this channel, its rules, the brains, the knobs, the themes, alerts |
-| **Docs** | this |
+| **Today** | what needs you now, one button each: review, run QC, publish, plan the next levels |
+| **Season** | every level, what a blocked one waits for, planning, the standings table |
+| **Clips** | one row per piece of work, queued to published — add work, hand it to an agent, view, download, bin. *In the bin* is a status: restore, or delete for good. Filter to *published* and the same screen shows how they did |
+| **Agents** | every agent: what it holds and did today; start and stop workers; the jobs (build, QC, publish, digest) and what they cost; the activity log |
+| **Settings** | this channel, its rules, the brains, the knobs, the themes, alerts — and these docs |
 
 ## How every screen is laid out
 

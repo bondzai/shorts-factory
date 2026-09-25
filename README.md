@@ -238,10 +238,11 @@ title playbook says to use it.
 
 ## The console
 
-Seven screens, named for what you do on them: **Today** (decide, then
-upload), **Team** (every agent, and the workers), **Clips** (every piece of
-work from queued to published, and how the published ones did),
-**Activity**, **Bin**, **Settings**, **Docs**.
+Five screens, named for what you do on them: **Today** (what needs you now,
+one button each), **Season** (levels, what each waits for, the table),
+**Clips** (every piece of work from queued to published, and the bin),
+**Agents** (who is working, the jobs and spend, the activity log) and
+**Settings** (the channel, its rules, the docs).
 
 Every screen follows one contract — title row, toolbar (search · filter
 chips · sort · count), content, pagination — and every list answers one

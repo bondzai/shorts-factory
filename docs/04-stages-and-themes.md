@@ -340,7 +340,7 @@ parameters.
 
 ## Stuck-marble lessons, round three (gauntlet and rockers)
 
-Measured on 2026-09-22 over 12 seeds each, after the Team screen showed
+Measured on 2026-09-22 over 12 seeds each, after the Agents screen showed
 both stages ending with marbles that never arrived.
 
 **Gauntlet.** Non-finishers were not slow, they were gone: positions like
