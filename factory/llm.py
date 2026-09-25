@@ -163,11 +163,14 @@ def local_models(p: Provider) -> list[str] | None:
         return None
 
 
-def readiness() -> dict[str, dict[str, Any]]:
-    """Per agent: where it would run and whether that can work right now."""
+def readiness(agents: tuple[str, ...] = AGENTS) -> dict[str, dict[str, Any]]:
+    """Per agent: where it would run and whether that can work right now.
+
+    The four pipeline agents by default; a series agent such as "copy" is
+    asked for by name, so it never counts against `has_credentials`."""
     out = {}
     served: dict[str, list[str] | None] = {}
-    for agent in AGENTS:
+    for agent in agents:
         try:
             p, model = resolve(agent)
         except ValueError as exc:

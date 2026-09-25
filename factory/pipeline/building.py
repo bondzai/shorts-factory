@@ -149,7 +149,7 @@ def build(conn: sqlite3.Connection, clip_id: str, *, force: bool = False) -> Sta
             )
             logs.event("clip.metadata_reused", channel=ch.id, clip=clip_id, title=meta.title)
         else:
-            meta, cost, by = written_metadata(row, ch, clip, frames, recent)
+            meta, cost, by = written_metadata(row, ch, clip, frames, recent, conn=conn)
             spent += cost
             db.update(
                 conn,
@@ -213,7 +213,7 @@ def build(conn: sqlite3.Connection, clip_id: str, *, force: bool = False) -> Sta
         return StageOutcome(clip_id, FAILED, f"qc failed: {exc}", spent)
 
 
-def written_metadata(row, ch, clip, frames, recent):
+def written_metadata(row, ch, clip, frames, recent, *, conn: sqlite3.Connection | None = None):
     """The clip's words, from the template or the Metadata agent, per
     `[llm] metadata_source`. Returns (metadata, cost, who).
 
@@ -221,7 +221,14 @@ def written_metadata(row, ch, clip, frames, recent):
     same spoiler check as an agent — a template with a bug in it must not be
     the one thing that can ship a result in a title. What it cannot write
     (another generator's clip) goes to the agent, and the log says so.
+
+    A season level clip is the exception: its words come from the series
+    copy stage (`[series] copy_source`), which asks the copy brain, checks
+    every candidate and falls back to the template per field. Its hook is
+    recorded, not burned — that is `factory copy --burn-hook`.
     """
+    if (copied := _level_copy(conn, row, ch, clip)) is not None:
+        return copied
     source = settings.load().llm.get("metadata_source", "agent")
     if source == "template" and template.can_write(clip.facts):
         meta, cost = template.write_metadata(facts=clip.facts, seed=row["seed"],
@@ -244,6 +251,30 @@ def written_metadata(row, ch, clip, frames, recent):
         frames=frames,
     )
     return meta, cost, "agent"
+
+
+def _level_copy(conn, row, ch, clip):
+    """(metadata, cost, who) for a level clip, or None for any other clip.
+    level_id is read now: the row the caller holds may predate the render.
+    Without a connection only the row's own level_id is known, and a clip
+    that has none never opens the database here."""
+    own = conn is None
+    if own:
+        if "level_id" not in row.keys() or not row["level_id"]:
+            return None
+        conn = db.connect()
+    try:
+        fresh = db.get(conn, row["id"])
+        if fresh is None or not fresh["level_id"]:
+            return None
+        from ..series import copywriter
+
+        result = copywriter.write(conn, row["id"], facts=clip.facts, rules=ch.rules())
+        copywriter.record(conn, result)
+        return result.metadata, result.cost, f"copy/{result.source}"
+    finally:
+        if own:
+            conn.close()
 
 
 def build_all(

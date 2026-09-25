@@ -65,6 +65,11 @@ class Season(BaseModel):
     title: str
     channel: str
     scoring: str = "default"
+    # Search keywords ("Marble Race", ...): a title with one in its first three
+    # words is preferred, never required (docs/08 §4 Copy).
+    keywords: list[str] = Field(default_factory=list)
+    # A last description line every level of the season carries.
+    footer: str | None = None
     levels: list[Level]
 
     def level(self, level_id: str) -> Level:

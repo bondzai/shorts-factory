@@ -22,11 +22,11 @@ from __future__ import annotations
 import argparse
 import sys
 
-from . import channels, make, ops, publish, review, setup
+from . import channels, copy, make, ops, publish, review, setup
 
 #: In the order `factory --help` should read: set it up, then the loop,
 #: then the machinery around it.
-GROUPS = (setup, channels, make, review, publish, ops)
+GROUPS = (setup, channels, make, review, copy, publish, ops)
 
 
 def build_parser() -> argparse.ArgumentParser:
