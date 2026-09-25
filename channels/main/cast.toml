@@ -1,0 +1,82 @@
+# Gravity Lab's recurring entrants (docs/08-series-layer.md, "Cast").
+# Traits are nudges, not a script: over 48 seeds of a live stage every
+# regular entrant must win 10-45% of races (`factory stage-qa --cast main`).
+# The values below are the starting point; the balance gate decides them.
+# `bio` is prose for the copy brain and is never parsed.
+
+[[entrant]]
+id = "blaze"
+name = "Blaze"
+color = "#E84C4A"
+traits = { friction = 0.12, mass_mult = 0.9 }
+bio = "Fastest off the line, crashes under pressure. The overconfident favourite."
+debut = "L01"
+
+[[entrant]]
+id = "tide"
+name = "Tide"
+color = "#378ADD"
+traits = { friction = 0.30, mass_mult = 1.15 }
+bio = "Slowest start, never leaves the racing line. The grinder."
+debut = "L01"
+
+[[entrant]]
+id = "volt"
+name = "Volt"
+color = "#F2C230"
+traits = { jitter = 1.0, radius_mult = 0.95 }
+bio = "Erratic: wins or wipes out spectacularly. The wildcard."
+debut = "L01"
+
+[[entrant]]
+id = "moss"
+name = "Moss"
+color = "#97C459"
+traits = {}
+bio = "Average speed, uncanny luck. The underdog fans root for."
+debut = "L01"
+
+[[entrant]]
+id = "nova"
+name = "Nova"
+color = "#967AE0"
+traits = { radius_mult = 1.05, friction = 0.2 }
+bio = "Unknown, mid-season challenger. The disruptor."
+debut = "L51"
+
+[[entrant]]
+id = "ember"
+name = "Ember"
+color = "#EF8A27"
+traits = { mass_mult = 1.6, radius_mult = 1.1, force_immune = true }
+bio = "Heavy, immune to magnets and wind, weak on ramps. The late-season tank."
+debut = "L71"
+
+# Guests never score. The ghost is a one-week Halloween entrant (L35).
+[[entrant]]
+id = "ghost"
+name = "Ghost"
+color = "#E8E8F0"
+traits = { mass_mult = 0.8 }
+bio = "A white ghost marble for Halloween week. It cannot score, but it blocks."
+debut = "L35"
+scores = false
+
+# The Harvest Cup's two guests (L63, Thanksgiving). Guests never score.
+[[entrant]]
+id = "acorn"
+name = "Acorn"
+color = "#8C5A2E"
+traits = {}
+bio = "A brown harvest guest for the Thanksgiving final. Plays spoiler, never scores."
+debut = "L63"
+scores = false
+
+[[entrant]]
+id = "juniper"
+name = "Juniper"
+color = "#1FA89A"
+traits = {}
+bio = "A teal harvest guest for the Thanksgiving final. Along for the chaos, never scores."
+debut = "L63"
+scores = false

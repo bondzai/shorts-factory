@@ -65,6 +65,8 @@ class Season(BaseModel):
     title: str
     channel: str
     scoring: str = "default"
+    keywords: list[str] = []
+    footer: str | None = None
     levels: list[Level]
 
     def level(self, level_id: str) -> Level:
