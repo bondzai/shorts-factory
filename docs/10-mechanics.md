@@ -127,6 +127,7 @@ A door gives each marble a collision bit, so a race holds at most 12
 | `rig.effect("countdown", clock=…, at=(x, y))` | the clock's value drawn as a number |
 | `rig.effect("die", clock=… \| value=k, at=(x, y), size=px, layer="top" \| "under", tints={"1": rgb})` | a die face with pips; the clock's value is None (not drawn), a face, or `{"f": face, "s": "roll" \| "set" \| "lit" \| "dim"}` — tumbling while it rolls, ringed when lit, faded when dim. `worlds/dice.roll` registers one with its clocks |
 | `rig.effect("prop", clock=…, at=(x, y), radius=r, color=[r, g, b])` | a marble drawn there while the clock is truthy (always, with no clock): a picture with no body, never an entrant, never in the outcome — L50's purple watcher |
+| `rig.effect("prop", clock=…, track=True, look="pumpkin", radius=r, color=…)` | a prop drawn where its clock says: the clock's value is `[x, y]`, or None to hide it. How a world draws a body of its own that moves and is not a marble (World 4's pumpkins record their body's position this way); `look` picks a drawing, today only `pumpkin` |
 
 Gate lights, surface textures and outward magnet chevrons need no effect
 call: they come with the door, the zone, the polarity clock.
@@ -285,3 +286,28 @@ a world with doors that open under marbles should know:
 - **A held marble is not parked.** Stage QA counts a marble resting on a
   shut, level door as held (`stage_qa._on_shut_floor`), as it does one in a
   trap's pit: a relay pen, a drain between openings.
+
+## What World 4 built (L31–L38)
+
+`factory/generators/physics/worlds/haunted.py`: a `maze` section (rows of
+forks; each corridor ends at a gap in its floor with a roofed dead end past
+it, an always-armed `rig.out_zone`, event `dead_end`) and a `coffin` section
+(World 2's `panel` under a funnel's throat, its lid drawn in wood), on four
+trial stages (`haunted`, `pumpkinpatch`, `coffin`, `hauntedfinal`; docs/06
+"World 4"). Three things other worlds can reuse:
+
+- **A body that is not a marble.** A pumpkin is a kinematic pymunk body (a
+  bumper) that the world's `on_frame` hook turns dynamic the frame a marble
+  touches it. Its position is a clock, drawn by a *tracked* prop (above), so
+  a redraw needs no pymunk. It is in the space but never in `balls`: no
+  sound, no stall check, no outcome. It leaves the course the way a marble
+  would (below the line, or into an always-armed out zone).
+- **A web that tears.** `rig.zone(first_only=True, when=clock, appear=True)`
+  with a clock that goes false a fixed time after `zone.victim` is set: the
+  first marble in is held, and the web is drawn only while it holds.
+- **A blackout that ends.** A clock that turns on at a race fraction and off
+  at another, clamped to a minimum and a maximum number of seconds, so the
+  dark is always about the same length however fast the leader goes.
+
+`dead_end` is hidden from the copy brain with `trap_catch`
+(`Outcome.without_winner`): it says a marble went out and when.
