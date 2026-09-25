@@ -38,6 +38,8 @@ from typing import Any
 from . import db, logs, playbooks, settings
 
 PROMPT = "{prompt}"
+CHANNEL = "{channel}"
+FACTORY = "{factory}"
 MCP_JSON = "{mcp_json}"
 # How each agent is run without a person at the keyboard. The prompt is the
 # rendered work playbook; the tool allow-list is the factory's MCP server and
@@ -50,7 +52,15 @@ COMMANDS: dict[str, list[str]] = {
     "claude": ["claude", "-p", PROMPT, "--allowedTools", "mcp__shorts-factory", "--output-format", "text",
                "--strict-mcp-config", "--mcp-config", MCP_JSON],
     "codex": ["codex", "exec", "--full-auto", PROMPT],
+    # The built-in brains on the local models: no agent, no tokens. It works
+    # the queue until it is empty and exits; auto starts it again when tasks
+    # arrive, exactly as it does an agent.
+    "factory": [FACTORY, "--channel", CHANNEL, "work"],
 }
+
+
+def factory_bin() -> str:
+    return str(settings.ROOT / ".venv" / "bin" / "factory")
 
 
 def mcp_config_json() -> str:
@@ -65,7 +75,8 @@ MAX_LOG_LINES = 400
 
 
 def available() -> dict[str, bool]:
-    return {name: shutil.which(cmd[0]) is not None for name, cmd in COMMANDS.items()}
+    return {name: (Path(factory_bin()).exists() if cmd[0] == FACTORY else shutil.which(cmd[0]) is not None)
+            for name, cmd in COMMANDS.items()}
 
 
 def log_dir() -> Path:
@@ -196,9 +207,11 @@ class Manager:
         with worker.lock:
             if worker.running:
                 return
-            prompt = playbooks.render("work", worker.channel_id)
-            fill = {PROMPT: prompt, MCP_JSON: mcp_config_json()}
-            cmd = [fill.get(part, part) for part in COMMANDS[worker.agent]]
+            template = COMMANDS[worker.agent]
+            fill = {CHANNEL: worker.channel_id, FACTORY: factory_bin()}
+            if PROMPT in template:
+                fill |= {PROMPT: playbooks.render("work", worker.channel_id), MCP_JSON: mcp_config_json()}
+            cmd = [fill.get(part, part) for part in template]
             stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
             worker.log_path = log_dir() / f"{worker.channel_id}-{stamp}.log"
             handle = open(worker.log_path, "ab")
