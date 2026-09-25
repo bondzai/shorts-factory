@@ -33,6 +33,7 @@ HIDDEN_FACTS = {"winner", "finishes", "runner_up", "outcome", "placements", "cop
 PIN_ENDINGS = ("who's your pick?", "which one are you backing?", "call it before it starts.",
                "pick one before the first bend.")
 OPENER = "Season opener — everyone starts at zero."
+NO_RESULTS = "No points on the board yet."
 
 
 @dataclass
@@ -279,7 +280,11 @@ def standings_line(s: Setting) -> str | None:
     if s.table is None:
         return None
     if not s.table or all(int(r.get("points") or 0) == 0 for r in s.table):
-        return OPENER
+        # Standings are read when the clip is rendered, so a level rendered
+        # before the one ahead of it is approved sees an empty table too.
+        # Only the season's first level is the opener.
+        first = s.season is not None and s.season.levels and s.season.levels[0].id == s.level_id
+        return OPENER if first else NO_RESULTS
     rows = sorted(s.table, key=lambda r: -int(r.get("points") or 0))
     raw = "Standings: " + ", ".join(f"{r['name']} {{standing:{r['entrant_id']}}}" for r in rows) + "."
     return fill(raw, s.ctx, "description")

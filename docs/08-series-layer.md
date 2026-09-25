@@ -271,16 +271,16 @@ Telegram approval messages carry the level id and a standings line.
 
 ## 6. Work order and status
 
-| # | Package | Today (2026-09-25) |
+| # | Package | Status (2026-09-25) |
 |---|---|---|
-| WP1 | Outcome + trace + redraw (physics) | code |
-| WP2 | Cast + traits (physics), `cast.toml` | code |
-| WP3 | Season file, `season check`, `season plan`, tables | code |
-| WP4 | Story check in the seed loop | code |
-| WP5 | Standings on approve, recompute, head-to-head | code |
-| WP6 | Copy brain + validator + fallback | code |
-| WP9 | CLI + MCP surfaces, Telegram line | code |
-| WP8 | Long-form tournament + recap from traces | code |
+| WP1 | Outcome + trace + redraw (physics) | done |
+| WP2 | Cast + traits (physics), `cast.toml` | done |
+| WP3 | Season file, `season check`, `season plan`, tables | done |
+| WP4 | Story check in the seed loop | done |
+| WP5 | Standings on approve, recompute, head-to-head | done |
+| WP6 | Copy brain + validator + fallback | done |
+| WP9 | CLI + MCP surfaces, Telegram line | done |
+| WP8 | Long-form tournament + recap from traces | done |
 | WP7 | New mechanics per world (trap modes, magnet flips, maze, ice/sand, dice, arena, repulsion, colour gates) | one PR per world, each through stage QA before its levels leave `blocked` |
 
 Season 0's 100 levels are in `channels/main/season/s0.yaml`. World 1 uses only
@@ -308,32 +308,51 @@ levels exist as clips, the channel keeps publishing from the current pipeline.
 ## 8. Test on the build machine, step by step
 
 Each step says what to run and what to look at. Stop at a step that fails.
+Commands assume the repo root and `.venv/bin` on the PATH.
 
-1. **Install.** `git pull && .venv/bin/pip install -e .` then
-   `factory doctor` and `pytest -q` — all green.
-2. **Trace (WP1).** `factory render-check --stage zigzag --seed 7` renders one
-   race with its trace. Open `trace.json`; run
-   `pytest -q tests/test_trace.py` — same seed gives a byte-identical
-   `trace.npz`, and redrawn frames equal the shipped ones.
-3. **Cast (WP2).** `factory stage-qa --stages zigzag,funnels --seeds 48 --cast main`
-   — every regular entrant wins 10–45%. Render five clips and watch whether
-   Blaze reads fast and crashy, Tide steady, Volt erratic, Moss average.
-4. **Season file (WP3).** `factory season check` — zero errors; blocked
-   levels listed with the reason. Read L01–L20 against the plan: no draft
-   number survived, every beat a later level leans on is a `must` or has
-   been rewritten.
-5. **Story (WP4).** `factory season plan --levels L01..L03` then
-   `factory build`. `factory season status` shows story attempts per level;
-   most under 50. A level at 200 gets its story rewritten, not its cap raised.
-6. **Standings (WP5).** Approve two of them; `factory season standings`
-   matches `factory season standings --recompute`. Reject one and restore it;
-   the two still match.
-7. **Copy (WP6).** Needs `ollama pull qwen2.5:7b`. `factory copy --clip <id>`
-   for three clips; compare plan hint, chosen text and the fallback. If more
-   than ~30% fall back, try another local model before touching the rules.
-8. **Long-form (WP8).** `factory longform --levels L01..L03 --kind tournament`
-   — a 16:9 file with a title card per level, `chapters.txt`, and a
-   description with the table.
+**0. Move in.** On the old machine, with the server stopped, copy what git
+does not carry: `data/` (the database and renders), `.env`, and each
+`channels/<id>/rules.md` and `channels/<id>/token.json`. On the new one:
+
+    git clone git@github.com:bondzai/shorts-factory.git && cd shorts-factory
+    git checkout series-layer
+    python3 -m venv .venv && .venv/bin/pip install -e ".[youtube]"
+    # copy data/, .env, channels/*/rules.md, channels/*/token.json into place
+    ollama pull qwen2.5vl:7b && ollama pull qwen2.5:7b
+    factory doctor && factory brains --test ollama && pytest -q
+
+`doctor` clean, the brains answer, every test passes.
+
+1. **Trace (WP1).** `pytest -q tests/test_trace.py` — the same seed writes a
+   byte-identical `trace.npz`, and redrawn frames equal the shipped ones.
+   `factory render-check --stage zigzag --seed 7 --cast main` renders one race
+   with the cast; open the `trace.json` beside it.
+2. **Cast (WP2).** `factory stage-qa --stages zigzag,funnels,plinko --seeds 48 --cast main`
+   — every regular entrant wins 10–45%. Render five with `render-check --cast main`
+   and watch: Blaze fast and loose, Tide steady, Volt wobbly, Moss average.
+3. **Season file (WP3).** `factory season check` — 0 errors; the blocked
+   levels are listed with what each waits for. Read L01–L20 in
+   `channels/main/season/s0.yaml` against docs/09.
+4. **Plan and render (WP4).** `factory season plan --levels L01..L03`, then
+   `factory work`. `factory season status` shows each level's clip, story
+   attempts and copy source. A level that fails `story_unsatisfiable` gets its
+   story rewritten, never a higher cap.
+5. **Standings (WP5).** Approve two level clips on Today (or `factory approve`).
+   `factory season standings` must equal `factory season standings --recompute`.
+   Reject one and restore it: still equal.
+6. **Copy (WP6).** `factory copy --clip <id>` on three clips prints the plan
+   hint, the chosen text and the fallback side by side. `season status` shows
+   how many fell back; above ~30%, try another local model before touching
+   the rules.
+7. **Long-form (WP8).** `factory longform --levels L01..L03 --kind tournament`
+   writes a 16:9 video, `chapters.txt` and `description.txt` under
+   `data/out/main/longform/`. Watch the first minutes: a card per level, the
+   race in the middle, the table either side.
+
+Measured on the development machine (2026-09-25): two levels planned,
+rendered with story checks, copied (template fallback, no brain) and
+approved end to end in 10 s of work; the tournament long-form of those two
+rendered at 8.5x realtime.
 
 ## 9. What changed from the handoff
 

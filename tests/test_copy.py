@@ -337,8 +337,14 @@ def test_season_opener_line_when_the_table_is_all_zeros(season_clip, monkeypatch
     fake.table = lambda conn, c, s, *, before_level=None: [
         {"entrant_id": e, "name": n, "points": 0, "wins": 0, "races": 0} for e, n in ENTRANTS]
     with db.connect() as conn:
-        result = copywriter.write(conn, clip_id, brain="template")
-    assert result.metadata.description.splitlines()[1] == copywriter.OPENER
+        # L02 rendered before L01 is approved: an empty table, but not the opener.
+        second = copywriter.write(conn, clip_id, brain="template")
+        conn.execute("UPDATE clips SET level_id = 'L01' WHERE id = ?", (clip_id,))
+        conn.execute("UPDATE levels SET id = 'L01' WHERE clip_id = ?", (clip_id,))
+        conn.commit()
+        first = copywriter.write(conn, clip_id, brain="template")
+    assert second.metadata.description.splitlines()[1] == copywriter.NO_RESULTS
+    assert first.metadata.description.splitlines()[1] == copywriter.OPENER
 
 
 def test_mixed_when_some_fields_fall_back(season_clip, monkeypatch):
