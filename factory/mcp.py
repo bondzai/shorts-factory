@@ -677,6 +677,53 @@ def build_server():
             except (ValueError, KeyError, FileNotFoundError) as exc:
                 raise ToolError(str(exc)) from None
 
+    @server.tool(
+        description=(
+            "For a season level clip: what you may use to write its title, hook "
+            "(opening caption), pinned comment and first description line — the "
+            "race without its result, the standings before it, the plan's hints, "
+            "the cast, recent copy — plus the placeholders each field allows and "
+            "the rules submit_copy enforces. Write numbers only as placeholders."
+        )
+    )
+    def propose_copy(clip_id: str) -> dict[str, Any]:
+        from .agents import copy as copy_agent
+        from .series import copywriter
+
+        with db.connect() as conn:
+            row = db.get(conn, clip_id)
+            if row is None:
+                raise ToolError(f"no clip {clip_id}")
+            try:
+                s = copywriter.gather(conn, clip_id)
+                fb, _ = copywriter.fallback(s)
+            except ValueError as exc:
+                raise ToolError(str(exc)) from None
+            rules = channels.get(conn, row["channel_id"]).rules()
+        logs.event("mcp.call", actor="mcp", tool="propose_copy", clip=clip_id)
+        return {"clip": clip_id, "inputs": copywriter.inputs(s, rules),
+                "rules": copy_agent.SYSTEM, "fallback": fb}
+
+    @server.tool(
+        description=(
+            "Store copy for a season level clip, through the same validator the "
+            "copy brain is held to. All four fields must pass or nothing is "
+            "applied and the reasons come back. An empty hook keeps the render's "
+            "caption; a hook is recorded, never burned here."
+        )
+    )
+    def submit_copy(clip_id: str, title: str, hook: str, pin: str, desc_line1: str) -> dict[str, Any]:
+        from .series import copywriter
+
+        with db.connect() as conn:
+            try:
+                out = copywriter.submit(conn, clip_id, {"title": title, "hook": hook, "pin": pin,
+                                                        "desc_line1": desc_line1}, by="agent")
+            except ValueError as exc:
+                raise ToolError(str(exc)) from None
+        logs.event("mcp.call", actor="mcp", tool="submit_copy", clip=clip_id, applied=out["applied"])
+        return out
+
     @server.tool(description="Recent pipeline events, newest first.")
     def recent_logs(
         limit: int = 50,
