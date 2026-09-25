@@ -10,7 +10,7 @@ into each row.
 
 Call `batch_options`. It lists the modules and stages, the cast, the season's
 levels that are ready and what the blocked ones wait for, the job schema and
-your limits (50 rows, priority up to 5). Build only from that list: a stage or
+your limits (100 rows, priority up to 5). Build only from that list: a stage or
 mechanic that is not there does not exist yet, whatever the brief says.
 
 ## Map every item in the brief to one row

@@ -88,7 +88,7 @@ HELD: dict[str, int] = {}
 
 
 # An agent's batch is smaller and never outranks what the operator queued.
-MCP_BATCH_ROWS = 50
+MCP_BATCH_ROWS = 100
 MCP_BATCH_PRIORITY = 5
 
 

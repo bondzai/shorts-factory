@@ -176,7 +176,7 @@ paragraph — and ask it to queue it. Over MCP it calls `batch_options` (what
 can be made: modules, stages, cast, the season's ready and blocked levels, the
 job schema), maps the brief to rows (the `bulk-brief` playbook says how), and
 calls `enqueue_batch` — a dry run by default, so it shows you the receipt
-before anything is queued. An agent's batch holds at most 50 rows and never
+before anything is queued. An agent's batch holds at most 100 rows and never
 sets a priority above 5.
 
 **Adding a rule or a format** is adding a class: a validator with

@@ -108,7 +108,7 @@ def test_seeds_modules_params_and_priority_are_checked(ch):
 
 
 def test_malformed_rows_are_refused_one_by_one(ch):
-    r = submit([{"seed": "x"}, {"nonsense": 1}, {"count": 99}], dry_run=True)
+    r = submit([{"seed": "x"}, {"nonsense": 1}, {"count": 101}], dry_run=True)
     assert all(x.reason for x in r.rows) and "seed" in r.rows[0].reason and "nonsense" in r.rows[1].reason
 
 

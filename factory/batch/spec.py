@@ -38,7 +38,7 @@ class JobSpec(BaseModel):
     seed: int | None = Field(None, ge=0)
     background: str | None = None
     params: dict[str, Any] = Field(default_factory=dict)  # other generator knobs, e.g. rounds
-    count: int = Field(1, ge=1, le=50)
+    count: int = Field(1, ge=1, le=100)
     priority: int = Field(0, ge=0, le=100)
     level: str | None = None
     brief: str | None = Field(None, max_length=600)  # what the operator wants, in words

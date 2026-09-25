@@ -77,8 +77,8 @@ def enqueue(
 ) -> list[int]:
     if kind not in KINDS:
         raise ValueError(f"no task kind {kind!r}; have {sorted(KINDS)}")
-    if not 1 <= count <= 50:
-        raise ValueError("count must be between 1 and 50")
+    if not 1 <= count <= 100:
+        raise ValueError("count must be between 1 and 100")
     allowed = set(KINDS[kind]["params"])
     params = dict(params or {})
     if params.get("course"):  # the old name for a stage
