@@ -142,7 +142,8 @@ class BallBattle:
         work_dir.mkdir(parents=True, exist_ok=True)
         wav = audio.render_wav(impacts, duration_s, work_dir / "audio.wav")
         silent = render.encode_frames(
-            self._frames(states, style, sim_w, sim_h, fps, hook_text, winner, winner_frame),
+            self._frames(states, style, sim_w, sim_h, fps, hook_text, winner, winner_frame,
+                         ask_text=params.get("ask_text")),
             out_path=work_dir / "video.mp4", src_size=(sim_w, sim_h), out_size=(out_w, out_h), fps=fps,
         )
         final = render.mux(silent, wav, work_dir / "clip.mp4")
@@ -305,7 +306,7 @@ class BallBattle:
     # --- drawing ----------------------------------------------------------------------
 
     def _frames(self, states, style: Style, sim_w: int, sim_h: int, fps: int, hook_text: str,
-                winner: str | None, winner_frame: int | None) -> Iterator[bytes]:
+                winner: str | None, winner_frame: int | None, ask_text: str | None = None) -> Iterator[bytes]:
         """Every object has motion of its own, not just position.
 
         Ball        squash along its heading on a hit, a white flash, a fading
@@ -324,7 +325,7 @@ class BallBattle:
         fx.init()
         cfg = settings.load().raw.get("overlay", {})
         caption_frames = int(float(cfg.get("seconds", 0)) * fps)
-        ask_text = str(cfg.get("cta") or "").strip()
+        ask_text = (ask_text or str(cfg.get("cta") or "")).strip()
         ask_frames = int(float(cfg.get("cta_seconds", 0) or 0) * fps)
         caption = fx.text_surface(hook_text, int(sim_w * float(cfg.get("size", 0.1))), sim_w * 0.9) if hook_text else None
         ask = fx.text_surface(ask_text, int(sim_w * float(cfg.get("size", 0.1)) * 0.8), sim_w * 0.9) if ask_text and ask_frames else None

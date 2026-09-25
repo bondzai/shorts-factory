@@ -89,7 +89,9 @@ def _round_frames(arrays, meta, n: int) -> Iterator[bytes]:
     return frames(states, balls, [_tuples(s) for s in r["segments"]], sim_w, sim_h,
                   overlay=overlay(meta["variant"], sim_w, sim_h, fps, text=r["overlay"]) if r["overlay"] else None,
                   style=style_from(r["style"]),
-                  ask=closing_ask(sim_w, sim_h, fps) if meta["ask"] else None,
+                  # Older traces kept a flag; newer ones keep the words.
+                  ask=(closing_ask(sim_w, sim_h, fps, text=meta["ask"] if isinstance(meta["ask"], str) else None)
+                       if meta["ask"] else None),
                   winner_frame=r["winner_frame"], winner=r["winner"],
                   impacts=[audio.Impact(*im) for im in r["impacts"]], fps=fps, engine=meta["engine"])
 

@@ -45,7 +45,7 @@ def default_hook(variant: str, round_: dict | None) -> str:
         return bank[random.Random(seed).randrange(len(bank))]
     return bank[0]
 
-def closing_ask(sim_w: int, sim_h: int, fps: int):
+def closing_ask(sim_w: int, sim_h: int, fps: int, text: str | None = None):
     """What the clip asks for once the result is in.
 
     The opening caption asks the viewer to pick; this asks them to say
@@ -54,7 +54,7 @@ def closing_ask(sim_w: int, sim_h: int, fps: int):
     and nothing left to compete with.
     """
     cfg = settings.load().raw.get("overlay", {})
-    text = str(cfg.get("cta") or "").strip()
+    text = (text or str(cfg.get("cta") or "")).strip()
     seconds = float(cfg.get("cta_seconds", 0) or 0)
     if not text or seconds <= 0:
         return None

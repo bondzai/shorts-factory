@@ -173,10 +173,12 @@ def generate(*, seed: int, variant: str, params: dict[str, Any], work_dir: Path)
     hook_text = (params.get("hook_text") or "").strip() or default_hook(variant, rounds[0])
     overlays = [overlay(variant, sim_w, sim_h, fps, text=hook_text)]
     if len(rounds) > 1:
-        overlays.append(overlay(variant, sim_w, sim_h, fps, text=FINAL_CAPTION))
+        overlays.append(overlay(variant, sim_w, sim_h, fps, text=(params.get("final_text") or FINAL_CAPTION)))
+    # The closing ask's own words ride in the trace, so a redraw says the same.
+    ask = closing_ask(sim_w, sim_h, fps, text=params.get("ask_text"))
     trace_path = replay.write(
         clip_dir, variant=variant, seed=rendered_seed, fps=fps, sim_w=sim_w, sim_h=sim_h, rounds=rounds,
-        captions=[o[0] if o else None for o in overlays], ask=closing_ask(sim_w, sim_h, fps) is not None,
+        captions=[o[0] if o else None for o in overlays], ask=ask[0] if ask else None,
         outcome=outcome)
 
     impacts: list[audio.Impact] = []
@@ -191,7 +193,7 @@ def generate(*, seed: int, variant: str, params: dict[str, Any], work_dir: Path)
         for r, overlay in zip(rounds, overlays):
             yield from frames(r["states"], r["balls"], r["segments"], sim_w, sim_h,
                                     overlay=overlay, style=r["style"],
-                                    ask=closing_ask(sim_w, sim_h, fps),
+                                    ask=ask,
                                     winner_frame=r["winner_frame"], winner=r["winner"],
                                     impacts=r["impacts"], fps=fps)
 

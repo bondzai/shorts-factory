@@ -18,7 +18,8 @@ import random
 import sqlite3
 from dataclasses import dataclass
 
-from .. import channels, db, gc, generators, logs, phash, render, settings
+from .. import captions, channels, db, gc, generators, logs, phash, render, settings
+from ..series import season as series_season
 from ..agents import metadata as metadata_agent, qc, template
 from ..channels import Channel
 from ..series import planning as series_planning
@@ -59,13 +60,50 @@ def render_stage(conn: sqlite3.Connection, ch: Channel, clip_id: str, params: di
         raise
 
 
+# Variants that carry words on screen. The funnel sells texture and sound.
+CAPTIONED = {"marble_race", "ball_battle"}
+
+
+def with_captions(conn, ch, row, params: dict) -> tuple[dict, dict | None]:
+    """The clip's on-screen words: its own and nobody else's (factory/captions).
+
+    A caption someone chose (an agent, the operator, a rehook) is held to the
+    same rules and refused with the reason; otherwise one is chosen — the
+    season level's hook first, then lines bound to the stage.
+    """
+    if row["variant"] not in CAPTIONED:
+        return params, None
+    names = tuple(n for e in (params.get("cast") or []) for n in (e.get("id"), e.get("name")) if n)
+    given = (params.get("hook_text") or "").strip()
+    if given:
+        reason = captions.check_given(conn, ch.id, given, exclude=row["id"], names=names)
+        if reason:
+            raise ValueError(f"caption refused: {reason}")
+    level_hook = None
+    if params.get("level_id"):
+        try:
+            level_hook = series_season.load(ch.id, params.get("season_id")).level(params["level_id"]).copy_.hook
+        except Exception:
+            level_hook = None
+    rounds = int(params.get("rounds") or settings.load().render.get("rounds", 1)) if row["variant"] == "marble_race" else 1
+    caps = captions.choose(conn, ch.id, seed=int(row["seed"] or 0), stage=params.get("stage"),
+                           level_hook=level_hook, rounds=rounds, names=names, exclude=row["id"],
+                           final_stage=params.get("final_stage"))
+    words = {"hook_text": given or caps.hook, "final_text": caps.final, "ask_text": caps.ask}
+    return {**params, **{k: v for k, v in words.items() if v}}, {"hook": words["hook_text"], "final": caps.final,
+                                                                  "ask": caps.ask}
+
+
 def _render_stage(conn, ch, clip_id, params, *, by=None):
     row = db.get(conn, clip_id)
     gen = generators.get(row["generator"])
+    params, words = with_captions(conn, ch, row, params)
     clip = gen.generate(
         seed=row["seed"], variant=row["variant"], params=params,
         work_dir=settings.load().work_dir / ch.id / clip_id,
     )
+    if words:
+        clip.facts["captions"] = {**words, "hook": clip.facts.get("hook_text") or words["hook"]}
     info = render.probe(clip.video_path)
     loudness = render.loudness_lufs(clip.video_path)
     frames = render.sample_frames(clip.video_path, sample_times(info["duration_s"]))
