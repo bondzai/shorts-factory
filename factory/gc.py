@@ -29,6 +29,12 @@ from typing import Any
 from . import db, logs, settings
 
 INTERMEDIATES = ("video.mp4", "audio.wav")
+#: What long-form videos are redrawn from (series/trace.py). Kept with the
+#: clip's outcome: approved and published traces per `[retention] trace_days`
+#: (-1 = forever), rejected ones go with the rest of a rejected clip.
+TRACES = ("trace.npz", "trace.json")
+#: Statuses whose whole directory goes when their clip.mp4 does.
+DISCARDED = ("qc_rejected", "failed")
 
 
 @dataclass
@@ -103,7 +109,7 @@ def sweep_clips(
             path = db.video_file(row)
             before = swept.files
             _unlink(path, swept, dry_run)
-            for name in INTERMEDIATES:
+            for name in INTERMEDIATES + (TRACES if status in DISCARDED else ()):
                 _unlink(path.parent / name, swept, dry_run)
             if swept.files > before:
                 swept.clips.append(row["id"])
@@ -116,6 +122,9 @@ def sweep_clips(
                         path.parent.rmdir()
                     except OSError:
                         pass
+    trace_days = int(cfg.get("trace_days", -1))
+    if trace_days >= 0:
+        sweep_traces(conn, trace_days, swept, dry_run=dry_run, channel_id=channel_id)
     if not dry_run and swept.clips:
         conn.commit()
         logs.event(
@@ -123,6 +132,34 @@ def sweep_clips(
             clips=len(swept.clips),
         )
     return swept
+
+
+def sweep_traces(
+    conn: sqlite3.Connection, days: int, swept: Swept, *, dry_run: bool = False,
+    channel_id: str | None = None,
+) -> None:
+    """Drop traces of approved and published clips older than `days`.
+
+    Only runs when `[retention] trace_days` is not -1; a trace dropped here
+    is a level the long-form can no longer redraw.
+    """
+    sql = ("SELECT id, channel_id, video_path, trace_path FROM clips "
+           "WHERE status IN ('approved', 'published') AND created_at < datetime('now', ?)")
+    args: list[Any] = [f"-{days} days"]
+    if channel_id:
+        sql += " AND channel_id = ?"
+        args.append(channel_id)
+    for row in conn.execute(sql, args).fetchall():
+        where = row["trace_path"] or row["video_path"]
+        if not where:
+            continue
+        stored = Path(where)
+        directory = (stored if stored.is_absolute() else settings.ROOT / stored).parent
+        before = swept.files
+        for name in TRACES:
+            _unlink(directory / name, swept, dry_run)
+        if swept.files > before and row["id"] not in swept.clips:
+            swept.clips.append(row["id"])
 
 
 def sweep_all_intermediates(*, dry_run: bool = False) -> Swept:

@@ -28,6 +28,7 @@ from ..models import (
 )
 from ..agents import qc, titles as title_agent
 from ..generators import physics
+from ..series import standings
 from . import building
 from .common import StageOutcome
 from .spoilers import spoiler
@@ -126,12 +127,14 @@ def rehook(conn: sqlite3.Connection, clip_id: str, text: str | None, *, by: str 
         clip, info, loudness, frames, sameness = building.render_stage(conn, ch, clip_id, params, by=by)
     except Exception as exc:
         db.update(conn, clip_id, status=FAILED, reject_reason=f"render: {exc}")
+        standings.sync(conn, clip_id)
         logs.event("clip.failed", level="error", channel=ch.id, clip=clip_id, stage="rehook", error=str(exc))
         return StageOutcome(clip_id, FAILED, f"render failed: {exc}")
     failures = qc.hard_failures(probe=info, loudness_lufs=loudness, sameness=sameness)
     if failures:
         reason = "; ".join(failures)
         db.update(conn, clip_id, status=QC_REJECTED, reject_reason=reason)
+        standings.sync(conn, clip_id)
         logs.event("clip.qc", level="warn", channel=ch.id, clip=clip_id, passed=False, hard_failures=failures, by=by)
         return StageOutcome(clip_id, QC_REJECTED, reason)
     # The person re-captioning an approved clip is the person who approved it,
@@ -143,6 +146,7 @@ def rehook(conn: sqlite3.Connection, clip_id: str, text: str | None, *, by: str 
     else:
         after = before
     db.update(conn, clip_id, status=after)
+    standings.sync(conn, clip_id)  # an agent's rehook un-approves; the table follows
     shown = clip.facts.get("hook_text")
     logs.event("clip.rehooked", channel=ch.id, clip=clip_id, hook_text=shown, was=before, now=after, by=by,
                measured=text is None)

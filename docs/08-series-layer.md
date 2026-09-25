@@ -186,6 +186,35 @@ overrides. Updated when a clip is **approved**, and recomputable from scratch
 table. Guests (`scores = false`) never score. Head-to-head is derived from
 results, never stored.
 
+Ranks are the generator's. A guest keeps its place in the result but earns
+nothing, so a regular behind a guest scores by its own rank. In `race` and
+`score`, a placement whose status is not `finished` scores 0. A level has one
+counted clip: a second clip for the same level cannot be approved until the
+first is rejected or binned. Rejecting, binning, destroying or un-approving a
+clip (an agent's `rehook` of an approved clip) drops its result, and unbinning
+an approved clip records it again.
+
+`channels/<id>/scoring.toml` (every key optional; the defaults are shown):
+
+```toml
+final_multiplier = 2        # level `final: true`
+finishers_only = true       # race/score: a non-finisher scores 0
+[race]
+points = [3, 2, 1]          # by rank; ranks past the list score 0
+[score]
+points = [3, 2, 1]
+[elimination]
+per_outlasted = 1           # per entrant ranked below
+[last_standing]
+per_outlasted = 1
+
+# A season with `scoring: cup` uses [scheme.cup] on top of the above.
+[scheme.cup]
+final_multiplier = 3
+[scheme.cup.race]
+points = [5, 3, 2, 1]
+```
+
 ### Copy (title, pinned comment, description line 1, hook)
 
 A text-only local brain (`[llm.agents] copy = "ollama/qwen2.5:7b"`) gets the
