@@ -52,6 +52,31 @@ def stage_key(level: Level) -> tuple[Any, Any] | None:
     return None if key == (None, None) else key
 
 
+def round_problems(level: Level) -> list[str]:
+    """A level with a mechanic says how many rounds it runs, and where.
+
+    Without `rounds` the count is `[render] rounds` (config.toml, or the
+    Settings page's override), so the same level renders one round on one
+    machine and two on another. A round after the heat that does not name its
+    stage (`round_params`: `stage` or `layout`) runs on a random live stage
+    with the level's mechanic applied, and most mechanics refuse a stage
+    without their geometry (docs/10).
+    """
+    if level.status == "blocked" or level.variant != "marble_race" or not level.params.get("section"):
+        return []
+    rounds = level.params.get("rounds")
+    if rounds is None:
+        return ["a level with a section sets params.rounds (the config default is not the level's)"]
+    per_round = level.params.get("round_params") or []
+    out = []
+    for n in range(1, int(rounds)):
+        extra = per_round[n] if n < len(per_round) and per_round[n] else {}
+        if extra.get("stage") is None and extra.get("layout") is None:
+            out.append(f"round {n + 1} names no stage (round_params[{n}]: stage or layout), so it would race "
+                       f"{level.params['section']} on a random live stage")
+    return out
+
+
 def placeholder_problems(text: str, cast_ids: set[str] | None) -> list[str]:
     """Unknown placeholders, and digits that did not come from one."""
     out = []
@@ -152,6 +177,8 @@ def check(
         if stages is not None and lv.generator == "physics" and lv.status != "blocked" and stage:
             if stage not in stages:
                 err(lv.id, f"no physics stage {stage!r}")
+        for msg in round_problems(lv):
+            err(lv.id, msg)
         # copy hints
         for field in HINT_FIELDS:
             text = getattr(lv.copy_, field)

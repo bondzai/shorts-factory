@@ -330,6 +330,7 @@ levels:
   params:
     stage: trapfall
     section: timer-trap
+    rounds: 2
     teams:
       blaze: 2
       tide: 2
@@ -368,6 +369,7 @@ levels:
   params:
     stage: trapstairs
     section: trap-sequence
+    rounds: 2
     teams:
       blaze: 2
       tide: 2
@@ -407,6 +409,7 @@ levels:
   params:
     stage: trapline
     section: finish-trapdoor
+    rounds: 2
     round_params:
     - {}
     - stage: same
@@ -439,6 +442,7 @@ levels:
   params:
     stage: decoys
     section: fake-panels
+    rounds: 2
     round_params:
     - {}
     - stage: same
@@ -473,6 +477,7 @@ levels:
   params:
     stage: tripwire
     section: leader-sensor-trap
+    rounds: 2
     round_params:
     - {}
     - stage: same
@@ -507,6 +512,7 @@ levels:
   params:
     stage: sinkhole
     section: spiral-bowl-reverse
+    rounds: 2
     round_params:
     - {}
     - stage: same
@@ -539,6 +545,7 @@ levels:
   params:
     stage: relay
     section: relay-legs
+    rounds: 2
     teams:
       blaze: 2
       tide: 2
@@ -578,6 +585,7 @@ levels:
   params:
     stage: trapfall
     section: trap-timer-overlay
+    rounds: 2
     round_params:
     - {}
     - stage: same
@@ -611,6 +619,7 @@ levels:
   params:
     stage: trapwalk
     section: five-trapdoors
+    rounds: 2
     round_params:
     - {}
     - stage: same
@@ -641,6 +650,7 @@ levels:
   params:
     stage: pitfall
     section: trap-gauntlet
+    rounds: 2
     teams:
       blaze: 3
       tide: 3
@@ -711,6 +721,7 @@ levels:
   params:
     stage: lodestone
     section: magnet-flip
+    rounds: 2
     mechanics:
       flip_at: 0.45
     round_params:
@@ -779,6 +790,7 @@ levels:
   params:
     stage: lodestone
     section: reverse-finish-magnet
+    rounds: 2
     mechanics:
       finish_push: 50
     round_params:
@@ -815,6 +827,7 @@ levels:
   params:
     stage: carousel
     section: rotating-magnet-arm
+    rounds: 2
     round_params:
     - {}
     - stage: same
@@ -847,6 +860,7 @@ levels:
   params:
     stage: detour
     section: shielded-lane
+    rounds: 2
     round_params:
     - {}
     - stage: same
@@ -913,6 +927,7 @@ levels:
   params:
     stage: honeypot
     section: magnet-clump
+    rounds: 2
     round_params:
     - {}
     - stage: same
@@ -974,6 +989,7 @@ levels:
   params:
     stage: maelstrom
     section: all-magnets
+    rounds: 2
     mechanics:
       kick: 25
     round_params:
@@ -1010,6 +1026,7 @@ levels:
   params:
     stage: haunted
     section: haunted-maze
+    rounds: 2
     round_params:
     - {}
     - stage: same
@@ -1043,6 +1060,7 @@ levels:
   params:
     stage: tumble
     section: fog-blackout
+    rounds: 2
     round_params:
     - {}
     - stage: same
@@ -1076,6 +1094,7 @@ levels:
   params:
     stage: pumpkinpatch
     section: rolling-pumpkins
+    rounds: 2
     round_params:
     - {}
     - stage: same
@@ -1109,6 +1128,7 @@ levels:
   params:
     stage: haunted
     section: cobweb-strip
+    rounds: 2
     round_params:
     - {}
     - stage: same
@@ -2605,6 +2625,7 @@ levels:
   params:
     stage: colourgate
     section: random-colour-gate
+    rounds: 1
   entrants:
   - blaze
   - tide
@@ -2637,6 +2658,7 @@ levels:
   params:
     stage: threegates
     section: three-colour-gates
+    rounds: 1
   entrants:
   - blaze
   - tide
@@ -2669,6 +2691,7 @@ levels:
   params:
     stage: lockout
     section: leader-lockout-gate
+    rounds: 1
   entrants:
   - blaze
   - tide
@@ -2701,6 +2724,7 @@ levels:
   params:
     stage: colourgate
     section: alliance-gate
+    rounds: 1
   entrants:
   - blaze
   - tide
@@ -2733,6 +2757,7 @@ levels:
   params:
     stage: rhythm
     section: cycling-colour-gate
+    rounds: 1
   entrants:
   - blaze
   - tide
@@ -2764,6 +2789,7 @@ levels:
   params:
     stage: colourtrap
     section: colour-trapdoor-gate
+    rounds: 1
   entrants:
   - blaze
   - tide
@@ -2798,6 +2824,7 @@ levels:
   params:
     stage: snowtrack
     section: snow-colour-gates
+    rounds: 1
   entrants:
   - blaze
   - tide
@@ -2830,6 +2857,7 @@ levels:
   params:
     stage: breakgate
     section: gate-breaker
+    rounds: 1
   entrants:
   - blaze
   - tide
@@ -2861,6 +2889,7 @@ levels:
   params:
     stage: seeding
     section: seeding-cycling-gate
+    rounds: 1
   entrants:
   - blaze
   - tide
@@ -2892,6 +2921,7 @@ levels:
   params:
     stage: snowfinal
     section: all-gates-snow
+    rounds: 1
   entrants:
   - blaze
   - tide
@@ -3036,7 +3066,7 @@ levels:
   status: ready
   blocked_on: null
   operator_input:
-    seeds: null
+    seeds: stand-in - tide vs volt (seeds 3 and 6), no standings yet
   note: 'STAND-IN VALUES set 2026-09-25, replace when the real results exist: entrants are seed 3 and seed 6 from the standings; tide (the stand-in L96 already assumes won here) and volt stand in. Built on World 7 (docs/06 "World 7"): stage arenatrap, sudden-death-duel as L68, the closing arena with a trapdoor each side of the middle; the first one out loses.'
 - id: L95
   date: 2026-12-28

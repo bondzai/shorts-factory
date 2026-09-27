@@ -162,7 +162,7 @@ and punch-ins then come at each elimination instead of lead changes. World
 | `win` | elimination only: `first_across` (default: the first across wins; one left before that also wins) or `last_standing` (decided when one marble is left racing; crossing the line counts as surviving, above everyone out). `format: last_standing` defaults to it |
 | `teams` | `{blaze: 2, tide: 2}`: marbles per persona; ids `blaze.1`, `blaze.2` (every persona suffixed), colours shaded, `team` on each; `outcome.facts.teams` maps id → persona |
 | `mechanics` | a section's knobs, read with `rig.knob` |
-| `rounds` | 1, 2 or 3 |
+| `rounds` | 1, 2 or 3; a season level with a `section` must set it, and give each later round a `stage` or `layout` in `round_params` (`season check`) |
 | `round_params` | a list, one dict per round, laid over the round's params: `stage` (`"same"`: the heat's), `layout: k` (build round k's layout again, fresh marbles), `mirror: true` (the stage reflected left to right; a trapdoor refuses), `friction: x` (every static surface times x), or any knob |
 
 All of them travel from a season level to the make-clip task

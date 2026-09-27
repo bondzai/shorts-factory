@@ -147,9 +147,15 @@ until checked against YouTube's own page (docs/08 §7).
   is about the guest, not the maze), L40 on zigzag (a sprint).
 - **Needs input:** L39 and L49 (fan-voted obstacle: the operator picks the
   passing stage nearest the winning idea), L91 and L97 (bracket seeds).
-- **Laps are rounds.** L17 and L27 carry `rounds: 2`, L45 and L98 `rounds: 3`
-  (the sandbox runs at most two, so both wait on WP7 as well). Every ready
-  level runs the config default of two rounds (heat and final).
+- **Laps are rounds.** L27 carries `rounds: 2`, L45 and L98 `rounds: 3`.
+  A level without a `section` runs the config's `[render] rounds` (two in
+  config.toml: a heat, then a final on another live stage). A level with a
+  `section` sets `rounds` itself and names every later round's stage in
+  `round_params` (`stage: same` or `layout: k`), because the config default
+  can be changed on the Settings page and a round on a random stage races
+  the mechanic where it has no geometry; `season check` refuses a level
+  that does not (L11-L34 race heat and final on their own stage; World 9
+  is one round a level).
 - **Teams** (L11, L12, L17, L20, L65) list the colours as entrants and say in
   `note` that two or three bodies per colour and team scoring are needed.
 - **Brackets** (L89–L98) never name marbles: `operator_input: {seeds: null}`
