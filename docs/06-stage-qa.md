@@ -469,3 +469,178 @@ What the numbers changed, in the order they were found:
   a cradle of peg, arm and wall (L78, seed 712); the rows stop a marble's room
   above it. A peg straight under the merge gap balanced a marble dropped
   through it (seed 707); the gap sits a seeded 14–24 px off the middle.
+## World 10: the Christmas Grand Final (L91–L100)
+
+Written by hand, not by `--report`: each row is a *level* (or one round of
+one), raced with its own params, seeds 700–747 through the render's retry
+loop (`stage_qa.run(stage, seeds, params=…, cast=…)`), measured 2026-09-25.
+The brackets race whoever the standings say at plan time, so each duel is
+measured three ways: **pair**, the level's stand-in pair; **rot2**, a pair
+that rotates through the fifteen pairs of the six persona by seed (as World 4
+measured L36–L38); **theme**, the theme's three to five marbles. L99 rotates
+one marble through the six (`rot1`). The three new stages are trial
+(weight 0); L91 (zigzag) and L97 (quarry) race live stages, and L92, L93 and
+round one of L98 race World 4's and World 6's trial stages. Everything is in
+`factory/generators/physics/worlds/grand_final.py`. L94 is not here: it waits
+on World 7's shrinking arena.
+
+| level | stage · section | field | g | finished | first try | runner-up | parked | median s | leads | wins | verdict |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| L91 | `zigzag` | pair (blaze, tide) | -600 | 48/48 | 40/48 | 100% | 0/8 | 14.3 | 2.8 | T28 B20 | pass |
+| L91 | `zigzag` | rot2 | -600 | 48/48 | 41/48 | 98% | 1/7 (2 short) | 14.9 | 2.8 | B10 T9 M9 N9 E7 V4 | parked 1/7 (a duel leaves 7 unfinished) |
+| L92 | `hauntedfinal` · `haunted-maze-final` | pair (moss, ember) | -90 | 48/48 | 48/48 | 56% | 0/0 | 17.6 | 1.7 | M21 E21 | pass |
+| L92 | same | rot2 | -90 | 48/48 | 48/48 | 54% | 0/0 | 16.6 | 1.6 | B10 M10 V8 E6 T6 N3 | pass |
+| L93 | `dicetriple` · `dice-gates-duel` | pair (volt, nova) | -150 | 48/48 | 45/48 | 90% | 1/5 | 16.6 | 2.6 | V25 N23 | parked 1/5 (one marble) |
+| L93 | same | rot2 | -150 | 48/48 | 44/48 | 94% | 0/3 | 16.3 | 2.9 | B10 V9 M8 E8 T7 N6 | pass |
+| L95 | `magnetgates` · `gauntlet-magnets-ice-gates` | pair (blaze, moss) | -42 | 48/48 | 47/48 | 92% | 0/4 (4 short) | 13.9 | 1.0 | B31 M17 | leads 1.0 (duel, below) |
+| L95 | same | rot2 | -42 | 48/48 | 48/48 | 96% | 0/2 (7 short) | 14.1 | 1.4 | V11 E8 B8 T7 M7 N7 | leads 1.4 (duel, below) |
+| L95 | same | theme | -42 | 48/48 | 37/48 | 100% | 6/85 (7 short) | 12.6 | 2.0 | — | pass |
+| L96 | `trapdice` · `gauntlet-trapdoors-repulsion-dice` | pair (nova, tide) | -45 | 48/48 | 48/48 | 90% | 0/2 | 15.9 | 1.9 | T34 N13 | pass |
+| L96 | same | rot2 | -45 | 48/48 | 48/48 | 77% | 0/3 | 16.1 | 2.3 | E14 T12 B7 M7 N7 V1 | pass |
+| L96 | same | theme | -45 | 48/48 | 48/48 | 100% | 1/85 | 12.2 | 2.4 | — | pass |
+| L97 | `quarry` | pair (moss, tide) | -30 | 48/48 | 48/48 | 85% | 0/7 | 17.5 | 1.7 | T25 M23 | pass |
+| L97 | `quarry` | rot2 | -30 | 48/48 | 48/48 | 83% | 1/9 | 18.0 | 1.7 | T10 M9 B9 V7 E7 N6 | pass |
+| L98 r1 | `hauntedfinal` · `grand-final-composite` | pair (blaze, nova) | -90 | 48/48 | 48/48 | 65% | 0/0 | 16.4 | 1.9 | N22 B22 | pass |
+| L98 r1 | same | rot2 | -90 | 48/48 | 48/48 | 54% | 0/0 | 16.6 | 1.6 | B10 M10 V8 E6 T6 N3 | pass |
+| L98 r2 | `trapdice` · `grand-final-composite` (repel 1.6) | pair | -45 | 48/48 | 48/48 | 83% | 0/0 | 15.6 | 2.2 | N27 B21 | pass |
+| L98 r2 | same | rot2 · theme | -45 | 48/48 · 48/48 | 48/48 · 48/48 | 77% · 100% | 0/3 · 1/85 | 16.1 · 12.2 | 2.3 · 2.4 | — | pass · pass |
+| L98 r3 | `magnetgates` · `grand-final-composite` | pair | -42 | 48/48 | 46/48 | 92% | 2/6 (3 short) | 14.6 | 1.1 | B26 N22 | leads 1.1 (duel, below) |
+| L98 r3 | same | rot2 | -42 | 48/48 | 48/48 | 96% | 0/2 (7 short) | 14.1 | 1.4 | — | leads 1.4 (duel; theme passes, L95) |
+| L99 r1 | `trapdice` · `champion-lap` | rot1 | -45 | 48/48 | 38/48 | n/a | 0/0 | 16.8 | n/a | 48 of 48 home | pass (solo) |
+| L99 r2 | `magnetgates` · `champion-lap` | rot1 | -42 | 48/48 | 31/48 | n/a | 0/0 | 13.7 | n/a | 48 of 48 home | pass (solo) |
+| L99 r3 | `hauntedfinal` · `champion-lap` | rot1 | -90 | 48/48 | 38/48 | n/a | 0/0 | 13.5 | n/a | 48 of 48 home | pass (solo) |
+| L100 | `construction` · `season-one-teaser` | the six | -50 | 48/48 | 38/48 | 98% | 1/180 (9 short) | 12.5 | 2.6 | B15 E11 V7 N6 M5 T4 | pass |
+
+**Mechanism**, over the same seeds: L95 and L98 r3 flipped and lit a colour
+in 48/48. L96 rolled and opened its panel in 48/48; the panel took one of the
+pair in 4–9 races of 48 (by pair), and both at once in 1 — which is why L96's
+story asks for a finisher and the die, not a catch. L92 and L98 r1: pumpkins,
+fog and web in 48/48, someone out (coffin or dead end) in 17–22, nobody home
+in 4–6 (the stories keep a finisher). L99: no trapdoor opened and nobody went
+out in any of the 144 solo runs. L100: every scaffold ramp built in 48/48,
+none with a marble touching it the frame it was built (`tests/test_world10.py`
+checks one seed of it).
+
+How to read the exceptions:
+
+- **The magnet-and-gate duels (L95, L98 r3) change the lead 1.0–1.4 times a
+  race against the 1.5 gate**, and pass on theme marbles. A random colour
+  gate lights one of two colours and holds the other 1.4–2 s, which a duel
+  rarely wins back; a cycling gate (1.1), a second peg band (1.1) and bumpers
+  under the gate (1.3, parking 6 of 19) did worse. Recorded as World 3's cast
+  and World 8's L78 were: the verdict is on theme marbles.
+- **Parked in a duel** is one or two marbles of three to seven unfinished
+  (L91 rot2, L93 pair); World 8 read L78's the same way.
+- **Balance is not judged on a duel** (World 6's L54): the split is shown.
+
+What the numbers changed, in the order they were found:
+
+- **magnetgates lost its ice ramps.** Pegs, magnets, a band of World 5's ice
+  ramps, the gate on ice, pegs parked 14 of 87 on the ramps (the gate's arms
+  squeeze the band flat, as L90 found); the ice is now the gate's arms. At
+  -60 it ran 11.8 s with 27/48 first try; -42.
+- **trapdice put the panel under the dice gate.** On top, a duel was past it
+  before World 2's 2.5 s grace and it never took anyone (0 of 12); under the
+  gate the field arrives after the die. -34 ran a duel 18.1 s; -45.
+- **The final's third stage is magnetgates.** A ramps-bumpers-funnel lap with
+  pumpkins and fog ran a duel 21 s with 0.7 lead changes and a runner-up in
+  27%; ramps into the maze, 1.0 with the last two 4.5 s apart. World 4's
+  final maze (L37's knobs) passes on pairs, so it is round one, and the last
+  round — the one the core places — is the non-lethal magnetgates.
+- **The scaffold is steeper than the kit's ramps** (0.55–0.62 against
+  0.37–0.44, which race at -600 on zigzag): at -30 to -90 marbles dropped into
+  a ramp's high corner sat there (70 of 220 parked). A funnel under it queued
+  six marbles in its throat (27 of 183); pegs. Ramps built 150 px ahead of
+  the leader were all built in the first seconds; 80 px ahead, and a ramp
+  every 80–100 px of band, keeps the blueprints on screen.
+
+Reproduce a row: `stage_qa.run("trapdice", range(700, 748), params={"section":
+"gauntlet-trapdoors-repulsion-dice"}, cast=[<nova>, <tide> from cast.toml])`.
+
+## World 7: Harvest Cup, Shrinking Arena (L61–L70, and L77)
+
+Written by hand, not by `--report`: each row is a *level*, raced with its own
+params (`section`, `format: last_standing`, `teams`) and its own entrants from
+`channels/main/cast.toml`, seeds 700–747 through the render's retry loop
+(`stage_qa.run(stage, seeds, params=…, cast=…)`), measured 2026-09-25.
+Everything is in `factory/generators/physics/worlds/arena.py`; the four stages
+(`arena`, `arenatrap`, `arenahill`, `arenaw`) are trial (weight 0).
+
+An arena has no line, so the plain gates' finish, runner-up, parked and lead
+numbers mean nothing (a survivor resting on the floor is not parked). It is
+judged on `stage_qa.last_standing_problems`: the elimination gates above, plus
+**one left** in every race (48/48), **first try** in half the seeds (a stall,
+or an arena whose last two went out together, is retried on a derived seed),
+and every clip **inside the window**, 10 s (QC's floor) to 22 s (the render's
+cap). **Balance** is each persona's share of wins (a team's marbles summed):
+with four or five regulars each 10–45%; with more, nobody under 5% or over
+50%. **Last two** is the median from the second-last exit to the decision.
+
+| level | stage · section | finished | first try | one left | median s | min–max s | out a race | last two s | wins % | verdict |
+|---|---|---|---|---|---|---|---|---|---|---|
+| L61 | `arena` · `shrinking-walls` | 48/48 | 35/48 | 48/48 | 13.6 | 10.1-16.1 | 4.0 | 0.03 | Vol29 Tid23 Bla23 Nov12 Mos12 | pass |
+| L62 | `arenahill` · `king-of-the-hill` | 48/48 | 48/48 | 48/48 | 12.2 | 12.2-12.2 | 4.0 | 0.0 | Nov25 Mos21 Vol21 Bla17 Tid17 | pass |
+| L63 | `arenatrap` · `arena-trapdoors` | 48/48 | 35/48 | 48/48 | 11.8 | 10.0-18.1 | 6.0 | 0.0 | Jun19 Vol17 Nov15 Bla15 Aco12 Mos12 Tid10 | pass |
+| L64 | `arena` · `arena-pushers` | 48/48 | 43/48 | 48/48 | 17.2 | 10.6-19.8 | 4.0 | 0.03 | Mos27 Vol25 Bla25 Tid12 Nov10 | pass |
+| L65 | `arena` · `team-arena` | 48/48 | 39/48 | 48/48 | 13.7 | 10.1-17.4 | 4.9 | 0.03 | Bla40 Vol33 Tid27 | pass |
+| L66 | `arena` · `ice-arena` | 48/48 | 34/48 | 48/48 | 16.4 | 12.8-19.2 | 4.0 | 0.03 | Vol27 Tid23 Bla21 Nov17 Mos12 | pass |
+| L67 | `arena` · `centre-magnet` | 48/48 | 41/48 | 48/48 | 13.2 | 10.3-17.4 | 4.0 | 0.03 | Bla25 Vol21 Mos21 Tid21 Nov12 | pass |
+| L68 | `arenatrap` · `sudden-death-duel` | 48/48 | 45/48 | 48/48 | 10.6 | 10.1-14.9 | 1.0 | 0.0 | Tid52 Nov48 | pass |
+| L69 | `arenaw` · `fan-arena-shape` | 48/48 | 36/48 | 48/48 | 13.2 | 10.2-17.7 | 4.0 | 0.03 | Tid25 Vol21 Mos21 Nov17 Bla17 | pass |
+| L70 | `arenatrap` · `mega-arena` | 48/48 | 33/48 | 48/48 | 11.2 | 10.0-15.7 | 9.0 | 0.03 | Bla27 Mos23 Tid23 Nov15 Vol12 | pass |
+| L77 | `arena` · `repulsion-arena` | 48/48 | 40/48 | 48/48 | 13.3 | 10.3-16.6 | 5.0 | 0.03 | Tid38 Vol17 Mos15 Bla12 Emb10 Nov8 | pass |
+
+L65 is three teams of two (blaze, tide, volt: the stand-in pairs), decided when
+one team is left; its wins are by team. L70 is ten marbles, two per persona.
+Guests (acorn, juniper on L63) are shown, never judged. L68 is a duel: 52/48.
+
+**Mechanism**, over the same seeds: every race of every level took marbles
+out over the walls (`pitted`); L63 and L70 caught someone in a trapdoor in 48
+of 48; `launched` (a moving wall shoving a marble 260 px/s faster while
+touching it) fired in 46 of 48 races on L64 and 48 of 48 on L66 and L77; on
+L62 one marble held the hill's lit top at the stop in 41 of 48, two in 2, and
+nobody in 5 (then the marble nearest the top holds it).
+
+What the numbers changed, in the order they were found:
+
+- **The physics generator, not battle.** `battle.py` races colour-named
+  fighters with health bars and no gravity: no cast, no trace a redraw reads,
+  no presentation layer, no standings. An arena under gravity is a floor
+  between walls, and every other world's machinery comes with it.
+- **A squeeze picks the smallest marble.** With walls that only closed in, a
+  flat floor and the last gap 1.3 marbles wide, the smallest marble in the
+  field won 37 of 46 (Volt 61%, Nova 2%): pressed between two walls, the
+  bigger of two marbles is the one lifted out. Lower walls (0.55 of a marble)
+  emptied the arena instead. What made size stop deciding it: a low dome for
+  a floor (slope 0.15), so marbles roll to the walls, and slams — each step
+  goes in past its mark and back in 0.25 s, harder step by step, up to 1.2
+  marbles — so the field is knocked about and the one left is the one that
+  was not knocked out. Six steps, three seconds apart from 3 s: with five
+  steps and the full slam from the first, the arena was decided before QC's
+  10 s floor.
+- **Judged on landing.** The first version called a race the frame one marble
+  was left, and in 2 of 48 the survivor was already airborne off a wall's top
+  and fell out after its win. The race is now undecided while anyone is in the
+  air or on a wall's top (`rig.unsettled`), a marble is out the frame its
+  centre passes a wall's line rather than at the bottom of the pit, and an
+  arena whose last two went out together is retried (`rig.survivor_needed`).
+- **Crowded fields are gentler.** Seven marbles (L63) and ten (L70) filled the
+  floor and were decided in 7–9 s; they start their steps at 4 s with half
+  slams (L63) or none (L70, where the jabs are the hits), and the panels from
+  7 s. The pushers (L64) jab from 6 s, a third of a marble deep: at a full
+  marble from 2.5 s the arena was over in 4–6 s.
+- **Ice carries a shove.** On L66's ice floor the full slam left Nova 4%; half
+  of it gives 17%.
+- **A duel is mass against position.** Tide (heavier, grippier) won 75–90% of
+  duels decided by walls, jabs or no jabs; the trapdoors alone gave Nova 69%.
+  L68 is the arena with trapdoors (from 9 s): 25 to 23.
+- **The hill's top is a cup.** Flat, nobody was on it at the stop in 19 of
+  48 and the "nearest the top" rule decided those; a cup a fifth of a marble
+  deep holds whoever gets up there until they are knocked off.
+- **The camera frames the arena.** The arena is a strip across the lower third;
+  at the whole frame the marbles are small. The arena records a `view` box
+  (the walls, the floor, the countdown), which the presentation holds after
+  the opening and which tightens as the walls close; punch-ins come at each
+  elimination, the leaderboard keeps the ones still in in entrant order, and
+  a row dims when its marble goes, not before (it used to dim from the first
+  frame, which told the viewer who would go).

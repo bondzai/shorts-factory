@@ -203,6 +203,49 @@ def test_copy_hints_carry_no_draft_numbers_and_only_known_placeholders():
     assert not any("copy.hook" in x for x in m)
 
 
+def test_a_level_with_a_section_says_its_rounds_and_where_they_race():
+    """The config default is not the level's, and a round on a random stage
+    would race the mechanic where it has no geometry (L87's round two did)."""
+    def probs_for(params):
+        return msgs(run_check([level(1, params={"stage": "zigzag", "section": "timer-trap", **params})]), "L01")
+
+    assert any("sets params.rounds" in m for m in probs_for({}))
+    assert probs_for({"rounds": 1}) == []
+    assert any("round 2 names no stage" in m for m in probs_for({"rounds": 2}))
+    assert probs_for({"rounds": 2, "round_params": [{}, {"stage": "same"}]}) == []
+    three = probs_for({"rounds": 3, "round_params": [{}, {"layout": 0}]})
+    assert len(three) == 1 and "round 3 names no stage" in three[0]
+    assert msgs(run_check([level(1)]), "L01") == []  # no section: the config's rounds, any stage
+
+
+def test_every_ready_level_of_season_zero_races_under_either_rounds_default():
+    """Each plannable level's task params, one seed, raced with the config's
+    rounds at 1 and at 2 (config.toml ships 2; the Settings page may set 1):
+    no level may depend on which. The real season checks clean, too."""
+    from factory.generators.physics import STAGE_BY_ID
+    from factory.generators.physics.sandbox import race_rounds
+
+    season, cast = season_mod.load(CH, "s0"), cast_mod.load(CH)
+    problems = check.check(season, cast, stages=set(STAGE_BY_ID), allow_identity=False, channel_variants=None)
+    assert check.errors(problems) == [], [str(p) for p in check.errors(problems)]
+    base = copy.deepcopy(settings.load().base["render"])
+    raced = 0
+    for lv in season.levels:
+        if lv.status != "ready" or (lv.generator, lv.variant) != ("physics", "marble_race"):
+            continue
+        params = {k: v for k, v in planning.task_params(lv, season, cast).items() if k != "story"}
+        for default in (1, 2):
+            try:
+                rounds = race_rounds(704, lv.variant, params, {**base, "rounds": default}, 540, 960, 30)
+            except Exception as exc:
+                pytest.fail(f"{lv.id} with [render] rounds = {default}: {exc}")
+            if lv.params.get("section"):
+                # A die in the heat may cut the count (docs/10), never raise it.
+                assert len(rounds) == min(lv.params["rounds"], rounds[0].get("clip_rounds") or 3), lv.id
+        raced += 1
+    assert raced >= 70
+
+
 def test_a_file_that_does_not_load_is_one_error(chan):
     (chan / "channels" / CH / "season" / "s0.yaml").write_text("id: s0\nlevels: nope\n")
     with db.connect() as conn:
@@ -668,6 +711,37 @@ def test_a_fresh_rejected_clip_keeps_its_trace(chan):
         db.update(conn, cid, status=QC_REJECTED, video_path=f"data/work/{CH}/{cid}/clip.mp4")
         gc.sweep_clips(conn)
     assert (d / "trace.json").exists()
+
+
+def test_a_level_marked_scored_false_never_counts(chan, fake_render):
+    levels = [level(n) for n in range(1, 4)]
+    levels[2]["scored"] = False  # World 10: L100's teaser, L99's lap
+    write_season(chan, levels)
+    with db.connect() as conn:
+        pipeline.approve(conn, render_level(conn, "L01", fake_render, ["tide", "volt"]))
+        pipeline.approve(conn, render_level(conn, "L03", fake_render, ["blaze", "tide"]))
+        rows = {r["entrant_id"]: r for r in table_now(conn)}
+        assert rows["tide"]["points"] == 3 and rows["tide"]["races"] == 1
+        assert rows["blaze"]["points"] == 0 and rows["blaze"]["wins"] == 0
+        before, after = recomputed(conn)
+        assert before == after
+
+
+def test_standings_at_plan_are_filled_into_the_task_from_the_table_before_the_level(chan, fake_render):
+    levels = [level(n) for n in range(1, 4)]
+    levels[2]["params"] = {"stage": "funnels", "rounds": 2, "mechanics": {"standings": "at_plan"},
+                           "round_params": [{}, {"stage": "same", "mechanics": {"standings": "at_plan"}}]}
+    write_season(chan, levels)
+    with db.connect() as conn:
+        pipeline.approve(conn, render_level(conn, "L01", fake_render, ["volt", "tide"]))
+        seasons.plan(conn, channels.get(conn, CH), "L03")
+        row = planning.level_row(conn, CH, "s0", "L03")
+        params = json.loads(db.get_task(conn, row["task_id"])["params_json"])
+    board = params["mechanics"]["standings"]
+    assert board == params["round_params"][1]["mechanics"]["standings"]
+    assert [r["name"] for r in board][:2] == ["Volt", "Tide"] and board[0]["points"] == 3
+    assert board[0]["color"] == [0xF5, 0xC5, 0x18]
+    assert params["round_params"][0] == {}
 
 
 def test_the_series_package_never_imports_a_generator():

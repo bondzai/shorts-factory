@@ -184,6 +184,17 @@ class Rig:
         # A mechanic may cut the clip to fewer rounds than `params.rounds`
         # (a die that sets the round count); read by sandbox.race_rounds.
         self.clip_rounds: int | None = None
+        # A team arena (World 7, L65): a team survives while any of its
+        # marbles is left, so a last_standing race is decided when the
+        # marbles left are all one team's. Off: one marble.
+        self.team_survival = False
+        # A clock that keeps a last_standing race undecided while it is
+        # truthy (World 7: the last marble is still in the air, or on a
+        # wall's top): who is left is judged once they have landed.
+        self.unsettled: str | None = None
+        # A last_standing race that must end with one marble left: one where
+        # everyone went out is retried on a derived seed (simulate.run_round).
+        self.survivor_needed = False
         fmt = self.params.get("format")
         self.elimination = fmt in ("elimination", "last_standing")
         self.win = str(self.params.get("win") or ("last_standing" if fmt == "last_standing" else "first_across"))
@@ -435,12 +446,18 @@ class Rig:
         sign=1 | -1: while the clock is truthy (always, with none) every pair
         of marbles closer than k x their summed radii is drawn with the pair
         force between them — facing arcs that brighten as they close when it
-        pushes, a dotted tether when it pulls; World 8). Both renderers draw
-        them."""
-        if kind not in ("blackout", "countdown", "die", "prop", "field"):
-            raise ValueError(f"no effect {kind!r}; have blackout, countdown, die, prop, field")
-        if "at" in data:
-            data["at"] = list(self._pt(data["at"]))
+        pushes, a dotted tether when it pulls; World 8), "board" (rows=[{name,
+        points, color}], at=(x, y), title=...: a table drawn over the race for
+        the whole round — L99's season standings, filled in at plan time, never
+        by the render), "sketch" (clock=..., a=(x, y), b=(x, y): a dashed
+        blueprint line from a to b while the clock is falsy — L100's track
+        before it is built). A prop may take look="silhouette": a dark marble
+        with a rim of light (L100). Both renderers draw them."""
+        if kind not in ("blackout", "countdown", "die", "prop", "field", "board", "sketch"):
+            raise ValueError(f"no effect {kind!r}; have blackout, countdown, die, prop, field, board, sketch")
+        for key in ("at", "a", "b"):
+            if key in data:
+                data[key] = list(self._pt(data[key]))
         self.effects.append({"kind": kind, **data})
 
     def no_finish_line(self) -> None:
@@ -479,8 +496,9 @@ class Rig:
             if d.lamps:
                 d.lamps = [[w - x, y] for x, y in d.lamps]
         for e in self.effects:
-            if "at" in e:
-                e["at"] = [w - e["at"][0], e["at"][1]]
+            for key in ("at", "a", "b"):
+                if key in e:
+                    e[key] = [w - e[key][0], e[key][1]]
         if self.walls:
             raise ValueError("a moving wall cannot be mirrored; register it after the mirror")
         self.mirrored = True
@@ -699,6 +717,17 @@ class Rig:
     @property
     def contenders(self) -> list[int]:
         return [i for i, ok in enumerate(self.alive) if ok and self.names[i] not in self.finished]
+
+    def one_left(self, contenders: list[int]) -> bool:
+        """A last_standing race is decided: one marble left, or — with
+        `team_survival` — every marble left runs for one team."""
+        if self.unsettled and contenders and self.values.get(self.unsettled):
+            return False
+        if len(contenders) <= 1:
+            return True
+        if not self.team_survival:
+            return False
+        return len({getattr(self.balls[i], "team", None) or self.names[i] for i in contenders}) <= 1
 
     @property
     def all_gone(self) -> bool:

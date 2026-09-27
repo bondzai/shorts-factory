@@ -28,7 +28,9 @@ class TaskSink:
     def write(self, spec, ctx, *, batch_id, by):
         if spec.level:
             level = ctx.season.level(spec.level)
-            params = {**planning.task_params(level, ctx.season, ctx.cast), **_words(spec)}
+            params = {**planning.fill_standings(ctx.conn, ctx.season, level,
+                                                planning.task_params(level, ctx.season, ctx.cast), ctx.cast),
+                      **_words(spec)}
             return [planning.queue_level(ctx.conn, ctx.channel, ctx.season, level, params, by=by,
                                          priority=spec.priority, batch_id=batch_id, ref=spec.ref)]
         params = {"generator": spec.generator, "variant": spec.variant, "stage": spec.stage,

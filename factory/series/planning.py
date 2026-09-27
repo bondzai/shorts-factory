@@ -78,6 +78,46 @@ def task_params(level: Level, season: Season, cast: Cast | None) -> dict[str, An
     return params
 
 
+#: A level's `mechanics.standings` set to this is replaced, when the level is
+#: planned, by the standings table as it stands before that level (L99's
+#: board): rows {name, points, color}. The render draws what planning read;
+#: it never computes a table of its own.
+STANDINGS_AT_PLAN = "at_plan"
+
+
+def fill_standings(conn: sqlite3.Connection, season: Season, level: Level, params: dict[str, Any],
+                   cast: Cast | None) -> dict[str, Any]:
+    """`params` with every `mechanics.standings: at_plan` (the level's, and
+    each round's) filled from the table before this level."""
+    tables = [params.get("mechanics")] + [r.get("mechanics") for r in params.get("round_params") or []
+                                          if isinstance(r, dict)]
+    if not any(isinstance(m, dict) and m.get("standings") == STANDINGS_AT_PLAN for m in tables):
+        return params
+    from . import standings as standings_mod
+
+    def colour(eid: str):
+        try:
+            return list(cast.get(eid).rgb) if cast else None
+        except KeyError:
+            return None
+
+    rows = [{"name": r["name"], "points": r["points"], "color": colour(r["entrant_id"])}
+            for r in standings_mod.table(conn, season.channel, season.id, before_level=level.id)]
+
+    def filled(m):
+        if isinstance(m, dict) and m.get("standings") == STANDINGS_AT_PLAN:
+            return {**m, "standings": rows}
+        return m
+
+    out = dict(params)
+    if "mechanics" in out:
+        out["mechanics"] = filled(out["mechanics"])
+    if out.get("round_params"):
+        out["round_params"] = [({**r, "mechanics": filled(r["mechanics"])} if isinstance(r, dict) and "mechanics" in r
+                                else r) for r in out["round_params"]]
+    return out
+
+
 def refusal(conn: sqlite3.Connection, season: Season, level: Level, *, replan: bool,
             problems: list[Problem]) -> str | None:
     """Why this level may not be planned now, or None."""
@@ -129,7 +169,7 @@ def plan(
             reason = f"{channel.id} does not allow {level.generator}/{level.variant}"
         if reason is None:
             try:
-                params = task_params(level, season, cast)
+                params = fill_standings(conn, season, level, task_params(level, season, cast), cast)
             except (KeyError, ValueError) as exc:
                 reason = str(exc)
         if reason is not None:

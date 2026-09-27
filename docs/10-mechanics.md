@@ -87,6 +87,9 @@ recording shifts them to the clip's clock.
 | `rig.out_zone(rect=(x0, y0, x1, y1) \| poly=[…], when=clock, event=kind, label=…, show=True)` | a marble whose centre is inside while `when` is truthy (always, if None) is **eliminated**: removed from the simulation that frame, `eliminated` Event (data `by`: the label), plus `event` if given |
 | `rig.eliminate(index, by=…, event=…)` | the same from a hook |
 | `rig.no_finish_line()` | an arena: nothing crosses, the result is who is left |
+| `rig.team_survival = True` | a `last_standing` race is decided when every marble left runs for one team (World 7, L65), not when one marble is left |
+| `rig.unsettled = clock` | a `last_standing` race is not decided while the clock is truthy (World 7: someone is still in the air or on a wall's top): who is left is judged once they have landed |
+| `rig.survivor_needed = True` | a `last_standing` race whose last marbles all went out together is retried on a derived seed, like a stall |
 
 An eliminated marble keeps its last position in the trace (the arrays are
 one shape) and is not drawn from its frame on; the pygame renderer bursts
@@ -129,7 +132,9 @@ A door gives each marble a collision bit, so a race holds at most 12
 | `rig.effect("countdown", clock=…, at=(x, y))` | the clock's value drawn as a number |
 | `rig.effect("die", clock=… \| value=k, at=(x, y), size=px, layer="top" \| "under", tints={"1": rgb})` | a die face with pips; the clock's value is None (not drawn), a face, or `{"f": face, "s": "roll" \| "set" \| "lit" \| "dim"}` — tumbling while it rolls, ringed when lit, faded when dim. `worlds/dice.roll` registers one with its clocks |
 | `rig.effect("prop", clock=…, at=(x, y), radius=r, color=[r, g, b])` | a marble drawn there while the clock is truthy (always, with no clock): a picture with no body, never an entrant, never in the outcome — L50's purple watcher |
-| `rig.effect("prop", clock=…, track=True, look="pumpkin", radius=r, color=…)` | a prop drawn where its clock says: the clock's value is `[x, y]`, or None to hide it. How a world draws a body of its own that moves and is not a marble (World 4's pumpkins record their body's position this way); `look` picks a drawing, today only `pumpkin` |
+| `rig.effect("prop", clock=…, track=True, look="pumpkin", radius=r, color=…)` | a prop drawn where its clock says: the clock's value is `[x, y]`, or None to hide it. How a world draws a body of its own that moves and is not a marble (World 4's pumpkins record their body's position this way); `look` picks a drawing: `pumpkin`, or `silhouette` (a dark marble with a rim of light, L100's newcomer) |
+| `rig.effect("board", rows=[{name, points, color}], at=(x, y), title=…)` | a table in a dark panel centred on `at` for the whole round, two columns past three rows — L99's season standings. The rows are the level's (planning fills `mechanics.standings: at_plan` from the table before the level); the render never computes one |
+| `rig.effect("sketch", clock=…, a=(x, y), b=(x, y))` | a dashed blueprint line from a to b while the clock is falsy: track not built yet (L100's scaffold, whose ramps are doors that shut for good as the field arrives) |
 | `rig.effect("field", clock=…, reach=k, sign=1 \| -1)` | while the clock is truthy (always, with none), every pair of visible marbles closer than `k` x their summed radii is drawn with the pair force between them: facing arcs that brighten as they close (a push), a dotted tether (a pull). Drawn from the trace's positions, under the marbles — World 8's repulsion |
 
 Gate lights, surface textures and outward magnet chevrons need no effect
@@ -138,8 +143,15 @@ call: they come with the door, the zone, the polarity clock.
 The presentation (`[presentation]`, physics `present.py`) sits over all of
 this and reads the same recording: no fire and no chip for a marble that is
 `hidden` (eliminated, or in a blackout), the eliminated at the foot of the
-leaderboard, dimmed, and no progress bar on a race with `no_finish_line`.
-A section needs to do nothing for it.
+leaderboard, dimmed (from the frame each goes, not before), and no progress
+bar on a race with `no_finish_line`. With no line, the marbles still in keep
+their entrant order on the leaderboard and the Outcome counts no lead
+changes: the lowest marble in an arena leads nothing. A section needs to do
+nothing for it — except to frame itself: a clock named `view`
+(`[x0, y0, x1, y1]`, physics px) is the box the camera holds after the
+opening instead of the whole frame (as tight as the opening's zoom, eased),
+and punch-ins then come at each elimination instead of lead changes. World
+7's arena, a strip across the lower third that closes in, records one.
 
 ## Level params
 
@@ -150,7 +162,7 @@ A section needs to do nothing for it.
 | `win` | elimination only: `first_across` (default: the first across wins; one left before that also wins) or `last_standing` (decided when one marble is left racing; crossing the line counts as surviving, above everyone out). `format: last_standing` defaults to it |
 | `teams` | `{blaze: 2, tide: 2}`: marbles per persona; ids `blaze.1`, `blaze.2` (every persona suffixed), colours shaded, `team` on each; `outcome.facts.teams` maps id → persona |
 | `mechanics` | a section's knobs, read with `rig.knob` |
-| `rounds` | 1, 2 or 3 |
+| `rounds` | 1, 2 or 3; a season level with a `section` must set it, and give each later round a `stage` or `layout` in `round_params` (`season check`) |
 | `round_params` | a list, one dict per round, laid over the round's params: `stage` (`"same"`: the heat's), `layout: k` (build round k's layout again, fresh marbles), `mirror: true` (the stage reflected left to right; a trapdoor refuses), `friction: x` (every static surface times x), or any knob |
 
 All of them travel from a season level to the make-clip task
@@ -365,3 +377,74 @@ Five trial stages (`singlefile`, `blockade`, `mergelane`, `pitfunnels`,
 world with a push: a marble in a throat holds the next one above it, so a
 push that reaches past a throat parks the queue behind it.
 
+## What World 10 built (L91–L100)
+
+`factory/generators/physics/worlds/grand_final.py`. The Grand Final is the
+other worlds put together, so its one idea is **`gauntlet`**: a mechanic that
+looks at what the round's stage built — `style.magnets`, `gates_of(rig)`,
+`panels_of(rig)`, `dice_record(style)["gates"]`, `maze_of(rig)` and the
+coffin — and switches on each world's own mechanism for it (World 3's flip,
+World 9's random and cycling gates, World 2's cycling panels, World 6's dice,
+World 4's final maze with its fog, pumpkins and web, World 8's push when the
+knob `repel` says). A stage stacked from several worlds' sections (docs/06
+"World 10": `magnetgates`, `trapdice`) then races all of them, and a
+three-round level names a stage a round with `round_params` and one mechanic
+(`grand-final-composite`) for all three. Each round's `mechanics` in
+`round_params` replaces the level's, so a round's knobs are its own.
+
+Three things came with the levels that are not races:
+
+- **A table on screen** (L99): the `board` effect, and
+  `planning.fill_standings`, which replaces `mechanics.standings: at_plan`
+  (the level's, and each round's) with the standings before the level when
+  the level is planned — by `season plan` and by a batch. A render with no
+  rows filled in draws no board.
+- **Track under construction** (L100): the `scaffold` section's ramps are
+  doors, open and drawn as `sketch` blueprints, each shut for good the frame
+  the field is within reach above it and nothing is touching it; a `built`
+  event each.
+- **A level that does not score**: `scored: false` in the season file
+  (docs/08 "Standings") — L99's lap after the final and L100's teaser.
+
+Two lessons: a duel on World 9's random gate changes the lead less than the
+gate asks (the lit colour flies through; 1.0–1.4 a race), and a trapdoor
+panel above a dice gate never catches a duel, which is past it before World
+2's `GRACE_S` — the panel goes under the gate.
+
+## What World 7 built (L61–L70, L77)
+
+`factory/generators/physics/worlds/arena.py`: an arena in the physics
+generator (not `battle.py`, whose colour-named fighters have no cast, trace,
+presentation or standings). No line (`rig.no_finish_line`): a low-domed floor
+between two low walls (`rig.moving_wall`, offset clocks `arena_left` and
+`arena_right`), a pit beyond each. The walls step in every three seconds,
+each step a slam in and back; the floor is a row of 12 px tiles, each a
+`rig.door` that opens for good once its wall has stepped past it. A marble
+whose centre goes out past a wall's line is out (`pitted`). Four stages, all
+trial: `arena`, `arenatrap` (World 2's panel in the floor each side),
+`arenahill` (a flat floor, a hill with a lit cup on top) and `arenaw` (two
+valleys and a ridge). Things another world can reuse:
+
+- **Size from the field, after the build.** The walls' height and last gap
+  depend on the biggest marble racing, known only once the marbles exist. The
+  stage builds the walls a kit marble high; the mechanic's `fit` moves the
+  segments' endpoints (`unsafe_set_endpoints`, and the `_Wall` record so the
+  renderers agree) before the first step. It also seats the field in rows over
+  the floor: the kit's start grid spans the whole frame, pits included.
+- **A wait is a hold.** A field resting between two steps is waiting for the
+  walls: `rig.hold` while a step is still to come. Once the walls have
+  stopped, a field at rest is a stall and retried.
+- **Judged on landing, retried when empty.** The last two often go out in the
+  same scramble. `rig.unsettled` keeps the race undecided while anyone is in
+  the air or on a wall's top, and `rig.survivor_needed` retries a race that
+  emptied; the walls stop the frame it is decided, so nothing takes the
+  survivor after its win.
+- **Squeezes pick the small marble.** A squeeze between walls lifts the
+  bigger of two marbles: with the walls only squeezing, the smallest marble of
+  the field won 37 of 46 arenas. Slams (the walls going in past each step and
+  back, harder step by step) and a domed floor that rolls marbles to the
+  walls made size stop deciding it (docs/06, "World 7").
+
+Events: `pitted` (with `eliminated`, by `pit`), `launched` (a moving wall
+shoving a marble 260 px/s faster while touching it), `walls_stopped` (L62),
+and World 2's `trap_opened` and `trap_catch`. None reveals a result.

@@ -30,10 +30,10 @@ disagree, and two of its rules decided most of the conversion:
 | halloween-maze | L31–L40 | 2 | 7 | 1 | Oct 22 |
 | ice-sand | L41–L50 | 0 | 9 | 1 | Nov 1 |
 | dice | L51–L60 | 9 | 0 | 1 | Nov 11 (built; docs/06 "World 6") |
-| arena | L61–L70 | 0 | 10 | 0 | Nov 21 |
-| repel | L71–L80 | 9 | 1 | 0 | Dec 1 (built; docs/06 "World 8"; L77 waits on the arena) |
+| arena | L61–L70 | 10 | 0 | 0 | Nov 21 (built; docs/06 "World 7"; L65 and L69 carry stand-ins) |
+| repel | L71–L80 | 10 | 0 | 0 | Dec 1 (built; docs/06 "World 8"; L77 in World 7's arena) |
 | colour-gates | L81–L90 | 9 | 0 | 1 | done: World 9 stages pass docs/06 (L90 waits on the seed list) |
-| grand-final | L91–L100 | 0 | 8 | 2 | Dec 22 (L92 needs the World 4 maze) |
+| grand-final | L91–L100 | 9 | 1 | 0 | built; docs/06 "World 10" (L94 waits on the arena; brackets are stand-ins) |
 | **total** | | **24** | **72** | **4** | |
 
 Blocked wins over needs-input: a blocked level that also waits on the
@@ -147,17 +147,26 @@ until checked against YouTube's own page (docs/08 §7).
   is about the guest, not the maze), L40 on zigzag (a sprint).
 - **Needs input:** L39 and L49 (fan-voted obstacle: the operator picks the
   passing stage nearest the winning idea), L91 and L97 (bracket seeds).
-- **Laps are rounds.** L17 and L27 carry `rounds: 2`, L45 and L98 `rounds: 3`
-  (the sandbox runs at most two, so both wait on WP7 as well). Every ready
-  level runs the config default of two rounds (heat and final).
+- **Laps are rounds.** L27 carries `rounds: 2`, L45 and L98 `rounds: 3`.
+  A level without a `section` runs the config's `[render] rounds` (two in
+  config.toml: a heat, then a final on another live stage). A level with a
+  `section` sets `rounds` itself and names every later round's stage in
+  `round_params` (`stage: same` or `layout: k`), because the config default
+  can be changed on the Settings page and a round on a random stage races
+  the mechanic where it has no geometry; `season check` refuses a level
+  that does not (L11-L34 race heat and final on their own stage; World 9
+  is one round a level).
 - **Teams** (L11, L12, L17, L20, L65) list the colours as entrants and say in
   `note` that two or three bodies per colour and team scoring are needed.
 - **Brackets** (L89–L98) never name marbles: `operator_input: {seeds: null}`
   and empty entrants. The plan's eight-seat bracket cannot be filled from a
   six-marble cast; the operator decides byes or guests before L91.
-- **Arena** levels (L61–L70, L77, L94) use `generator: battle`,
-  `variant: ball_battle`, format `last_standing` (L62 king of the hill:
-  `score`), because WP7 extends the battle generator.
+- **Arena** levels (L61–L70, L77) are physics races with no line
+  (`generator: physics`, format `last_standing`, L62 included: the hill's
+  holder is the one left), built in `worlds/arena.py` rather than by
+  extending the battle generator, so they have the cast, trace, presentation
+  and standings of every other world. L94 still names `battle` and is World
+  10's to move onto the arena.
 - **Rematches:** L07 → L02 and L92 → L37, both declared; no other level repeats
   a stage with the same field within ten levels. Consecutive levels differ in
   at least two of stage/section, field, format and `must`; in World 1, where
@@ -173,7 +182,8 @@ until checked against YouTube's own page (docs/08 §7).
 one; trapdoor exists but fails QA today (lead changes 1.4). World 2 (L11–L20)
 is no longer here: it is built on stages of its own (trapdoor panels,
 `factory/generators/physics/worlds/trapdoor.py`), each level's `note` says
-what was approximated, and docs/06 "World 2" has the numbers.
+what was approximated, and docs/06 "World 2" has the numbers. Nor are World
+7 (L61–L70) and L77: the arena (`worlds/arena.py`), docs/06 "World 7".
 
 | level | date | world | needs | base |
 |---|---|---|---|---|
@@ -201,23 +211,12 @@ what was approximated, and docs/06 "World 2" has the numbers.
 | L47 | Nov 10 | ice-sand | sand dunes (hidden hills in the floor) | — |
 | L48 | Nov 11 | ice-sand | ice bowl with a sand exit chute | — |
 | L50 | Nov 13 | ice-sand | terrain gauntlet composite, plus a non-racing purple marble on the sidelines | — |
-| L61 | Nov 24 | arena | shrinking walls, last one standing | — |
-| L62 | Nov 25 | arena | centre hill, king-of-the-hill scoring | — |
-| L63 | Nov 26 | arena | shrinking arena with trapdoors, seven entrants | — |
-| L64 | Nov 27 | arena | pusher walls that shove marbles into a pit | — |
-| L65 | Nov 28 | arena | team arena (a team survives while either marble is alive), teams | — |
-| L66 | Nov 29 | arena | ice floor in the arena (needs the ice-sand friction) | — |
-| L67 | Nov 30 | arena | centre magnet in a shrinking arena | — |
-| L68 | Dec 01 | arena | one-on-one sudden-death arena | — |
-| L69 | Dec 02 | arena | arena built to a fan-voted shape | — |
-| L70 | Dec 03 | arena | mega arena: walls, pushers and trapdoors, ten bodies | — |
 | L71 | Dec 04 | repel | pairwise marble repulsion | — |
 | L72 | Dec 05 | repel | one-marble-wide corridor with repulsion | — |
 | L73 | Dec 06 | repel | repulsion switched on at halfway | — |
 | L74 | Dec 07 | repel | repulsion with one heavy blocker in a lane | — |
 | L75 | Dec 08 | repel | pairwise repulsion on the pinball stage | pinball |
 | L76 | Dec 09 | repel | pairwise attraction (slipstream) | — |
-| L77 | Dec 10 | repel | repulsion inside the shrinking arena (needs WP7 arena) | — |
 | L78 | Dec 11 | repel | two lanes merging into one with repulsion | — |
 | L79 | Dec 12 | repel | repulsion gauntlet, elimination format | — |
 | L80 | Dec 13 | repel | full repulsion track with three ramps | — |
@@ -231,14 +230,7 @@ what was approximated, and docs/06 "World 2" has the numbers.
 | L88 | Dec 21 | colour-gates | breakable colour gate with a penalty rule for heavy marbles | — |
 | L89 | Dec 22 | colour-gates | cycling gate on the seeding track | — |
 | L90 | Dec 23 | colour-gates | composite final: random, reverse, cycling and trapdoor gates on snow | — |
-| L92 | Dec 25 | grand-final | maze with dead ends (reused from World 4) | — |
-| L93 | Dec 26 | grand-final | dice gates (reused from World 6) | — |
 | L94 | Dec 27 | grand-final | shrinking arena (reused from World 7) | — |
-| L95 | Dec 28 | grand-final | composite gauntlet: magnets, ice, colour gates | — |
-| L96 | Dec 29 | grand-final | composite gauntlet: trapdoors, repulsion, dice gates | — |
-| L98 | Dec 31 | grand-final | composite of every world's sections, three rounds | — |
-| L99 | Jan 01 | grand-final | solo lap through every world with a season standings overlay | — |
-| L100 | Jan 02 | grand-final | teaser scene: track under construction and a new marble's silhouette (not a race) | — |
 
 ## Ready and needs-input levels
 
@@ -270,8 +262,15 @@ what was approximated, and docs/06 "World 2" has the numbers.
 | L58 | ready | plinko | — | section handicap-start: start cups numbered left to right; the die picks one, which goes early (head_start_s, 1.2 s). |
 | L59 | needs_input | dicegrid | back_marker | section handicap-back-start: a rolled grid, the back marker last with no die. Operator sets operator_input.back_marker and params.mechanics.back_marker to the standings leader at plan time. |
 | L60 | ready | dicefinal | — | section dice-final, rounds 3: rolled grid, a round die in the heat, a path die and a surface die at the gate. |
-| L91 | needs_input | zigzag | seeds | World 1 track -> zigzag (L01's stage) under the Christmas theme. Seed 1 vs seed 8. Seeds come from standings at plan time; do not hard-code names. A six-marble cast cannot fill the plan's eight seeds, so the operator decides byes or guests. |
-| L97 | needs_input | — | seeds, stage | Losers of L95 and L96. Operator sets params.stage to the fan-chosen passing stage (drop section). Seeds come from standings at plan time; do not hard-code names. A six-marble cast cannot fill the plan's eight seeds, so the operator decides byes or guests. |
+| L91 | ready (stand-in) | zigzag | seeds | World 1 track -> zigzag under the Christmas theme, rounds 1. Seed 1 vs seed 8; stand-in blaze vs tide. |
+| L92 | ready (stand-in) | hauntedfinal | seeds | L37's stage and mechanic as the declared rematch venue, race format, rounds 1; stand-in moss vs ember. |
+| L93 | ready (stand-in) | dicetriple | seeds | dice-gates-duel (L54's), rounds 1; stand-in volt vs nova. |
+| L95 | ready (stand-in) | magnetgates | seeds | gauntlet-magnets-ice-gates: magnet flip, a colour gate with ice arms; stand-in blaze vs moss. |
+| L96 | ready (stand-in) | trapdice | seeds | gauntlet-trapdoors-repulsion-dice: dice gate, trapdoor, the push; stand-in nova vs tide. |
+| L97 | ready (stand-in) | quarry | seeds, stage | Losers of L95 and L96 on the fan-chosen stage; stand-in moss vs tide on quarry. |
+| L98 | ready (stand-in) | hauntedfinal, trapdice, magnetgates | seeds | grand-final-composite, rounds 3, one stage a round; the last round places. Stand-in blaze vs nova. |
+| L99 | ready (stand-in) | trapdice, magnetgates, hauntedfinal | champion | champion-lap, rounds 3, solo, trapdoors shut, standings board filled at plan time; scored: false. |
+| L100 | ready | construction | — | season-one-teaser: scaffold ramps built as the field arrives, a silhouette by the line; scored: false. |
 
 ## Story and copy rewrites
 
@@ -391,4 +390,6 @@ that would make a hint name some entrants but not all. 89 rewrites: 19 story, 70
   (L56, L59, L75): dropped rather than rewritten into a result-driven arc.
 - **"Last frame matches first"** (plan §A2): dropped in docs/08 §9; a falling
   race cannot loop.
-- **L100** is not a race; it waits on a non-race scene.
+- **L100** is not a race: the six regulars roll down a track under
+  construction and a silhouette appears; `scored: false` keeps it (and L99's
+  lap) out of the standings.

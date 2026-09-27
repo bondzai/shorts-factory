@@ -286,7 +286,7 @@ def test_world_nine_levels_are_ready_with_params_a_task_carries():
     for lid, (stage, section) in LEVELS.items():
         lv = season.level(lid)
         assert lv.status in (("ready", "needs_input") if lid == "L90" else ("ready",)) and lv.blocked_on is None, lid  # L90: stand-in seed list
-        assert lv.note and raw[lid]["params"] == {"stage": stage, "section": section}, lid
+        assert lv.note and raw[lid]["params"] == {"stage": stage, "section": section, "rounds": 1}, lid
         params = planning.task_params(lv, season, cast)
         assert params["section"] in registry.MECHANICS
         assert not story.validate(lv.story.must) and not story.identity_predicates(lv.story.must)

@@ -69,6 +69,11 @@ def run_round(seed, variant, params, cfg, sim_w, sim_h, fps, lineup=None, *,
                 # (A progress-based check was tried and cut: it burned 6
                 # of 24 seeds that would have finished.)
                 raise Stalled(f"no winner in {max_frames / fps:.1f}s")
+            if rig is not None and rig.all_gone and rig.survivor_needed:
+                # An arena whose last two went out together (World 7): a
+                # last_standing clip must show one left, so the seed is
+                # retried like a stalled one.
+                raise Stalled("nobody left standing")
             break
         except Stalled as exc:
             if attempt == MAX_ATTEMPTS - 1:
@@ -283,7 +288,7 @@ def simulate(*, seed: int, variant: str, sim_w: int, sim_h: int, fps: int, max_f
             # marble is left, or — first_across — by the first across the line.
             contenders = rig.contenders
             if rig.elimination and winner is None:
-                if rig.win == "last_standing" and len(contenders) <= 1 and (finishes or contenders):
+                if rig.win == "last_standing" and rig.one_left(contenders) and (finishes or contenders):
                     first = min(finishes, key=lambda n: (finishes[n], n)) if finishes else None
                     winner, winner_frame = first or rig.names[contenders[0]], frame
                 elif rig.win == "first_across" and len(contenders) == 1 and rig.gone and len(balls) > 1:
